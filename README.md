@@ -1,11 +1,12 @@
+🔧 **Этот проект реализован специально для кастомной прошивки [Ryazhenka](https://github.com/Dimasick-git/Ryzhenka)** — полная интеграция и совместимость обеспечены!
+
 # Ryazha-Status Monitor Overlay
 Monitor Your hardware in real time!
-
 This is an overlay homebrew dedicated to Nintendo Switch.
 You need to have installed Tesla environment to use it.
+Tool contains five menus to choose, each one is explained [here](/docs/modes.md).
 
-Tool contains five menus to choose, each one is explained [here](/docs/modes.md).<br>
-Overlay supports customizations through config file, more [here](/docs/config.md).
+> Overlay supports customizations through config file, more [here](/docs/config.md).
 
 If it's not working in dock, you need to first start Status Monitor, then put Nintendo Switch to dock.
 
@@ -30,7 +31,6 @@ If it's not working in dock, you need to first start Status Monitor, then put Ni
 
 # Requirements:
 - RyazhaHand Overlay or Tesla Menu (version >=1.2.3)
-
 How to setup everything: [HERE](https://gist.github.com/masagrator/65fcbd5ad09243399268d145aaab899b)
 
 ---
@@ -45,18 +45,9 @@ How to setup everything: [HERE](https://gist.github.com/masagrator/65fcbd5ad0924
 
 # FAQ:
 Q: This homebrew has any impact on games?
-
 A: Negligible, you won't see any difference. Almost everything is done on Core `#3`, other cores usage is below 0.001%.
 
 # Troubleshooting:
-
 Q: When opening Full or Mini mode, overlay is showing that Core #3 usage is at 100% while everything else is showing 0, eventually leading to crash. Why this happens?
-
 A: There are few possible explanations: 
 1. You're using nifm services connection test patches (in short `nifm ctest patches`) that are included in various packs. Those patches allow to connect to network that has no internet connection. But they cause nifm to randomly rampage when connected to network. Find any folder in `atmosphere/exefs_patches` that has in folder name `nifm`, `nfim` and/or `ctest`, delete this folder and restart Switch (if you are using `sys-patch`, turn off `nifm` patching). If you must use it, only solution is to use this overlay only in airplane mode.
-2. You're using some untested custom sysmodule that has no proper thread sleeping implemented. Find out in atmosphere/contents any sysmodule that you don't need, delete it and restart Switch.
-3. Your Switch is using sigpatches, is not a primary device, is using linked account, and is connected to network. Delete sigpatches, change your Switch to primary device, unlink account, or disable Wi-Fi. 
-
-Q: When opening Status Monitor overlays stop responding, or something that I am trying to open while Status Monitor is opened is freezing (f.e. Album or HB Menu). How to fix this?
-
-A: Issue comes from too much sysmodules accessing sdcard at once. You must limit amount of sysmodules that have such access (you can free one session by disabling logs in SaltyNX-Tool).
