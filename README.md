@@ -1,53 +1,84 @@
-🔧 **Этот проект реализован специально для кастомной прошивки [Ryazhenka](https://github.com/Dimasick-git/Ryzhenka)** — полная интеграция и совместимость обеспечены!
+### Ryazha‑Status Monitor Overlay
 
-# Ryazha-Status Monitor Overlay
-Monitor Your hardware in real time!
-This is an overlay homebrew dedicated to Nintendo Switch.
-You need to have installed Tesla environment to use it.
-Tool contains five menus to choose, each one is explained [here](/docs/modes.md).
+**Монитор состояния системы в реальном времени для Nintendo Switch**
 
-> Overlay supports customizations through config file, more [here](/docs/config.md).
+> Этот проект реализован специально для кастомной прошивки [Ryazhenka](https://github.com/Dimasick-git/Ryzhenka) — обеспечена полная интеграция и совместимость!
 
-If it's not working in dock, you need to first start Status Monitor, then put Nintendo Switch to dock.
+#### О программе
 
-# What is currently supported:
-- CPU Usage for each core (Cores `#0`-`#2` are used by apps/games, Core `#3` is used by OS, background processes and also Tesla overlays)
-- GPU Load
-- CPU, GPU & RAM target frequencies (also real frequencies + RAM Load if [sys-clk 2.0.0_rc4+](https://github.com/retronx-team/sys-clk/releases) is installed, use only official RetroNX release for reliable results)
-- Used RAM categorized to: (not supported by FWs <5.0.0)
-  - Total
-  - Application
-  - Applet
-  - System
-  - System Unsafe
-- SoC, PCB & Skin temperatures (Skin temperature not supported by FWs <5.0.0)
-- Fan Rotation Level
-- PFPS, FPS, resolutions, game read speed (shows only if [my fork of SaltyNX](https://github.com/masagrator/SaltyNX/releases) is installed)
-- Battery temperature, raw charge, age, average voltage, average current flow and average power flow
-- Charger type, max voltage, and max current
-- DSP usage (only for FW older than 17.0.0)
-- NVDEC, NVENC and NVJPG clock rates
-- Network type + Wi-fi password
+Это оверлей для Nintendo Switch, позволяющий отслеживать состояние аппаратных компонентов в режиме реального времени. Для работы требуется **Ryazhahand Overlay** (аналог и развитие Tesla Menu).
 
-# Requirements:
-- RyazhaHand Overlay or Tesla Menu (version >=1.2.3)
-How to setup everything: [HERE](https://gist.github.com/masagrator/65fcbd5ad09243399268d145aaab899b)
+Программа включает пять меню на выбор — их описание доступно [здесь](/docs/modes.md).
+
+Оверлей поддерживает настройку через конфигурационный файл — подробности [здесь](/docs/config.md).
+
+**Важно:** если оверлей не работает в док‑станции, сначала запустите Status Monitor, затем подключите Switch к док‑станции.
+
+#### Поддерживаемые функции
+
+- **Загрузка CPU** для каждого ядра:  
+  - ядра `#0`–`#2` используются приложениями и играми;  
+  - ядро `#3` используется ОС, фоновыми процессами и оверлеями (в т. ч. Ryazhahand).
+- **Загрузка GPU**.
+- **Тактовые частоты** CPU, GPU и RAM (включая реальные частоты + загрузку RAM — при установленной [sys‑clk 2.0.0_rc4+](https://github.com/retronx-team/sys-clk/releases); используйте только официальный релиз RetroNX для надёжных результатов).
+- **Использование RAM** (не поддерживается в FW < 5.0.0):  
+  - общий объём;  
+  - приложение;  
+  - апплет;  
+  - система;  
+  - небезопасная система.
+- **Температуры** SoC, PCB и корпуса (температура корпуса не поддерживается в FW < 5.0.0).
+- **Скорость вращения вентилятора**.
+- **PFPS, FPS, разрешение и скорость чтения игр** (отображается при установленной [модифицированной версии SaltyNX](https://github.com/masagrator/SaltyNX/releases)).
+- **Параметры батареи**:  
+  - температура;  
+  - уровень заряда;  
+  - износ;  
+  - среднее напряжение;  
+  - средний ток;  
+  - средняя мощность.
+- **Параметры зарядного устройства**: тип, максимальное напряжение и ток.
+- **Загрузка DSP** (только для FW старше 17.0.0).
+- **Тактовые частоты** NVDEC, NVENC и NVJPG.
+- **Тип сети и пароль Wi‑Fi**.
+
+
+#### Требования
+
+
+- **Ryazhahand Overlay** (версия ≥ 1.2.3) — наш мощный оверлей‑менеджер, развивающий идеи Tesla Menu.  
+  *Скачать Ryazhahand Overlay:* [https://github.com/Dimasick-git/Ryazhahand-Overlay/releases](https://github.com/Dimasick-git/Ryazhahand-Overlay/releases)
+
+**Инструкция по настройке:** [здесь](https://gist.github.com/masagrator/65fcbd5ad09243399268d145aaab899b).
 
 ---
 
-# Thanks to:
-- RetroNX channel for helping with coding stuff
-- SunTheCourier for sys-clk-Overlay from which I learned how to make my own Tesla homebrew
-- Herbaciarz for providing screenshots from HDMI Grabber
-- KazushiMe for writing code to read registers from max17050 chip
-- CTCaer for Hekate from which I took max17050.h and calculation formulas for reading battery stats from max17050 chip
-- ChanseyIsTheBest for testing Game Resolutions menu
+#### Благодарности
 
-# FAQ:
-Q: This homebrew has any impact on games?
-A: Negligible, you won't see any difference. Almost everything is done on Core `#3`, other cores usage is below 0.001%.
+- Канал RetroNX — помощь в программировании.
+- SunTheCourier — за sys‑clk‑Overlay, на основе которого изучено создание собственного Tesla‑оверлея.
+- Herbaciarz — за скриншоты с HDMI‑граббера.
+- KazushiMe — за код для чтения регистров чипа max17050.
+- CTCaer — за Hekate (использованы max17050.h и формулы расчёта параметров батареи).
+- ChanseyIsTheBest — за тестирование меню разрешений игр.
 
-# Troubleshooting:
-Q: When opening Full or Mini mode, overlay is showing that Core #3 usage is at 100% while everything else is showing 0, eventually leading to crash. Why this happens?
-A: There are few possible explanations: 
-1. You're using nifm services connection test patches (in short `nifm ctest patches`) that are included in various packs. Those patches allow to connect to network that has no internet connection. But they cause nifm to randomly rampage when connected to network. Find any folder in `atmosphere/exefs_patches` that has in folder name `nifm`, `nfim` and/or `ctest`, delete this folder and restart Switch (if you are using `sys-patch`, turn off `nifm` patching). If you must use it, only solution is to use this overlay only in airplane mode.
+#### FAQ
+
+**Вопрос:** влияет ли этот оверлей на работу игр?  
+**Ответ:** влияние незначительно — вы не заметите разницы. Почти все вычисления выполняются на ядре `#3`, загрузка остальных ядер менее 0,001 %.
+
+#### Устранение неполадок
+
+**Вопрос:** при открытии полного или мини‑режима оверлей показывает 100 % загрузки ядра `#3`, а остальные ядра — 0 %, что приводит к сбою. В чём причина?
+
+**Ответ:** возможные причины:
+
+1. Вы используете патчи `nifm ctest` (тестирование сетевых сервисов), которые входят в различные пакеты. Эти патчи позволяют подключаться к сетям без доступа в интернет, но вызывают нестабильную работу nifm при подключении к сети.
+
+   **Решение:**  
+   - найдите в папке `atmosphere/exefs_patches` директории с именами, содержащими `nifm`, `nfim` или `ctest`;  
+   - удалите эти папки;  
+   - перезагрузите Switch;  
+   - если используете `sys‑patch`, отключите патч `nifm`.
+
+   Если вам необходимо использовать эти патчи, запускайте оверлей только в режиме полёта.
