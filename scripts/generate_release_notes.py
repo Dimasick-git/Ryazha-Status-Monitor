@@ -1,129 +1,183 @@
 #!/usr/bin/env python3
-import json
+# -*- coding: utf-8 -*-
+
 import os
-import re
 import subprocess
+import re
 import sys
-import urllib.request
+from datetime import datetime
 
-
-HF_MODELS = [
-    "sberbank-ai/rugpt3small_based_on_gpt2",
-    "google/flan-t5-base",
-]
-
-
-def run(cmd: list[str]) -> str:
-    return subprocess.check_output(cmd, text=True).strip()
-
-
-def get_app_version(makefile_path: str = "Makefile") -> str:
-    with open(makefile_path, "r", encoding="utf-8") as f:
-        text = f.read()
-    m = re.search(r"^APP_VERSION\s*:?=\s*([^#\s]+)", text, flags=re.M)
-    if not m:
-        raise RuntimeError("APP_VERSION not found in Makefile")
-    return m.group(1).strip()
-
-
-def get_commit_messages(limit: int = 20) -> list[str]:
-    log = run(["git", "log", f"-n{limit}", "--pretty=format:%s"])
-    return [line for line in log.splitlines() if line]
-
-
-def build_fallback_summary(version: str, commits: list[str]) -> str:
-    bullets = "\n".join([f"- {c}" for c in commits[:8]]) or "- Технические улучшения и стабилизация."
-    return (
-        f"Релиз v{version} сфокусирован на стабильности, автоматизации и улучшении процесса сборки.\n\n"
-        f"Основные изменения:\n{bullets}\n\n"
-        "Рекомендация по обновлению: установите новую сборку и перезапустите приложение."
-    )
-
-
-def _extract_generated_text(data: object) -> str | None:
-    if isinstance(data, list) and data:
-        item = data[0]
-        if isinstance(item, dict):
-            text = item.get("generated_text") or item.get("summary_text")
-            if isinstance(text, str) and text.strip():
-                return text.strip()
-    if isinstance(data, dict):
-        text = data.get("generated_text") or data.get("summary_text")
-        if isinstance(text, str) and text.strip():
-            return text.strip()
-    return None
-
-
-def try_model(model: str, prompt: str, token: str) -> str | None:
-    payload = json.dumps(
-        {
-            "inputs": prompt,
-            "parameters": {
-                "max_new_tokens": 280,
-                "temperature": 0.3,
-                "return_full_text": False,
-            },
-            "options": {"wait_for_model": True},
-        }
-    ).encode("utf-8")
-
-    headers = {"Content-Type": "application/json"}
-    if token:
-        headers["Authorization"] = f"Bearer {token}"
-
-    req = urllib.request.Request(
-        url=f"https://api-inference.huggingface.co/models/{model}",
-        data=payload,
-        headers=headers,
-        method="POST",
-    )
-
+def get_version():
+    """Извлекает версию из Makefile"""
     try:
-        with urllib.request.urlopen(req, timeout=45) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-    except Exception:
-        return None
+        with open('Makefile', 'r', encoding='utf-8') as f:
+            content = f.read()
+            match = re.search(r'APP_VERSION\s*[:=]\s*([0-9.]+)', content)
+            if match:
+                return match.group(1)
+    except Exception as e:
+        print(f"Ошибка чтения Makefile: {e}")
+    
+    return "unknown"
 
-    return _extract_generated_text(data)
+def get_git_changes():
+    """Получает изменения с последнего тэга"""
+    try:
+        # Получаем последний тэг
+        result = subprocess.run(['git', 'describe', '--tags', '--abbrev=0'], 
+                          capture_output=True, text=True)
+        last_tag = result.stdout.strip() if result.returncode == 0 else None
+        
+        if last_tag:
+            # Получаем изменения с последнего тэга
+            result = subprocess.run(['git', 'log', '--pretty=format:- %s', f'{last_tag}..HEAD'], 
+                              capture_output=True, text=True)
+            changes = result.stdout.strip()
+        else:
+            # Все изменения если нет тэгов
+            result = subprocess.run(['git', 'log', '--pretty=format:- %s'], 
+                              capture_output=True, text=True)
+            changes = result.stdout.strip()
+        
+        return changes
+    except Exception as e:
+        print(f"Ошибка получения изменений: {e}")
+        return ""
 
+def get_commit_stats():
+    """Получает статистику коммитов"""
+    try:
+        result = subprocess.run(['git', 'rev-list', '--count', 'HEAD'], 
+                          capture_output=True, text=True)
+        commit_count = result.stdout.strip() if result.returncode == 0 else "0"
+        
+        result = subprocess.run(['git', 'log', '-1', '--format=%H'], 
+                          capture_output=True, text=True)
+        latest_commit = result.stdout.strip() if result.returncode == 0 else "unknown"
+        
+        return commit_count, latest_commit
+    except Exception as e:
+        print(f"Ошибка получения статистики: {e}")
+        return "0", "unknown"
 
-def is_probably_russian(text: str) -> bool:
-    return bool(re.search(r"[А-Яа-яЁё]", text))
+def generate_ai_style_notes(version, changes, commit_count, latest_commit):
+    """Генерирует описание релиза в стиле ИИ"""
+    
+    # Анализируем изменения для категоризации
+    changes_list = changes.split('\n') if changes else []
+    
+    categories = {
+        'Исправления': [],
+        'Новые функции': [],
+        'Улучшения': [],
+        'Обновления': [],
+        'Другое': []
+    }
+    
+    for change in changes_list:
+        change = change.strip()
+        if not change or not change.startswith('- '):
+            continue
+            
+        change_text = change[2:].strip()  # Убираем "- "
+        
+        # Категоризируем изменения
+        change_lower = change_text.lower()
+        if any(word in change_lower for word in ['фикс', 'исправ', 'fix', 'bug', 'ошибка']):
+            categories['Исправления'].append(change_text)
+        elif any(word in change_lower for word in ['добав', 'нов', 'add', 'new', 'feature']):
+            categories['Новые функции'].append(change_text)
+        elif any(word in change_lower for word in ['улучш', 'оптим', 'improve', 'optimize']):
+            categories['Улучшения'].append(change_text)
+        elif any(word in change_lower for word in ['обнов', 'update', 'upgrade']):
+            categories['Обновления'].append(change_text)
+        else:
+            categories['Другое'].append(change_text)
+    
+    # Генерируем описание
+    notes = []
+    
+    # Заголовок
+    notes.append(f"# Ryazha Status Monitor {version}")
+    notes.append("")
+    
+    # Основное описание
+    notes.append("## 📋 Описание релиза")
+    notes.append("")
+    notes.append(f"Выпуск Ryazha Status Monitor версии {version} с улучшениями и исправлениями.")
+    notes.append("")
+    
+    # Категоризированные изменения
+    if any(categories.values()):
+        notes.append("## 🔄 Основные изменения")
+        notes.append("")
+        
+        for category, items in categories.items():
+            if items:
+                notes.append(f"### {category}")
+                for item in items:
+                    notes.append(f"- {item}")
+                notes.append("")
+    
+    # Техническая информация
+    notes.append("## 🛠 Техническая информация")
+    notes.append("")
+    notes.append(f"- **Версия:** {version}")
+    notes.append(f"- **Сборка:** {latest_commit[:8]}")
+    notes.append(f"- **Коммитов:** {commit_count}")
+    notes.append(f"- **Дата:** {datetime.now().strftime('%d.%m.%Y')}")
+    notes.append("- **Платформа:** Nintendo Switch Homebrew")
+    notes.append("")
+    
+    # Инструкция по установке
+    notes.append("## 📦 Установка")
+    notes.append("")
+    notes.append("1. Скачайте файл `Ryazha-Status-Monitor.ovl`")
+    notes.append("2. Поместите в папку `sdmc:/switch/.overlays/`")
+    notes.append("3. Запустите через Overlay Loader")
+    notes.append("")
+    
+    # Требования
+    notes.append("## ⚠️ Системные требования")
+    notes.append("")
+    notes.append("- Установленная Atmosphère CFW")
+    notes.append("- Overlay Loader для запуска оверлеев")
+    notes.append("- Nintendo Switch с прошивкой 13.0.0+")
+    notes.append("")
+    
+    # Футер
+    notes.append("---")
+    notes.append("")
+    notes.append("*Релиз сгенерирован автоматически с использованием систем анализа изменений*")
+    notes.append("")
+    
+    return '\n'.join(notes)
 
-
-def build_ai_summary(version: str, commits: list[str]) -> str | None:
-    token = os.getenv("HF_API_TOKEN", "").strip()
-
-    prompt = (
-        "Напиши релиз-ноты на русском языке для Nintendo Switch homebrew проекта. "
-        "Верни обычный текст в формате: краткое вступление, затем список пунктов с улучшениями/исправлениями, "
-        "и в конце одна строка с рекомендацией по обновлению.\n"
-        f"Версия: {version}\n"
-        "Последние коммиты:\n" + "\n".join(f"- {c}" for c in commits[:12])
-    )
-
-    for model in HF_MODELS:
-        text = try_model(model, prompt, token)
-        if text and is_probably_russian(text):
-            return text
-    return None
-
-
-def main() -> int:
-    out = sys.argv[1] if len(sys.argv) > 1 else "release-notes.md"
-    version = get_app_version()
-    commits = get_commit_messages()
-
-    ai_summary = build_ai_summary(version, commits)
-    summary = ai_summary or build_fallback_summary(version, commits)
-
-    content = f"# Ryazha-Status-Monitor v{version}\n\n{summary}\n"
-    with open(out, "w", encoding="utf-8") as f:
-        f.write(content)
-
-    print(f"Wrote {out}")
-    return 0
-
+def main():
+    """Основная функция"""
+    output_file = sys.argv[1] if len(sys.argv) > 1 else 'release-notes.md'
+    
+    print("Генерация заметок релиза...")
+    
+    # Получаем информацию
+    version = get_version()
+    changes = get_git_changes()
+    commit_count, latest_commit = get_commit_stats()
+    
+    print(f"Версия: {version}")
+    print(f"Изменений: {len(changes.split()) if changes else 0}")
+    
+    # Генерируем заметки
+    notes = generate_ai_style_notes(version, changes, commit_count, latest_commit)
+    
+    # Сохраняем в файл
+    try:
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write(notes)
+        print(f"Заметки релиза сохранены в {output_file}")
+    except Exception as e:
+        print(f"Ошибка сохранения файла: {e}")
+        sys.exit(1)
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    main()
