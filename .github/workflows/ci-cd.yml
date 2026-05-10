@@ -11,27 +11,21 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - compiler: devkitA64
-    
+
+    # Minimal devkitA64 container
+    container:
+      image: devkitpro/devkita64:20251231
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-        
-      - name: Setup devkitPro environment
+
+      # Fix PATH for devkitA64
+      - name: Set devkitPro PATH
         run: |
-          # Install devkitPro manually using archive
-          wget https://github.com/devkitPro/pacman/releases/download/v2.0.1/devkitpro-pacman-2.0.1-linux.tar.gz
-          tar -xzf devkitpro-pacman-2.0.1-linux.tar.gz
-          sudo mv devkitpro-pacman /opt/devkitpro
           echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
-          echo "/opt/devkitpro/bin" >> $GITHUB_PATH
-          export PATH=/opt/devkitpro/bin:$PATH
-          # Install Switch development tools
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx --noconfirm
+          echo "DEVKITA64=/opt/devkitpro/devkitA64" >> $GITHUB_ENV
+          echo "PATH=/opt/devkitpro/devkitA64/bin:$PATH" >> $GITHUB_ENV
           
       - name: Install dependencies
         run: |
@@ -62,23 +56,21 @@ jobs:
   test:
     runs-on: ubuntu-latest
     needs: build
-    
+
+    # Minimal devkitA64 container
+    container:
+      image: devkitpro/devkita64:20251231
+
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
-        
-      - name: Setup devkitPro environment
+
+      # Fix PATH for devkitA64
+      - name: Set devkitPro PATH
         run: |
-          # Install devkitPro manually using archive
-          wget https://github.com/devkitPro/pacman/releases/download/v2.0.1/devkitpro-pacman-2.0.1-linux.tar.gz
-          tar -xzf devkitpro-pacman-2.0.1-linux.tar.gz
-          sudo mv devkitpro-pacman /opt/devkitpro
           echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
-          echo "/opt/devkitpro/bin" >> $GITHUB_PATH
-          export PATH=/opt/devkitpro/bin:$PATH
-          # Install Switch development tools
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx --noconfirm
+          echo "DEVKITA64=/opt/devkitpro/devkitA64" >> $GITHUB_ENV
+          echo "PATH=/opt/devkitpro/devkitA64/bin:$PATH" >> $GITHUB_ENV
           
       - name: Install dependencies
         run: |
