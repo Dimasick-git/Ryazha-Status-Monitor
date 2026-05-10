@@ -36,7 +36,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME || 'dimasickgit880312' }}
+          username: dimasickgit880312
           password: ${{ secrets.DOCKER_PASSWORD }}
           
       - name: Extract metadata
