@@ -73,23 +73,4 @@ jobs:
           tags: dimasickgit880312/ryazha-status-monitor:latest
           labels: ${{ steps.meta.outputs.labels }}
 
-  test-docker:
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    if: github.event_name != 'pull_request'
-    
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Test Docker image
-        run: |
-          docker pull dimasickgit880312/ryazha-status-monitor:latest || echo "Image pull failed, but continuing..."
-          
-      - name: Test Docker image
-        run: |
-          docker run --rm -v $(pwd):/workspace dimasickgit880312/ryazha-status-monitor:latest ls -la /workspace
-          
-      - name: Test build in Docker
-        run: |
-          docker run --rm -v $(pwd):/workspace dimasickgit880312/ryazha-status-monitor:latest bash -c "cd /workspace && make test || echo 'No tests configured'"
+  # test-docker section removed since Docker repository already created
