@@ -109,7 +109,7 @@ jobs:
           name: Ryazha-Status-Monitor v${{ steps.version.outputs.value }}
           body_path: release-notes.md
           files: |
-           *.ovl
+            Ryazha-Status-Monitor.ovl
             *.elf
             README.md
         env:
