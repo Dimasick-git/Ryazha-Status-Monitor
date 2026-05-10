@@ -15,9 +15,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install devkitPro using the official method
-RUN wget https://github.com/devkitPro/pacman/releases/download/v2.1.1/devkitpro-pacman-installer.tar.gz && \
-    tar -xzvf devkitpro-pacman-installer.tar.gz && \
-    ./devkitpro-pacman-installer.sh --no-confirm
+RUN wget https://apt.devkitpro.org/install-devkitpro-pacman && \
+    chmod +x ./install-devkitpro-pacman && \
+    ./install-devkitpro-pacman
 
 # Set environment variables
 ENV DEVKITPRO=/opt/devkitpro
