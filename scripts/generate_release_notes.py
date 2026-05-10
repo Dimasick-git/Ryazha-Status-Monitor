@@ -20,7 +20,7 @@ def run(cmd: list[str]) -> str:
 def get_app_version(makefile_path: str = "Makefile") -> str:
     with open(makefile_path, "r", encoding="utf-8") as f:
         text = f.read()
-    m = re.search(r"^APP_VERSION\s*:?=\s*([^\n#]+)", text, flags=re.M)
+    m = re.search(r"^APP_VERSION\s*:?=\s*([^#\s]+)", text, flags=re.M)
     if not m:
         raise RuntimeError("APP_VERSION not found in Makefile")
     return m.group(1).strip()
@@ -58,7 +58,11 @@ def try_model(model: str, prompt: str, token: str) -> str | None:
     payload = json.dumps(
         {
             "inputs": prompt,
-            "parameters": {"max_new_tokens": 280, "temperature": 0.3},
+            "parameters": {
+                "max_new_tokens": 280,
+                "temperature": 0.3,
+                "return_full_text": False,
+            },
             "options": {"wait_for_model": True},
         }
     ).encode("utf-8")

@@ -20,24 +20,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Setup devkitPro + switch-dev
-        uses: devkitpro/action-devkitpro@v1
-        with:
-          packages: |
-            switch-dev
-            switch-mesa
-            switch-glad
-            switch-libdrm_nouveau
-            switch-curl
-            switch-libjpeg-turbo
-            switch-libpng
-            switch-zlib
-            switch-bz2
-            switch-libogg
-            switch-libvorbis
-            switch-libmpg123
-            switch-opusfile
-            switch-ffmpeg
+      - name: Setup devkitPro environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget git python3 python3-pip
+          wget https://apt.devkitpro.org/install-devkitpro-pacman
+          chmod +x ./install-devkitpro-pacman
+          sudo ./install-devkitpro-pacman
+          echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
           
       - name: Install dependencies
         run: |
@@ -53,7 +44,7 @@ jobs:
         with:
           name: ryazha-status-monitor-${{ matrix.compiler }}
           path: |
-            *.nro
+            *.ovl
             *.elf
             *.json
             
@@ -62,7 +53,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            *.nro
+            *.ovl
             README.md
           generate_release_notes: true
 
@@ -74,24 +65,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Setup devkitPro + switch-dev
-        uses: devkitpro/action-devkitpro@v1
-        with:
-          packages: |
-            switch-dev
-            switch-mesa
-            switch-glad
-            switch-libdrm_nouveau
-            switch-curl
-            switch-libjpeg-turbo
-            switch-libpng
-            switch-zlib
-            switch-bz2
-            switch-libogg
-            switch-libvorbis
-            switch-libmpg123
-            switch-opusfile
-            switch-ffmpeg
+      - name: Setup devkitPro environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget git python3 python3-pip
+          wget https://apt.devkitpro.org/install-devkitpro-pacman
+          chmod +x ./install-devkitpro-pacman
+          sudo ./install-devkitpro-pacman
+          echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
           
       - name: Install dependencies
         run: |
