@@ -19,6 +19,10 @@ jobs:
   release-on-version-change:
     runs-on: ubuntu-latest
 
+    # Minimal devkitA64 container
+    container:
+      image: devkitpro/devkita64:20251231
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -71,22 +75,10 @@ jobs:
           v=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([^#[:space:]]+).*/\1/p' Makefile | head -n1)
           echo "value=$v" >> "$GITHUB_OUTPUT"
 
-      - name: Setup devkitPro environment
-        if: steps.version_check.outputs.changed == 'true'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget git python3 python3-pip
-          wget https://apt.devkitpro.org/install-devkitpro-pacman
-          chmod +x ./install-devkitpro-pacman
-          sudo ./install-devkitpro-pacman
-          echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
-          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
-
       - name: Install dependencies
         if: steps.version_check.outputs.changed == 'true'
         run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
+          echo "Dependencies already installed in devkitpro/devkita64 container"
 
       - name: Build project
         if: steps.version_check.outputs.changed == 'true'
