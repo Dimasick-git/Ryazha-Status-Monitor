@@ -57,11 +57,11 @@ NX_INLINE void serviceGuardExit(ServiceGuard* g, void (*cleanupFunc)(void))
 }
 
 #define NX_GENERATE_SERVICE_GUARD_PARAMS(name, _paramdecl, _parampass) \
-
+\
 static ServiceGuard g_##name##Guard; \
 NX_INLINE Result _##name##Initialize _paramdecl; \
 static void _##name##Cleanup(void); \
-
+\
 Result name##Initialize _paramdecl \
 { \
     Result rc = 0; \
@@ -69,7 +69,7 @@ Result name##Initialize _paramdecl \
         rc = _##name##Initialize _parampass; \
     return serviceGuardEndInit(&g_##name##Guard, rc, _##name##Cleanup); \
 } \
-
+\
 void name##Exit(void) \
 { \
     serviceGuardExit(&g_##name##Guard, _##name##Cleanup); \
