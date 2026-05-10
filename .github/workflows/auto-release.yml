@@ -7,8 +7,6 @@ on:
       - Makefile
       - scripts/generate_release_notes.py
   workflow_dispatch:
-  release:
-    types: [ created ]
 
 permissions:
   contents: write
@@ -45,8 +43,8 @@ jobs:
             exit 0
           fi
 
-          old_version=$(git show "$before":Makefile | sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([^#[:space:]]+).*/\1/p' | head -n1)
-          new_version=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([^#[:space:]]+).*/\1/p' Makefile | head -n1)
+          old_version=$(git show "$before":Makefile | sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' | head -n1)
+          new_version=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' Makefile | head -n1)
 
           echo "old=$old_version"
           echo "new=$new_version"
@@ -74,7 +72,7 @@ jobs:
         if: steps.version_check.outputs.changed == 'true'
         id: version
         run: |
-          v=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([^#[:space:]]+).*/\1/p' Makefile | head -n1)
+          v=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' Makefile | head -n1)
           echo "value=$v" >> "$GITHUB_OUTPUT"
 
       - name: Build project
@@ -86,7 +84,7 @@ jobs:
         id: tag_check
         run: |
           tag="v${{ steps.version.outputs.value }}"
-          if git rev-parse "$tag" >/dev/null 2>&1; then
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
             echo "Warning: Tag $tag already exists, skipping release creation"
           else
