@@ -11,6 +11,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    container: devkitpro/pacman-base:latest
     strategy:
       matrix:
         include:
@@ -23,20 +24,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Setup devkitPro
-        run: |
-          wget https://github.com/devkitPro/pacman-installer/releases/latest/download/devkitpro-pacman-installer.tar.gz
-          tar -xzvf devkitpro-pacman-installer.tar.gz
-          sudo ./devkitpro-pacman-installer.sh --no-confirm
-          export DEVKITPRO=/opt/devkitpro
-          export PATH=$DEVKITPRO/tools/bin:$PATH
-          
       - name: Install dependencies
         run: |
-          export DEVKITPRO=/opt/devkitpro
-          export PATH=$DEVKITPRO/tools/bin:$PATH
-          sudo dkp-pacman -Syu --noconfirm
-          sudo dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
           
       - name: Build
         run: |
@@ -62,26 +53,17 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
+    container: devkitpro/pacman-base:latest
     needs: build
     
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Setup devkitPro
-        run: |
-          wget https://github.com/devkitPro/pacman-installer/releases/latest/download/devkitpro-pacman-installer.tar.gz
-          tar -xzvf devkitpro-pacman-installer.tar.gz
-          sudo ./devkitpro-pacman-installer.sh --no-confirm
-          export DEVKITPRO=/opt/devkitpro
-          export PATH=$DEVKITPRO/tools/bin:$PATH
-          
       - name: Install dependencies
         run: |
-          export DEVKITPRO=/opt/devkitpro
-          export PATH=$DEVKITPRO/tools/bin:$PATH
-          sudo dkp-pacman -Syu --noconfirm
-          sudo dkp-pacman -S switch-devkitA64 switch-tools switch-libnx --noconfirm
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx --noconfirm
           
       - name: Run tests
         run: |
