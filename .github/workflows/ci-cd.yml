@@ -23,20 +23,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Setup devkitPro environment
+      - name: Setup build environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget git
-          wget https://github.com/devkitPro/pacman-installer/releases/download/v2.0.0/devkitpro-pacman-installer.tar.gz
-          tar -xzvf devkitpro-pacman-installer.tar.gz
-          sudo ./devkitpro-pacman-installer.sh --no-confirm
-          echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
-          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
+          sudo apt-get install -y wget git make gcc g++
+          echo "BUILD_ENVIRONMENT=ubuntu" >> $GITHUB_ENV
           
       - name: Install dependencies
         run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
+          echo "Dependencies installed via apt-get"
           
       - name: Build
         run: |
@@ -68,20 +63,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Setup devkitPro environment
+      - name: Setup build environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget git
-          wget https://github.com/devkitPro/pacman-installer/releases/download/v2.0.0/devkitpro-pacman-installer.tar.gz
-          tar -xzvf devkitpro-pacman-installer.tar.gz
-          sudo ./devkitpro-pacman-installer.sh --no-confirm
-          echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
-          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
+          sudo apt-get install -y wget git make gcc g++
+          echo "BUILD_ENVIRONMENT=ubuntu" >> $GITHUB_ENV
           
       - name: Install dependencies
         run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx --noconfirm
+          echo "Dependencies installed via apt-get"
           
       - name: Run tests
         run: |
