@@ -14,10 +14,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - target: switch
-            compiler: devkitA64
-          - target: switch_hbl
-            compiler: devkitA64
+          - compiler: devkitA64
     
     steps:
       - name: Checkout
@@ -27,9 +24,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y wget git python3 python3-pip
-          wget https://github.com/devkitPro/pacman/releases/download/v2.1.1/devkitpro-pacman-installer.tar.gz
-          tar -xzvf devkitpro-pacman-installer.tar.gz
-          sudo ./devkitpro-pacman-installer.sh --no-confirm
+          wget https://apt.devkitpro.org/install-devkitpro-pacman
+          chmod +x ./install-devkitpro-pacman
+          sudo ./install-devkitpro-pacman
           echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
           echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
           
@@ -40,12 +37,12 @@ jobs:
           
       - name: Build
         run: |
-          make ${TARGET}
+          make
           
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ryazha-status-monitor-${{ matrix.target }}
+          name: ryazha-status-monitor-${{ matrix.compiler }}
           path: |
             *.nro
             *.elf
@@ -72,9 +69,9 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y wget git python3 python3-pip
-          wget https://github.com/devkitPro/pacman/releases/download/v2.1.1/devkitpro-pacman-installer.tar.gz
-          tar -xzvf devkitpro-pacman-installer.tar.gz
-          sudo ./devkitpro-pacman-installer.sh --no-confirm
+          wget https://apt.devkitpro.org/install-devkitpro-pacman
+          chmod +x ./install-devkitpro-pacman
+          sudo ./install-devkitpro-pacman
           echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
           echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
           
