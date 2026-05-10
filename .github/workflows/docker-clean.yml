@@ -1,9 +1,10 @@
-name: Docker Build and Push
+name: Docker Build and Push (DISABLED)
 
 on:
-  push:
-    branches: [ main ]
-    tags: [ 'v*' ]
+  # Temporarily disabled to fix CI/CD issues
+  # push:
+  #   branches: [ main ]
+  #   tags: [ 'v*' ]
   workflow_dispatch:
 
 env:
