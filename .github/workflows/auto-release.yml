@@ -75,11 +75,6 @@ jobs:
           v=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([^#[:space:]]+).*/\1/p' Makefile | head -n1)
           echo "value=$v" >> "$GITHUB_OUTPUT"
 
-      - name: Install dependencies
-        if: steps.version_check.outputs.changed == 'true'
-        run: |
-          echo "Dependencies already installed in devkitpro/devkita64 container"
-
       - name: Build project
         if: steps.version_check.outputs.changed == 'true'
         run: make
