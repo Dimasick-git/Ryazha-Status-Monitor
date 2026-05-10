@@ -29,7 +29,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          dkp-pacman -S switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
+          echo "Dependencies already installed in devkitpro/devkita64 container"
           
       - name: Build
         run: |
@@ -74,7 +74,7 @@ jobs:
           
       - name: Install dependencies
         run: |
-          dkp-pacman -S switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
+          echo "Dependencies already installed in devkitpro/devkita64 container"
           
       - name: Run tests
         run: |
