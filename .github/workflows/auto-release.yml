@@ -5,7 +5,6 @@ on:
     branches: [ main ]
     paths:
       - Makefile
-      - scripts/generate_release_notes.py
   workflow_dispatch:
 
 permissions:
@@ -57,16 +56,44 @@ jobs:
 
       - name: Prepare Python
         if: steps.version_check.outputs.changed == 'true'
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Generate release notes (AI + fallback)
-        if: steps.version_check.outputs.changed == 'true'
-        env:
-          HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
-          python3 scripts/generate_release_notes.py release-notes.md
+          set -e
+          v=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' Makefile | head -n1)
+          tag="v${v}"
+
+          prev_tag=$(git tag --list 'v*' --sort=-version:refname | grep -v "^${tag}$" | head -n1 || true)
+          if [ -n "$prev_tag" ]; then
+            changes=$(git log --pretty=format:'- %s' "${prev_tag}..HEAD")
+          else
+            changes=$(git log --pretty=format:'- %s')
+          fi
+
+          {
+            echo "# Ryazha Status Monitor ${v}"
+            echo
+            echo "## Описание релиза"
+            echo
+            echo "Автоматический релиз версии ${v}."
+            echo
+            echo "## Изменения"
+            echo
+            if [ -n "$changes" ]; then
+              echo "$changes"
+            else
+              echo "- Изменения отсутствуют."
+            fi
+            echo
+            echo "## Техническая информация"
+            echo
+            echo "- Версия: ${v}"
+            echo "- Коммит: ${GITHUB_SHA}"
+            if [ -n "$prev_tag" ]; then
+              echo "- Предыдущий тег: ${prev_tag}"
+            else
+              echo "- Предыдущий тег: отсутствует"
+            fi
+            echo
+          } > release-notes.md
 
       - name: Get version
         if: steps.version_check.outputs.changed == 'true'
