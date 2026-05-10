@@ -23,15 +23,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Setup build environment
+      - name: Setup devkitPro environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget git make gcc g++
-          echo "BUILD_ENVIRONMENT=ubuntu" >> $GITHUB_ENV
+          sudo apt-get install -y wget git python3 python3-pip
+          wget https://github.com/devkitPro/installer/releases/download/v3.0.3/devkitpro-installer.tar.gz
+          tar -xzvf devkitpro-installer.tar.gz
+          sudo ./devkitpro-installer.sh --no-confirm
+          echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
           
       - name: Install dependencies
         run: |
-          echo "Dependencies installed via apt-get"
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
           
       - name: Build
         run: |
@@ -63,15 +68,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         
-      - name: Setup build environment
+      - name: Setup devkitPro environment
         run: |
           sudo apt-get update
-          sudo apt-get install -y wget git make gcc g++
-          echo "BUILD_ENVIRONMENT=ubuntu" >> $GITHUB_ENV
+          sudo apt-get install -y wget git python3 python3-pip
+          wget https://github.com/devkitPro/installer/releases/download/v3.0.3/devkitpro-installer.tar.gz
+          tar -xzvf devkitpro-installer.tar.gz
+          sudo ./devkitpro-installer.sh --no-confirm
+          echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
           
       - name: Install dependencies
         run: |
-          echo "Dependencies installed via apt-get"
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
           
       - name: Run tests
         run: |
