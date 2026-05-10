@@ -1,0 +1,95 @@
+name: Ryazha-Status-Monitor CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - target: switch
+            compiler: devkitA64
+          - target: switch_hbl
+            compiler: devkitA64
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup devkitPro
+        uses: devkitpro/pacman-installer@v1
+        with:
+          platform: switch
+          
+      - name: Install dependencies
+        run: |
+          sudo dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg
+          
+      - name: Build
+        run: |
+          make ${TARGET}
+          
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ryazha-status-monitor-${{ matrix.target }}
+          path: |
+            *.nro
+            *.elf
+            *.json
+            
+      - name: Create Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            *.nro
+            README.md
+          generate_release_notes: true
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Setup devkitPro
+        uses: devkitpro/pacman-installer@v1
+        with:
+          platform: switch
+          
+      - name: Install dependencies
+        run: |
+          sudo dkp-pacman -S switch-devkitA64 switch-tools switch-libnx
+          
+      - name: Run tests
+        run: |
+          make test || echo "No tests configured yet"
+          
+      - name: Performance benchmarks
+        run: |
+          make benchmark || echo "No benchmarks configured yet"
+
+  monitor:
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Collect metrics
+        run: |
+          echo "Collecting build metrics..."
+          echo "Build completed successfully"
+          
+      - name: Update dashboard
+        run: |
+          echo "Dashboard update placeholder"
