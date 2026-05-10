@@ -11,7 +11,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: yesimnathan/switchdev:latest
     strategy:
       matrix:
         include:
@@ -23,12 +22,20 @@ jobs:
         
       - name: Setup devkitPro environment
         run: |
+          # Install devkitPro manually using archive
+          wget https://github.com/devkitPro/pacman/releases/download/v2.0.1/devkitpro-pacman-2.0.1-linux.tar.gz
+          tar -xzf devkitpro-pacman-2.0.1-linux.tar.gz
+          sudo mv devkitpro-pacman /opt/devkitpro
           echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
-          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
+          echo "/opt/devkitpro/bin" >> $GITHUB_PATH
+          export PATH=/opt/devkitpro/bin:$PATH
+          # Install Switch development tools
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx --noconfirm
           
       - name: Install dependencies
         run: |
-          echo "Dependencies already installed in yesimnathan/switchdev image"
+          dkp-pacman -S switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
           
       - name: Build
         run: |
@@ -54,7 +61,6 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    container: yesimnathan/switchdev:latest
     needs: build
     
     steps:
@@ -63,12 +69,20 @@ jobs:
         
       - name: Setup devkitPro environment
         run: |
+          # Install devkitPro manually using archive
+          wget https://github.com/devkitPro/pacman/releases/download/v2.0.1/devkitpro-pacman-2.0.1-linux.tar.gz
+          tar -xzf devkitpro-pacman-2.0.1-linux.tar.gz
+          sudo mv devkitpro-pacman /opt/devkitpro
           echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
-          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
+          echo "/opt/devkitpro/bin" >> $GITHUB_PATH
+          export PATH=/opt/devkitpro/bin:$PATH
+          # Install Switch development tools
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx --noconfirm
           
       - name: Install dependencies
         run: |
-          echo "Dependencies already installed in yesimnathan/switchdev image"
+          dkp-pacman -S switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
           
       - name: Run tests
         run: |
