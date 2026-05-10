@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: ghcr.io/devkitpro/pacman:latest
+    container: devkitpro/devkitarm:latest
     strategy:
       matrix:
         include:
@@ -57,7 +57,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    container: ghcr.io/devkitpro/pacman:latest
+    container: devkitpro/devkitarm:latest
     needs: build
     
     steps:
