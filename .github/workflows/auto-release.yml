@@ -88,6 +88,7 @@ jobs:
           tag="v${{ steps.version.outputs.value }}"
           if git rev-parse "$tag" >/dev/null 2>&1; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Warning: Tag $tag already exists, skipping release creation"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
