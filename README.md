@@ -1,62 +1,62 @@
 # Ryazha-Status-Monitor Overlay
-Monitor Your hardware in real time!
+Мониторинг вашего оборудования в реальном времени!
 
-This is an overlay homebrew dedicated to Nintendo Switch.
-You need to have installed Tesla environment to use it.
+Это оверлейное домашнее приложение (homebrew), созданное специально для Nintendo Switch.
+Для использования необходимо установить среду Tesla.
 
-Tool contains five menus to choose, each one is explained [here](/docs/modes.md).<br>
-Overlay supports customizations through config file, more [here](/docs/config.md).
+Инструмент содержит пять меню на выбор, каждое из которых описано [здесь](/docs/modes.md).<br>
+Оверлей поддерживает кастомизацию через конфигурационный файл, подробнее [здесь](/docs/config.md).
 
-If it's not working in dock, you need to first start Ryazha-Status-Monitor, then put Nintendo Switch to dock.
+Если оверлей не работает в док-станции, необходимо сначала запустить Ryazha-Status-Monitor, а затем поместить Nintendo Switch в док-станцию.
 
-# What is currently supported:
-- CPU Usage for each core (Cores `#0`-`#2` are used by apps/games, Core `#3` is used by OS, background processes and also Tesla overlays)
-- GPU Load
-- CPU, GPU & RAM target frequencies (also real frequencies + RAM Load if [sys-clk 2.0.0_rc4+](https://github.com/retronx-team/sys-clk/releases) is installed, use only official RetroNX release for reliable results)
-- Used RAM categorized to: (not supported by FWs <5.0.0)
-  - Total
-  - Application
-  - Applet
-  - System
-  - System Unsafe
-- SoC, PCB & Skin temperatures (Skin temperature not supported by FWs <5.0.0)
-- Fan Rotation Level
-- PFPS, FPS, resolutions, game read speed (shows only if [my fork of SaltyNX](https://github.com/masagrator/SaltyNX/releases) is installed)
-- Battery temperature, raw charge, age, average voltage, average current flow and average power flow
-- Charger type, max voltage, and max current
-- DSP usage (only for FW older than 17.0.0)
-- NVDEC, NVENC and NVJPG clock rates
-- Network type + Wi-fi password
+# Что поддерживается в настоящее время:
+- Использование CPU для каждого ядра (ядра `#0`-`#2` используются приложениями/играми, ядро `#3` используется ОС, фоновыми процессами и оверлеями Tesla)
+- Загрузка GPU
+- Целевые частоты CPU, GPU и RAM (также реальные частоты + загрузка RAM, если установлен [sys-clk 2.0.0_rc4+](https://github.com/retronx-team/sys-clk/releases), используйте только официальный релиз RetroNX для надёжных результатов)
+- Использование RAM, разделённое на категории: (не поддерживается прошивками <5.0.0)
+  - Всего
+  - Приложение
+  - Аплет
+  - Система
+  - Небезопасная система
+- Температуры SoC, PCB и корпуса (температура корпуса не поддерживается прошивками <5.0.0)
+- Уровень вращения вентилятора
+- PFPS, FPS, разрешения, скорость чтения игры (отображается только если установлен [мой форк SaltyNX](https://github.com/masagrator/SaltyNX/releases))
+- Температура батареи, сырой заряд, возраст, среднее напряжение, средний ток и средняя мощность
+- Тип зарядного устройства, максимальное напряжение и максимальный ток
+- Использование DSP (только для прошивок старше 17.0.0)
+- Частоты NVDEC, NVENC и NVJPG
+- Тип сети + пароль Wi-Fi
 
-# Requirements:
-- Ultrahand Overlay or Tesla Menu (version >=1.2.3)
+# Требования:
+- Ultrahand Overlay или Tesla Menu (версия >=1.2.3)
 
-How to setup everything: [HERE](https://gist.github.com/masagrator/65fcbd5ad09243399268d145aaab899b)
+Как настроить всё: [ЗДЕСЬ](https://gist.github.com/masagrator/65fcbd5ad09243399268d145aaab899b)
 
 ---
 
-# Thanks to:
-- RetroNX channel for helping with coding stuff
-- SunTheCourier for sys-clk-Overlay from which I learned how to make my own Tesla homebrew
-- Herbaciarz for providing screenshots from HDMI Grabber
-- KazushiMe for writing code to read registers from max17050 chip
-- CTCaer for Hekate from which I took max17050.h and calculation formulas for reading battery stats from max17050 chip
-- ChanseyIsTheBest for testing Game Resolutions menu
+# Благодарности:
+- Каналу RetroNX за помощь в вопросах программирования
+- SunTheCourier за sys-clk-Overlay, из которого я научился создавать свои собственные Tesla homebrew
+- Herbaciarz за предоставление скриншотов с HDMI Grabber
+- KazushiMe за написание кода для чтения регистров чипа max17050
+- CTCaer за Hekate, из которого я взял max17050.h и формулы расчёта для чтения статистики батареи с чипа max17050
+- ChanseyIsTheBest за тестирование меню разрешений игр
 
 # FAQ:
-Q: This homebrew has any impact on games?
+Вопрос: Этот homebrew как-то влияет на игры?
 
-A: Negligible, you won't see any difference. Almost everything is done on Core `#3`, other cores usage is below 0.001%.
+Ответ: Незначительно, вы не заметите разницы. Почти всё выполняется на ядре `#3`, использование других ядер ниже 0.001%.
 
-# Troubleshooting:
+# Устранение неполадок:
 
-Q: When opening Full or Mini mode, overlay is showing that Core #3 usage is at 100% while everything else is showing 0, eventually leading to crash. Why this happens?
+Вопрос: При открытии режима Full или Mini оверлей показывает, что использование ядра #3 составляет 100%, в то время как всё остальное показывает 0, что в конечном итоге приводит к сбою. Почему это происходит?
 
-A: There are few possible explanations: 
-1. You're using nifm services connection test patches (in short `nifm ctest patches`) that are included in various packs. Those patches allow to connect to network that has no internet connection. But they cause nifm to randomly rampage when connected to network. Find any folder in `atmosphere/exefs_patches` that has in folder name `nifm`, `nfim` and/or `ctest`, delete this folder and restart Switch (if you are using `sys-patch`, turn off `nifm` patching). If you must use it, only solution is to use this overlay only in airplane mode.
-2. You're using some untested custom sysmodule that has no proper thread sleeping implemented. Find out in atmosphere/contents any sysmodule that you don't need, delete it and restart Switch.
-3. Your Switch is using sigpatches, is not a primary device, is using linked account, and is connected to network. Delete sigpatches, change your Switch to primary device, unlink account, or disable Wi-Fi. 
+Ответ: Есть несколько возможных объяснений:
+1. Вы используете патчи теста подключения служб nifm (вкратце `nifm ctest patches`), которые включены в различные пакеты. Эти патчи позволяют подключаться к сети без доступа в интернет. Но они вызывают случайные сбои nifm при подключении к сети. Найдите любую папку в `atmosphere/exefs_patches`, в названии которой есть `nifm`, `nfim` и/или `ctest`, удалите эту папку и перезагрузите Switch (если вы используете `sys-patch`, отключите патчинг `nifm`). Если вы должны его использовать, единственное решение — использовать этот оверлей только в режиме полёта.
+2. Вы используете какой-то непроверенный кастомный sysmodule, в котором не реализована правильная блокировка потоков. Найдите в atmosphere/contents любой sysmodule, который вам не нужен, удалите его и перезагрузите Switch.
+3. Ваш Switch использует sigpatches, не является основным устройством, использует привязанную учётную запись и подключён к сети. Удалите sigpatches, измените ваш Switch на основное устройство, отвяжите учётную запись или отключите Wi-Fi.
 
-Q: When opening Ryazha-Status-Monitor overlays stop responding, or something that I am trying to open while Ryazha-Status-Monitor is opened is freezing (f.e. Album or HB Menu). How to fix this?
+Вопрос: При открытии Ryazha-Status-Monitor оверлеи перестают отвечать, или что-то, что я пытаюсь открыть во время работы Ryazha-Status-Monitor, зависает (например, Альбом или HB Menu). Как это исправить?
 
-A: Issue comes from too much sysmodules accessing sdcard at once. You must limit amount of sysmodules that have such access (you can free one session by disabling logs in SaltyNX-Tool).
+Ответ: Проблема возникает из-за того, что слишком много sysmodules одновременно обращаются к sd-карте. Вы должны ограничить количество sysmodules с таким доступом (можно освободить одну сессию, отключив журналы в SaltyNX-Tool).
