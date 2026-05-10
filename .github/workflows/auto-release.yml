@@ -103,6 +103,16 @@ jobs:
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Create and push tag
+        if: steps.version_check.outputs.changed == 'true' && steps.tag_check.outputs.exists == 'false'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git tag -a "v${{ steps.version.outputs.value }}" -m "Release version ${{ steps.version.outputs.value }}"
+          git push origin "v${{ steps.version.outputs.value }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create GitHub release
         if: steps.version_check.outputs.changed == 'true' && steps.tag_check.outputs.exists == 'false'
         uses: softprops/action-gh-release@v2
