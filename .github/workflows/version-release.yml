@@ -71,6 +71,23 @@ jobs:
           v=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([^#[:space:]]+).*/\1/p' Makefile | head -n1)
           echo "value=$v" >> "$GITHUB_OUTPUT"
 
+      - name: Setup devkitPro environment
+        if: steps.version_check.outputs.changed == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget git python3 python3-pip
+          wget https://github.com/devkitPro/pacman/releases/download/v2.1.1/devkitpro-pacman-installer.tar.gz
+          tar -xzvf devkitpro-pacman-installer.tar.gz
+          sudo ./devkitpro-pacman-installer.sh --no-confirm
+          echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+          echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
+
+      - name: Install dependencies
+        if: steps.version_check.outputs.changed == 'true'
+        run: |
+          dkp-pacman -Syu --noconfirm
+          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
+
       - name: Build project
         if: steps.version_check.outputs.changed == 'true'
         run: make
@@ -95,7 +112,7 @@ jobs:
           name: Ryazha-Status-Monitor v${{ steps.version.outputs.value }}
           body_path: release-notes.md
           files: |
-            *.nro
+            *.ovl
             *.elf
             README.md
         env:

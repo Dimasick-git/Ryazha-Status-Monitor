@@ -58,7 +58,11 @@ def try_model(model: str, prompt: str, token: str) -> str | None:
     payload = json.dumps(
         {
             "inputs": prompt,
-            "parameters": {"max_new_tokens": 280, "temperature": 0.3},
+            "parameters": {
+                "max_new_tokens": 280,
+                "temperature": 0.3,
+                "return_full_text": False,
+            },
             "options": {"wait_for_model": True},
         }
     ).encode("utf-8")
