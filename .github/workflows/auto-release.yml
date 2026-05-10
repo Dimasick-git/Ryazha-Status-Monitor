@@ -7,6 +7,8 @@ on:
       - Makefile
       - scripts/generate_release_notes.py
   workflow_dispatch:
+  release:
+    types: [ created ]
 
 permissions:
   contents: write
