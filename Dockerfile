@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Install devkitPro
-RUN wget https://github.com/devkitPro/pacman-installer/releases/download/v2.1.1/devkitpro-pacman-installer.tar.gz && \
+RUN wget https://github.com/devkitPro/pacman-installer/releases/latest/download/devkitpro-pacman-installer.tar.gz && \
     tar -xzvf devkitpro-pacman-installer.tar.gz && \
     ./devkitpro-pacman-installer.sh --no-confirm
 
