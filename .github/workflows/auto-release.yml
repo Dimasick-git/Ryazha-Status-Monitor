@@ -100,8 +100,9 @@ jobs:
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
-          git tag -a "v${{ steps.version.outputs.value }}" -m "Release version ${{ steps.version.outputs.value }}"
-          git push origin "v${{ steps.version.outputs.value }}"
+          VERSION="${{ steps.version.outputs.value }}"
+          git tag -a "v$VERSION" -m "Release version $VERSION"
+          git push origin "v$VERSION"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
