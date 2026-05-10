@@ -1,0 +1,105 @@
+name: Auto Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # Триггер при push тэга начинающегося с v
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Получаем всю историю для анализа изменений
+          
+      - name: Extract version from tag
+        id: version
+        run: |
+          # Извлекаем версию из тэга (убираем префикс v)
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "APP_VERSION=$VERSION" >> $GITHUB_ENV
+          
+      - name: Setup devkitPro environment
+        run: |
+          # Используем рабочий контейнер devkitpro/devkita64
+          echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
+          echo "DEVKITA64=/opt/devkitpro/devkitA64" >> $GITHUB_ENV
+          echo "PATH=/opt/devkitpro/devkitA64/bin:$PATH" >> $GITHUB_ENV
+          
+      - name: Build project
+        run: |
+          # Обновляем версию в Makefile
+          sed -i "s/APP_VERSION\s*:=.*/APP_VERSION := ${{ steps.version.outputs.version }}/" Makefile
+          
+          # Собираем проект
+          make
+          
+      - name: Generate release notes with AI
+        id: release-notes
+        run: |
+          # Получаем изменения с последнего тэга
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          
+          if [ -n "$PREV_TAG" ]; then
+            CHANGES=$(git log --pretty=format:"- %s" $PREV_TAG..HEAD)
+          else
+            CHANGES=$(git log --pretty=format:"- %s")
+          fi
+          
+          # Генерируем описание релиза на русском
+          cat > release_notes.md << 'EOF'
+          # Ryazha Status Monitor ${{ steps.version.outputs.version }}
+          
+          ## 📋 Описание релиза
+          
+          Автоматический релиз Ryazha Status Monitor версии ${{ steps.version.outputs.version }}.
+          
+          ## 🔄 Основные изменения
+          
+          $CHANGES
+          
+          ## 🛠 Техническая информация
+          
+          - **Версия:** ${{ steps.version.outputs.version }}
+          - **Сборка:** ${{ github.sha }}
+          - **Дата:** $(date +'%d.%m.%Y')
+          - **Платформа:** Nintendo Switch Homebrew
+          
+          ## 📦 Установка
+          
+          1. Скачайте файл `Ryazha-Status-Monitor.ovl`
+          2. Поместите в папку `sdmc:/switch/.overlays/`
+          3. Запустите через Overlay Loader
+          
+          ## ⚠️ Важные замечания
+          
+          - Требуется установленная Atmosphère CFW
+          - Требуется Overlay Loader для запуска
+          
+          ---
+          
+          _Этот релиз был сгенерирован автоматически с использованием AI_
+          EOF
+          
+          echo "release_notes<<EOF" >> $GITHUB_OUTPUT
+          cat release_notes.md >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: Ryazha Status Monitor ${{ steps.version.outputs.version }}
+          tag_name: v${{ steps.version.outputs.version }}
+          body: ${{ steps.release-notes.outputs.release_notes }}
+          files: |
+            *.ovl
+            README.md
+          generate_release_notes: false  # Используем свои сгенерированные заметки
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
