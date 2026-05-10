@@ -11,7 +11,7 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    container: devkitpro/devkita64:latest
+    container: yesimnathan/switchdev:latest
     strategy:
       matrix:
         include:
@@ -23,15 +23,12 @@ jobs:
         
       - name: Setup devkitPro environment
         run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx --noconfirm
           echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
           echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
           
       - name: Install dependencies
         run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
+          echo "Dependencies already installed in yesimnathan/switchdev image"
           
       - name: Build
         run: |
@@ -57,7 +54,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    container: devkitpro/devkita64:latest
+    container: yesimnathan/switchdev:latest
     needs: build
     
     steps:
@@ -66,15 +63,12 @@ jobs:
         
       - name: Setup devkitPro environment
         run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx --noconfirm
           echo "DEVKITPRO=/opt/devkitpro" >> $GITHUB_ENV
           echo "/opt/devkitpro/tools/bin" >> $GITHUB_PATH
           
       - name: Install dependencies
         run: |
-          dkp-pacman -Syu --noconfirm
-          dkp-pacman -S switch-devkitA64 switch-tools switch-libnx switch-mesa switch-glad switch-libdrm_nouveau switch-curl switch-libjpeg-turbo switch-libpng switch-zlib switch-bz2 switch-libogg switch-libvorbis switch-libmpg123 switch-opusfile switch-ffmpeg --noconfirm
+          echo "Dependencies already installed in yesimnathan/switchdev image"
           
       - name: Run tests
         run: |
