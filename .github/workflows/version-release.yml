@@ -14,7 +14,6 @@ permissions:
 concurrency:
   group: version-release-${{ github.ref }}
   cancel-in-progress: false
-
 jobs:
   release-on-version-change:
     runs-on: ubuntu-latest
@@ -112,7 +111,7 @@ jobs:
           name: Ryazha-Status-Monitor v${{ steps.version.outputs.value }}
           body_path: release-notes.md
           files: |
-            *.ovl
+ы            *.ovl
             *.elf
             README.md
         env:
