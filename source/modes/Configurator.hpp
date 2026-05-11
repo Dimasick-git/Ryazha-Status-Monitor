@@ -367,7 +367,7 @@ public:
 
             auto* dynamicColors = new tsl::elm::ToggleListItem("Дин. цвета", getCurrentUseDynamicColors());
             dynamicColors->setStateChangedListener([this](bool state) {
-                ult::setIniFileValue(configIniPath, "fps-graph", "use_dynamic_colors", state ? "true" : "false");
+                ult::setIniFileValue(configIniPath, "full", "use_dynamic_colors", state ? "true" : "false");
             });
             list->addItem(dynamicColors);
 
@@ -479,12 +479,63 @@ public:
             });
             list->addItem(integerCounter);
 
+            auto* emaAlphaItem = new tsl::elm::ListItem("EMA alpha");
+            float currentAlpha = getCurrentEmaAlpha("fps-counter");
+            char alphaBuf[16];
+            snprintf(alphaBuf, sizeof(alphaBuf), "%.2f", currentAlpha);
+            emaAlphaItem->setValue(alphaBuf);
+            emaAlphaItem->setClickListener([emaAlphaItem](uint64_t keys) {
+                if (keys & KEY_A) {
+                    static const std::vector<float> alphaPresets = {0.05f, 0.10f, 0.15f, 0.20f, 0.30f, 0.40f, 0.60f, 0.80f, 1.00f};
+                    float currentAlpha = 0.20f;
+                    const std::string currentValue = ult::parseValueFromIniSection(configIniPath, "fps-counter", "ema_alpha");
+                    if (!currentValue.empty()) {
+                        currentAlpha = std::clamp(std::strtof(currentValue.c_str(), nullptr), 0.01f, 1.0f);
+                    }
+
+                    size_t nextIndex = 0;
+                    float bestDiff = std::fabs(currentAlpha - alphaPresets[0]);
+                    for (size_t i = 1; i < alphaPresets.size(); i++) {
+                        const float diff = std::fabs(currentAlpha - alphaPresets[i]);
+                        if (diff < bestDiff) {
+                            bestDiff = diff;
+                            nextIndex = i;
+                        }
+                    }
+                    nextIndex = (nextIndex + 1) % alphaPresets.size();
+
+                    char newAlphaBuf[16];
+                    snprintf(newAlphaBuf, sizeof(newAlphaBuf), "%.2f", alphaPresets[nextIndex]);
+                    ult::setIniFileValue(configIniPath, "fps-counter", "ema_alpha", newAlphaBuf);
+                    emaAlphaItem->setValue(newAlphaBuf);
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(emaAlphaItem);
+
             // FPS Counter mode: only disable_screenshots
             auto* disableScreenshots = new tsl::elm::ToggleListItem("Запрет скринш.", getCurrentDisableScreenshots("fps-counter"));
             disableScreenshots->setStateChangedListener([this](bool state) {
                 ult::setIniFileValue(configIniPath, "fps-counter", "disable_screenshots", state ? "true" : "false");
             });
             list->addItem(disableScreenshots);
+        }
+
+        std::string emaSection;
+        if (isMiniMode) emaSection = "mini";
+        else if (isMicroMode) emaSection = "micro";
+        else if (isFullMode) emaSection = "full";
+        else if (isFPSGraphMode) emaSection = "fps-graph";
+        else if (isGameResolutionsMode) emaSection = "game_resolutions";
+        else if (isFPSCounterMode) emaSection = "fps-counter";
+
+        if (!emaSection.empty()) {
+            auto* emaCounters = new tsl::elm::ToggleListItem("EMA счётчики", getCurrentUseEmaCounter(emaSection));
+            emaCounters->setStateChangedListener([this, emaSection](bool state) {
+                ult::setIniFileValue(configIniPath, emaSection, "use_ema_counter", state ? "true" : "false");
+            });
+            list->addItem(emaCounters);
         }
         
         list->jumpToItem(jumpItemName, jumpItemValue, jumpItemExactMatch);
@@ -564,7 +615,7 @@ private:
         std::string value = ult::parseValueFromIniSection(configIniPath, section, "show_full_res");
         if (value.empty()) return true; // Default: true for mini, false for micro
         convertToUpper(value);
-        return value != "FALSE";
+        return value == "TRUE";
     }
     
     bool getCurrentShowSOCVoltage() {
@@ -596,15 +647,22 @@ private:
         std::string value = ult::parseValueFromIniSection(configIniPath, section, "use_dtc_symbol");
         if (value.empty()) return true;
         convertToUpper(value);
-        return value == "TRUE";
+        return value != "FALSE";
     }
 
     bool getCurrentUseDynamicColors() {
-        const std::string section = isFPSGraphMode? "fps-graph" : (isMiniMode ? "mini" : "micro");
+        const std::string section = isFPSGraphMode ? "fps-graph" : (isFullMode ? "full" : (isMiniMode ? "mini" : "micro"));
         std::string value = ult::parseValueFromIniSection(configIniPath, section, "use_dynamic_colors");
         if (value.empty()) return true;
         convertToUpper(value);
         return value == "TRUE";
+    }
+
+    bool getCurrentUseEmaCounter(const std::string& section) {
+        std::string value = ult::parseValueFromIniSection(configIniPath, section, "use_ema_counter");
+        if (value.empty()) return section == "fps-counter";
+        convertToUpper(value);
+        return value != "FALSE";
     }
 
     bool getCurrentUseIntegerCounter(const std::string& section) {
@@ -612,6 +670,14 @@ private:
         if (value.empty()) return false;  // Default is false (screenshots enabled)
         convertToUpper(value);
         return value != "FALSE";  // True if not explicitly "FALSE"
+    }
+
+    float getCurrentEmaAlpha(const std::string& section) {
+        std::string value = ult::parseValueFromIniSection(configIniPath, section, "ema_alpha");
+        if (value.empty()) return 0.20f;
+        const float parsed = std::strtof(value.c_str(), nullptr);
+        if (parsed <= 0.0f) return 0.20f;
+        return std::clamp(parsed, 0.01f, 1.0f);
     }
 
     bool getCurrentDisableScreenshots(const std::string& section) {
