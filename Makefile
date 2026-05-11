@@ -38,7 +38,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	Ryazha-Status-Monitor
-APP_VERSION	:=	1.4.1
+APP_VERSION	:=	1.4.1+
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
 SOURCES		:=	source
