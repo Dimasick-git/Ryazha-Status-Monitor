@@ -1514,6 +1514,7 @@ struct FpsCounterSettings {
     uint16_t textColor;
     //int setPos;
     bool useIntegerCounter;
+    bool useEmaCounter;
     bool disableScreenshots;
     int frameOffsetX;
     int frameOffsetY;
@@ -2110,6 +2111,7 @@ ALWAYS_INLINE void GetConfigSettings(FpsCounterSettings* settings) {
     //settings->setPos = 0;
     settings->refreshRate = 30;
     settings->useIntegerCounter = false;
+    settings->useEmaCounter = true;
     settings->disableScreenshots = false;
 
     settings->frameOffsetX = 10;
@@ -2206,6 +2208,13 @@ ALWAYS_INLINE void GetConfigSettings(FpsCounterSettings* settings) {
         key = it->second;
         convertToUpper(key);
         settings->useIntegerCounter = (key != "FALSE");
+    }
+
+    it = section.find("use_ema_counter");
+    if (it != section.end()) {
+        key = it->second;
+        convertToUpper(key);
+        settings->useEmaCounter = (key != "FALSE");
     }
 
     // Process disable screenshots

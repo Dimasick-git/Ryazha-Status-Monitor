@@ -367,7 +367,7 @@ public:
 
             auto* dynamicColors = new tsl::elm::ToggleListItem("Дин. цвета", getCurrentUseDynamicColors());
             dynamicColors->setStateChangedListener([this](bool state) {
-                ult::setIniFileValue(configIniPath, "fps-graph", "use_dynamic_colors", state ? "true" : "false");
+                ult::setIniFileValue(configIniPath, "full", "use_dynamic_colors", state ? "true" : "false");
             });
             list->addItem(dynamicColors);
 
@@ -486,6 +486,22 @@ public:
             });
             list->addItem(disableScreenshots);
         }
+
+        std::string emaSection;
+        if (isMiniMode) emaSection = "mini";
+        else if (isMicroMode) emaSection = "micro";
+        else if (isFullMode) emaSection = "full";
+        else if (isFPSGraphMode) emaSection = "fps-graph";
+        else if (isGameResolutionsMode) emaSection = "game_resolutions";
+        else if (isFPSCounterMode) emaSection = "fps-counter";
+
+        if (!emaSection.empty()) {
+            auto* emaCounters = new tsl::elm::ToggleListItem("EMA счётчики", getCurrentUseEmaCounter(emaSection));
+            emaCounters->setStateChangedListener([this, emaSection](bool state) {
+                ult::setIniFileValue(configIniPath, emaSection, "use_ema_counter", state ? "true" : "false");
+            });
+            list->addItem(emaCounters);
+        }
         
         list->jumpToItem(jumpItemName, jumpItemValue, jumpItemExactMatch);
         {
@@ -564,7 +580,7 @@ private:
         std::string value = ult::parseValueFromIniSection(configIniPath, section, "show_full_res");
         if (value.empty()) return true; // Default: true for mini, false for micro
         convertToUpper(value);
-        return value != "FALSE";
+        return value == "TRUE";
     }
     
     bool getCurrentShowSOCVoltage() {
@@ -596,15 +612,22 @@ private:
         std::string value = ult::parseValueFromIniSection(configIniPath, section, "use_dtc_symbol");
         if (value.empty()) return true;
         convertToUpper(value);
-        return value == "TRUE";
+        return value != "FALSE";
     }
 
     bool getCurrentUseDynamicColors() {
-        const std::string section = isFPSGraphMode? "fps-graph" : (isMiniMode ? "mini" : "micro");
+        const std::string section = isFPSGraphMode ? "fps-graph" : (isFullMode ? "full" : (isMiniMode ? "mini" : "micro"));
         std::string value = ult::parseValueFromIniSection(configIniPath, section, "use_dynamic_colors");
         if (value.empty()) return true;
         convertToUpper(value);
         return value == "TRUE";
+    }
+
+    bool getCurrentUseEmaCounter(const std::string& section) {
+        std::string value = ult::parseValueFromIniSection(configIniPath, section, "use_ema_counter");
+        if (value.empty()) return section == "fps-counter";
+        convertToUpper(value);
+        return value != "FALSE";
     }
 
     bool getCurrentUseIntegerCounter(const std::string& section) {
