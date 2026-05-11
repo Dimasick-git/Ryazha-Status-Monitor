@@ -10,6 +10,10 @@ private:
     bool skipOnce = true;
     bool runOnce = true;
     u64 lastHzUpdateNs = 0;
+    bool emaInitialized = false;
+    float emaFps = 0.0f;
+    float emaHz = 0.0f;
+    static constexpr float kCounterEmaAlpha = 0.20f;
 
     // Repositioning variables
     int frameOffsetX = 0;
@@ -320,14 +324,29 @@ public:
             }
         }
 
-        if (settings.useIntegerCounter) {
-            snprintf(FPSavg_c, sizeof FPSavg_c, "%d", (int)round(useOldFPSavg ? FPSavg_old : FPSavg));
+        const float currentFps = useOldFPSavg ? FPSavg_old : FPSavg;
+        const float currentHz = (refreshRate > 0) ? static_cast<float>(refreshRate) : 0.0f;
+
+        if (!emaInitialized) {
+            emaFps = currentFps;
+            emaHz = currentHz;
+            emaInitialized = true;
+        } else if (settings.useEmaCounter) {
+            emaFps += kCounterEmaAlpha * (currentFps - emaFps);
+            emaHz += kCounterEmaAlpha * (currentHz - emaHz);
         } else {
-            snprintf(FPSavg_c, sizeof FPSavg_c, "%2.1f", useOldFPSavg ? FPSavg_old : FPSavg);
+            emaFps = currentFps;
+            emaHz = currentHz;
+        }
+
+        if (settings.useIntegerCounter) {
+            snprintf(FPSavg_c, sizeof FPSavg_c, "%d", (int)round(emaFps));
+        } else {
+            snprintf(FPSavg_c, sizeof FPSavg_c, "%2.1f", emaFps);
         }
 
         if (refreshRate > 0) {
-            snprintf(RefreshRate_c, sizeof RefreshRate_c, "Hz:%d", refreshRate);
+            snprintf(RefreshRate_c, sizeof RefreshRate_c, "Hz:%d", (int)round(emaHz));
         } else {
             snprintf(RefreshRate_c, sizeof RefreshRate_c, "Hz:--");
         }
