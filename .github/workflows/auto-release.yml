@@ -1,146 +1,580 @@
 name: Version Release Automation
 
+# ──────────────────────────────────────────────────────────────
+# TRIGGERS
+# ──────────────────────────────────────────────────────────────
 on:
   push:
-    branches: [ main ]
+    branches: [main]
     paths:
       - Makefile
+      - "src/**"
+      - "include/**"
   workflow_dispatch:
+    inputs:
+      force_release:
+        description: "Force release even if version unchanged"
+        required: false
+        default: "false"
+        type: boolean
+      dry_run:
+        description: "Dry run — build & tag, but do NOT publish release"
+        required: false
+        default: "false"
+        type: boolean
 
+# ──────────────────────────────────────────────────────────────
+# TOP-LEVEL PERMISSIONS  (минимум по умолчанию)
+# Каждый job переопределяет то, что ему нужно
+# ──────────────────────────────────────────────────────────────
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: version-release-${{ github.ref }}
   cancel-in-progress: false
 
+# ──────────────────────────────────────────────────────────────
+# GLOBAL CONSTANTS
+# ──────────────────────────────────────────────────────────────
+env:
+  ARTIFACT_OVL:      "Ryazha-Status-Monitor.ovl"
+  RELEASE_PREFIX:    "Ryazha-Status-Monitor"
+  DEVKITPRO:         "/opt/devkitpro"
+  DEVKITA64:         "/opt/devkitpro/devkitA64"
+  # Фиксированный образ — пункт 1 чек-листа
+  DEVKIT_IMAGE:      "devkitpro/devkita64:20251231"
+
+# ══════════════════════════════════════════════════════════════
 jobs:
-  release-on-version-change:
+
+# ──────────────────────────────────────────────────────────────
+# JOB 1 — Определяем нужен ли релиз
+# permissions: contents: read  (только читаем репо и теги)
+# ──────────────────────────────────────────────────────────────
+  detect-version:
+    name: "🔍 Detect Version Change"
     runs-on: ubuntu-latest
 
-    # Minimal devkitA64 container
-    container:
-      image: devkitpro/devkita64:20251231
+    permissions:
+      contents: read   # читаем Makefile и теги
+
+    outputs:
+      changed:    ${{ steps.check.outputs.changed }}
+      version:    ${{ steps.check.outputs.version }}
+      tag:        ${{ steps.check.outputs.tag }}
+      prev_tag:   ${{ steps.check.outputs.prev_tag }}
+      tag_exists: ${{ steps.check.outputs.tag_exists }}
 
     steps:
-      - name: Checkout
+      - name: Checkout (full history — нужен для git log и тегов)
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Configure git safe.directory
-        run: |
-          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Detect APP_VERSION changes
-        id: version_check
+      # ── Основная логика детектирования ──────────────────────
+      - name: Check version & tag state
+        id: check
+        shell: bash
         run: |
+          set -euo pipefail
+
+          # ── 1. Читаем APP_VERSION из Makefile ─────────────────
+          new_version=$(sed -nE \
+            's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' \
+            Makefile | head -n1)
+
+          if [ -z "$new_version" ]; then
+            echo "::error::APP_VERSION not found in Makefile"
+            exit 1
+          fi
+
+          # ── 2. Мягкая валидация SemVer ────────────────────────
+          if ! echo "$new_version" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::warning::Version '$new_version' is not strict SemVer (X.Y.Z). Proceeding."
+          fi
+
+          tag="v${new_version}"
+          echo "::notice::Detected version: $new_version  →  tag: $tag"
+
+          # ── 3. Проверяем существование тега на remote ─────────
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
+            tag_exists="true"
+            echo "::warning::Tag $tag already exists on remote — release will be skipped"
+          else
+            tag_exists="false"
+          fi
+
+          # ── 4. Ищем предыдущий тег для changelog ──────────────
+          prev_tag=$(git tag --list 'v*' \
+            --sort=-version:refname \
+            | grep -v "^${tag}$" \
+            | head -n1 || true)
+
+          # ── 5. Логика «нужен ли релиз» ────────────────────────
+          changed="false"
+
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
+            # Ручной запуск: форсируем или проверяем тег
+            if [ "${{ inputs.force_release }}" = "true" ]; then
+              changed="true"
+              echo "::notice::Force release requested via workflow_dispatch"
+            elif [ "$tag_exists" = "false" ]; then
+              changed="true"
+            else
+              echo "::notice::Tag exists and force_release=false — nothing to do"
+            fi
 
-          before="${{ github.event.before }}"
-          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          old_version=$(git show "$before":Makefile | sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' | head -n1)
-          new_version=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' Makefile | head -n1)
-
-          echo "old=$old_version"
-          echo "new=$new_version"
-
-          if [ -n "$new_version" ] && [ "$old_version" != "$new_version" ]; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
+            # Автоматический push
+            before="${{ github.event.before }}"
+            zero_sha="0000000000000000000000000000000000000000"
+
+            if [ -z "$before" ] || [ "$before" = "$zero_sha" ]; then
+              # Первый пуш в ветку
+              changed="true"
+              echo "::notice::First push to branch — treating as new version"
+            elif ! git cat-file -e "${before}^{commit}" 2>/dev/null; then
+              # Коммит недоступен (force-push, squash и т.д.)
+              echo "::warning::Commit $before not found locally — assuming version changed"
+              changed="true"
+            else
+              old_version=$(git show "${before}:Makefile" 2>/dev/null \
+                | sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' \
+                | head -n1 || true)
+
+              echo "::notice::Old version: '${old_version:-<none>}'  →  New: '$new_version'"
+
+              if [ "${old_version:-}" != "$new_version" ]; then
+                changed="true"
+              fi
+            fi
           fi
 
-      - name: Prepare Python
-        if: steps.version_check.outputs.changed == 'true'
+          # ── 6. Записываем outputs ─────────────────────────────
+          {
+            echo "changed=$changed"
+            echo "version=$new_version"
+            echo "tag=$tag"
+            echo "prev_tag=${prev_tag:-}"
+            echo "tag_exists=$tag_exists"
+          } >> "$GITHUB_OUTPUT"
+
+          # ── 7. Job Summary — пункт 7 чек-листа ───────────────
+          {
+            echo "## 🔍 Version Detection"
+            echo ""
+            echo "| Параметр | Значение |"
+            echo "|----------|----------|"
+            echo "| Текущая версия  | \`$new_version\` |"
+            echo "| Тег             | \`$tag\` |"
+            echo "| Тег существует  | $tag_exists |"
+            echo "| Предыдущий тег  | \`${prev_tag:-none}\` |"
+            echo "| Релиз нужен     | **$changed** |"
+            echo "| Триггер         | \`${{ github.event_name }}\` |"
+            echo "| force_release   | \`${{ inputs.force_release || 'N/A' }}\` |"
+            echo "| dry_run         | \`${{ inputs.dry_run || 'N/A' }}\` |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+
+# ──────────────────────────────────────────────────────────────
+# JOB 2 — Сборка проекта в фиксированном контейнере
+# permissions: contents: read
+# ──────────────────────────────────────────────────────────────
+  build:
+    name: "🔨 Build ${{ needs.detect-version.outputs.tag }}"
+    runs-on: ubuntu-latest
+    needs: detect-version
+
+    # Запускаем только если релиз нужен и тег ещё не существует
+    if: |
+      needs.detect-version.outputs.changed    == 'true' &&
+      needs.detect-version.outputs.tag_exists == 'false'
+
+    permissions:
+      contents: read   # только читаем исходники
+
+    # Пункт 1: фиксированный образ через env-константу
+    container:
+      image: devkitpro/devkita64:20251231
+      options: --user root
+
+    outputs:
+      build_time: ${{ steps.build.outputs.build_time }}
+      file_size:  ${{ steps.build.outputs.file_size }}
+
+    steps:
+      - name: Checkout (shallow — история не нужна)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configure git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # Пункт 2: кэширование объектников
+      - name: Cache build objects
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/
+            .cache/
+          key: devkit-build-${{ runner.os }}-${{ hashFiles('Makefile', 'src/**', 'include/**') }}
+          restore-keys: |
+            devkit-build-${{ runner.os }}-
+
+      # ── Основная сборка ──────────────────────────────────────
+      - name: Build
+        id: build
+        shell: bash
         run: |
-          set -e
-          v=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' Makefile | head -n1)
-          tag="v${v}"
+          set -euo pipefail
 
-          prev_tag=$(git tag --list 'v*' --sort=-version:refname | grep -v "^${tag}$" | head -n1 || true)
-          if [ -n "$prev_tag" ]; then
-            changes=$(git log --pretty=format:'- %s' "${prev_tag}..HEAD")
-          else
-            changes=$(git log --pretty=format:'- %s')
+          echo "::group::make output"
+          start=$(date +%s)
+
+          make -j"$(nproc)"
+
+          end=$(date +%s)
+          build_time=$((end - start))
+          echo "::endgroup::"
+
+          # Пункт 3: проверяем .ovl артефакт
+          ovl="${{ env.ARTIFACT_OVL }}"
+
+          if [ ! -f "$ovl" ]; then
+            echo "::error::Artifact '$ovl' not found after make!"
+            echo "Files in workspace:"
+            find . -maxdepth 2 -type f | sort
+            exit 1
           fi
+
+          file_size=$(du -sh "$ovl" | cut -f1)
+          echo "::notice::Build OK in ${build_time}s — $ovl (${file_size})"
 
           {
-            echo "# Ryazha Status Monitor ${v}"
-            echo
-            echo "## Описание релиза"
-            echo
-            echo "Автоматический релиз версии ${v}."
-            echo
-            echo "## Изменения"
-            echo
-            if [ -n "$changes" ]; then
-              echo "$changes"
-            else
-              echo "- Изменения отсутствуют."
-            fi
-            echo
-            echo "## Техническая информация"
-            echo
-            echo "- Версия: ${v}"
-            echo "- Коммит: ${GITHUB_SHA}"
-            if [ -n "$prev_tag" ]; then
-              echo "- Предыдущий тег: ${prev_tag}"
-            else
-              echo "- Предыдущий тег: отсутствует"
-            fi
-            echo
-          } > release-notes.md
+            echo "build_time=${build_time}s"
+            echo "file_size=$file_size"
+          } >> "$GITHUB_OUTPUT"
 
-      - name: Get version
-        if: steps.version_check.outputs.changed == 'true'
-        id: version
+      # Пункт 3: генерируем SHA256 для артефакта
+      - name: Generate SHA256 checksum
+        shell: bash
         run: |
-          v=$(sed -nE 's/^APP_VERSION[[:space:]]*:?=[[:space:]]*([0-9]+(\.[0-9]+)*).*/\1/p' Makefile | head -n1)
-          echo "value=$v" >> "$GITHUB_OUTPUT"
+          set -euo pipefail
+          sha256sum "${{ env.ARTIFACT_OVL }}" \
+            > "${{ env.ARTIFACT_OVL }}.sha256"
+          echo "::notice::$(cat ${{ env.ARTIFACT_OVL }}.sha256)"
 
-      - name: Build project
-        if: steps.version_check.outputs.changed == 'true'
-        run: make
+      # Загружаем оба файла как один артефакт Actions
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts-${{ needs.detect-version.outputs.version }}
+          path: |
+            ${{ env.ARTIFACT_OVL }}
+            ${{ env.ARTIFACT_OVL }}.sha256
+          retention-days: 7
+          if-no-files-found: error
 
-      - name: Check if release tag already exists
-        if: steps.version_check.outputs.changed == 'true'
-        id: tag_check
+      # Пункт 7: Build Summary
+      - name: Build summary
+        if: always()
+        shell: bash
         run: |
-          tag="v${{ steps.version.outputs.value }}"
-          if git ls-remote --exit-code --tags origin "refs/tags/$tag" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Warning: Tag $tag already exists, skipping release creation"
+          status="${{ job.status }}"
+          icon=$( [ "$status" = "success" ] && echo "✅" || echo "❌" )
+          {
+            echo "## 🔨 Build"
+            echo ""
+            echo "| Параметр    | Значение |"
+            echo "|-------------|----------|"
+            echo "| Артефакт    | \`${{ env.ARTIFACT_OVL }}\` |"
+            echo "| Размер      | ${{ steps.build.outputs.file_size }} |"
+            echo "| Время       | ${{ steps.build.outputs.build_time }} |"
+            echo "| Статус      | $icon $status |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+
+# ──────────────────────────────────────────────────────────────
+# JOB 3 — Генерация Release Notes по Conventional Commits
+# permissions: contents: read
+# ──────────────────────────────────────────────────────────────
+  generate-release-notes:
+    name: "📝 Generate Release Notes"
+    runs-on: ubuntu-latest
+    needs: [detect-version, build]
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout (full history — нужен git log)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # Пункты 4, 7: категоризация + статистика + compare URL
+      - name: Generate categorized release notes
+        shell: bash
+        env:
+          VERSION:  ${{ needs.detect-version.outputs.version }}
+          TAG:      ${{ needs.detect-version.outputs.tag }}
+          PREV_TAG: ${{ needs.detect-version.outputs.prev_tag }}
+        run: |
+          set -euo pipefail
+
+          # ── Диапазон коммитов ──────────────────────────────────
+          if [ -n "$PREV_TAG" ] && git rev-parse "$PREV_TAG" >/dev/null 2>&1; then
+            range="${PREV_TAG}..HEAD"
+            prev_display="$PREV_TAG"
+            compare_url="${{ github.server_url }}/${{ github.repository }}/compare/${PREV_TAG}...${TAG}"
           else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
+            range="HEAD"
+            prev_display="начало истории"
+            compare_url=""
           fi
 
-      - name: Create and push tag
-        if: steps.version_check.outputs.changed == 'true' && steps.tag_check.outputs.exists == 'false'
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          VERSION="${{ steps.version.outputs.value }}"
-          git tag -a "v$VERSION" -m "Release version $VERSION"
-          git push origin "v$VERSION"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ── Коммиты в формате "HASH|SUBJECT" ──────────────────
+          all_commits=$(git log "$range" \
+            --pretty=format:"%h|%s" \
+            --no-merges 2>/dev/null || true)
 
-      - name: Create GitHub release
-        if: steps.version_check.outputs.changed == 'true' && steps.tag_check.outputs.exists == 'false'
-        uses: softprops/action-gh-release@v2
+          commits_count=$(echo "$all_commits" | grep -c '.' || echo 0)
+
+          # ── Diff stats ─────────────────────────────────────────
+          if [ -n "$PREV_TAG" ] && git rev-parse "$PREV_TAG" >/dev/null 2>&1; then
+            diff_stats=$(git diff --stat "${PREV_TAG}..HEAD" \
+              | tail -n1 2>/dev/null || echo "N/A")
+          else
+            diff_stats="N/A"
+          fi
+
+          # ── Категории Conventional Commits ────────────────────
+          # Каждая категория: "иконка|заголовок|regex"
+          declare -a CAT_KEYS=(feat fix perf refactor docs test ci chore other)
+
+          declare -A CAT_TITLE=(
+            [feat]="✨ Новые возможности"
+            [fix]="🐛 Исправления"
+            [perf]="⚡ Производительность"
+            [refactor]="♻️ Рефакторинг"
+            [docs]="📚 Документация"
+            [test]="🧪 Тесты"
+            [ci]="👷 CI/CD"
+            [chore]="🔧 Прочее"
+            [other]="📦 Изменения"
+          )
+
+          declare -A CAT_RE=(
+            [feat]="^feat(\(.+\))?(!)?:"
+            [fix]="^fix(\(.+\))?(!)?:"
+            [perf]="^perf(\(.+\))?(!)?:"
+            [refactor]="^refactor(\(.+\))?(!)?:"
+            [docs]="^docs(\(.+\))?(!)?:"
+            [test]="^test(\(.+\))?(!)?:"
+            [ci]="^ci(\(.+\))?(!)?:"
+            [chore]="^chore(\(.+\))?(!)?:"
+          )
+
+          declare -A groups
+          for k in "${CAT_KEYS[@]}"; do groups[$k]=""; done
+
+          has_breaking="false"
+
+          # ── Парсим каждый коммит ───────────────────────────────
+          while IFS='|' read -r hash subject; do
+            [ -z "$hash" ] && continue
+
+            commit_url="${{ github.server_url }}/${{ github.repository }}/commit/${hash}"
+            line="- [\`${hash}\`](${commit_url}) ${subject}"
+
+            # Проверяем breaking change (! перед :)
+            if echo "$subject" | grep -qE '\w(\(.+\))?!:'; then
+              has_breaking="true"
+            fi
+
+            matched="false"
+            for k in feat fix perf refactor docs test ci chore; do
+              if echo "$subject" | grep -qE "${CAT_RE[$k]}"; then
+                groups[$k]+="${line}"$'\n'
+                matched="true"
+                break
+              fi
+            done
+
+            if [ "$matched" = "false" ]; then
+              groups[other]+="${line}"$'\n'
+            fi
+
+          done <<< "$all_commits"
+
+          # ── Пишем release-notes.md ─────────────────────────────
+          {
+            echo "# ${RELEASE_PREFIX} ${VERSION}"
+            echo ""
+            echo "> 🕐 Автоматический релиз от $(date -u '+%Y-%m-%d %H:%M UTC')"
+            echo ""
+
+            # Breaking changes баннер
+            if [ "$has_breaking" = "true" ]; then
+              echo "> [!CAUTION]"
+              echo "> **⚠️ BREAKING CHANGES** — проверьте совместимость перед обновлением!"
+              echo ""
+            fi
+
+            echo "## 📋 Журнал изменений"
+            echo ""
+
+            any_commits="false"
+            for k in "${CAT_KEYS[@]}"; do
+              if [ -n "${groups[$k]}" ]; then
+                any_commits="true"
+                echo "### ${CAT_TITLE[$k]}"
+                echo ""
+                printf "%s" "${groups[$k]}"
+                echo ""
+              fi
+            done
+
+            if [ "$any_commits" = "false" ]; then
+              echo "_Коммиты в этом диапазоне не найдены._"
+              echo ""
+            fi
+
+            # Пункт 4: статистика и compare URL
+            echo "## 📊 Статистика релиза"
+            echo ""
+            echo "| Параметр | Значение |"
+            echo "|----------|----------|"
+            echo "| Версия           | \`${VERSION}\` |"
+            echo "| Коммитов         | ${commits_count} |"
+            echo "| Изменения        | ${diff_stats} |"
+            echo "| Коммит           | [\`${GITHUB_SHA::8}\`](${{ github.server_url }}/${{ github.repository }}/commit/${GITHUB_SHA}) |"
+            echo "| Предыдущий релиз | \`${prev_display}\` |"
+            echo ""
+
+            if [ -n "$compare_url" ]; then
+              echo "[📜 Полный список изменений ${prev_display} → ${TAG}](${compare_url})"
+              echo ""
+            fi
+
+            echo "---"
+            echo ""
+            echo "_Сгенерировано · [${{ github.workflow }} #${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})_"
+
+          } > release-notes.md
+
+          echo "::notice::Release notes written ($(wc -l < release-notes.md) lines)"
+
+          # Preview первых 20 строк в логе
+          echo "::group::release-notes.md preview"
+          head -n 20 release-notes.md
+          echo "::endgroup::"
+
+      - name: Upload release notes
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: v${{ steps.version.outputs.value }}
-          name: Ryazha-Status-Monitor v${{ steps.version.outputs.value }}
-          body_path: release-notes.md
-          files: |
-            Ryazha-Status-Monitor.ovl
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: release-notes-${{ needs.detect-version.outputs.version }}
+          path: release-notes.md
+          retention-days: 7
+
+      # Пункт 7: Notes Summary
+      - name: Notes summary
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "## 📝 Release Notes"
+            echo ""
+            echo "| Параметр | Значение |"
+            echo "|----------|----------|"
+            echo "| Файл   | \`release-notes.md\` |"
+            echo "| Строк  | $(wc -l < release-notes.md 2>/dev/null || echo 'N/A') |"
+            echo "| Статус | ✅ |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+
+# ──────────────────────────────────────────────────────────────
+# JOB 4 — Создание тега и публикация релиза
+# permissions: contents: write  (пишем тег и релиз)
+# ──────────────────────────────────────────────────────────────
+  publish-release:
+    name: "🚀 Publish ${{ needs.detect-version.outputs.tag }}"
+    runs-on: ubuntu-latest
+    needs: [detect-version, build, generate-release-notes]
+
+    # Пункт 8: write только там где реально нужно
+    permissions:
+      contents: write
+
+    environment:
+      name: release
+      url:  ${{ steps.create_release.outputs.url }}
+
+    steps:
+      - name: Checkout (для git tag)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Configure git safe.directory
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+
+      # ── Скачиваем артефакты из предыдущих jobs ───────────────
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: release-artifacts-${{ needs.detect-version.outputs.version }}
+          path: ./artifacts
+
+      - name: Download release notes
+        uses: actions/download-artifact@v4
+        with:
+          name: release-notes-${{ needs.detect-version.outputs.version }}
+          path: ./
+
+      # Пункт 3: верифицируем все нужные файлы
+      - name: Verify artifact integrity
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          ovl="./artifacts/${{ env.ARTIFACT_OVL }}"
+          sha="./artifacts/${{ env.ARTIFACT_OVL }}.sha256"
+
+          for f in "$ovl" "$sha"; do
+            if [ ! -f "$f" ]; then
+              echo "::error::Required file not found: $f"
+              ls -la ./artifacts/ || true
+              exit 1
+            fi
+          done
+
+          # Верифицируем контрольную сумму
+          (cd ./artifacts && sha256sum -c "${{ env.ARTIFACT_OVL }}.sha256")
+          echo "::notice::SHA256 verified OK"
+          echo "::notice::$(cat $sha)"
+
+      # ── Создаём аннотированный git tag ───────────────────────
+      - name: Create and push tag
+        id: create_tag
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name  "github-actions[bot]"
+
+          TAG="${{ needs.detect-version.outputs.tag }}"
+          VERSION="${{ needs.detect-version.outputs.version }}"
+
+          # Race-condition guard: повторная проверка перед пушем
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "::error::Tag 
