@@ -13,6 +13,7 @@ private:
     bool emaInitialized = false;
     float emaFps = 0.0f;
     float emaHz = 0.0f;
+    static constexpr float kCounterEmaAlpha = 0.20f;
 
     // Repositioning variables
     int frameOffsetX = 0;
@@ -331,9 +332,8 @@ public:
             emaHz = currentHz;
             emaInitialized = true;
         } else if (settings.useEmaCounter) {
-            const float alpha = std::clamp(settings.emaAlpha, 0.01f, 1.0f);
-            emaFps += alpha * (currentFps - emaFps);
-            emaHz += alpha * (currentHz - emaHz);
+            emaFps += kCounterEmaAlpha * (currentFps - emaFps);
+            emaHz += kCounterEmaAlpha * (currentHz - emaHz);
         } else {
             emaFps = currentFps;
             emaHz = currentHz;

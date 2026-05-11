@@ -1515,7 +1515,6 @@ struct FpsCounterSettings {
     //int setPos;
     bool useIntegerCounter;
     bool useEmaCounter;
-    float emaAlpha;
     bool disableScreenshots;
     int frameOffsetX;
     int frameOffsetY;
@@ -2113,7 +2112,6 @@ ALWAYS_INLINE void GetConfigSettings(FpsCounterSettings* settings) {
     settings->refreshRate = 30;
     settings->useIntegerCounter = false;
     settings->useEmaCounter = true;
-    settings->emaAlpha = 0.20f;
     settings->disableScreenshots = false;
 
     settings->frameOffsetX = 10;
@@ -2217,14 +2215,6 @@ ALWAYS_INLINE void GetConfigSettings(FpsCounterSettings* settings) {
         key = it->second;
         convertToUpper(key);
         settings->useEmaCounter = (key != "FALSE");
-    }
-
-    it = section.find("ema_alpha");
-    if (it != section.end()) {
-        const float parsedAlpha = std::strtof(it->second.c_str(), nullptr);
-        if (parsedAlpha > 0.0f) {
-            settings->emaAlpha = std::clamp(parsedAlpha, 0.01f, 1.0f);
-        }
     }
 
     // Process disable screenshots
