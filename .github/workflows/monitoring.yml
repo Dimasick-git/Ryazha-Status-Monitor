@@ -545,8 +545,17 @@ jobs:
         run: |
           set -euo pipefail
           echo "::group::Installing tools"
-          apt-get update -qq
-          apt-get install -y -qq cppcheck cloc 2>/dev/null || true
+          APT_PREFIX=""
+          if command -v sudo >/dev/null 2>&1; then
+            APT_PREFIX="sudo"
+          fi
+
+          if [ "$(id -u)" -eq 0 ] || [ -n "$APT_PREFIX" ]; then
+            $APT_PREFIX apt-get update -qq || true
+            $APT_PREFIX apt-get install -y -qq cppcheck cloc || true
+          else
+            echo "No root/sudo privileges on runner. Skipping apt install."
+          fi
           echo "::endgroup::"
 
       - name: Performance analysis
