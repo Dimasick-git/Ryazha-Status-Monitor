@@ -1,209 +1,953 @@
 name: Monitoring and Analytics
 
+# ──────────────────────────────────────────────────────────────
+# TRIGGERS
+# ──────────────────────────────────────────────────────────────
 on:
   schedule:
-    - cron: '0 */6 * * *'  # Every 6 hours
+    - cron: '0 */6 * * *'   # Каждые 6 часов
   workflow_dispatch:
+    inputs:
+      skip_security:
+        description: "Skip security scan"
+        required: false
+        default: "false"
+        type: boolean
+      skip_performance:
+        description: "Skip performance monitor"
+        required: false
+        default: "false"
+        type: boolean
+      debug:
+        description: "Enable debug output"
+        required: false
+        default: "false"
+        type: boolean
   push:
-    branches: [ main ]
+    branches: [main]
+    paths:
+      - "source/**"
+      - "include/**"
+      - "Makefile"
+      - "README.md"
 
+# ──────────────────────────────────────────────────────────────
+# TOP-LEVEL PERMISSIONS
+# ──────────────────────────────────────────────────────────────
+permissions:
+  contents: read
+
+concurrency:
+  group: monitoring-${{ github.ref }}
+  cancel-in-progress: true
+
+# ──────────────────────────────────────────────────────────────
+# GLOBAL CONSTANTS
+# ──────────────────────────────────────────────────────────────
+env:
+  REPO_NAME:      "Ryazha-Status-Monitor"
+  REPO_URL:       "https://github.com/Dimasick-git/Ryazha-Status-Monitor"
+  SOURCE_DIR:     "source"
+  REQUIRED_FILES: "README.md LICENSE Makefile source/main.cpp"
+
+# ══════════════════════════════════════════════════════════════
 jobs:
+
+# ──────────────────────────────────────────────────────────────
+# JOB 1 — Проверка здоровья репозитория
+# ──────────────────────────────────────────────────────────────
   health-check:
+    name: "🏥 Health Check"
     runs-on: ubuntu-latest
-    
+
+    permissions:
+      contents: read
+
+    outputs:
+      status:        ${{ steps.check.outputs.status }}
+      missing_files: ${{ steps.check.outputs.missing_files }}
+      file_count:    ${{ steps.check.outputs.file_count }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Check repository health
+        with:
+          fetch-depth: 1
+
+      - name: Repository health check
+        id: check
+        shell: bash
         run: |
-          echo "🔍 Checking repository health..."
-          
-          # Check if essential files exist
-          files=("README.md" "LICENSE" "Makefile" "source/main.cpp")
-          for file in "${files[@]}"; do
+          set -euo pipefail
+
+          status="passed"
+          missing_files=""
+          warnings=0
+          errors=0
+
+          echo "::group::File existence checks"
+
+          # ── Обязательные файлы ─────────────────────────────────
+          for file in ${{ env.REQUIRED_FILES }}; do
             if [ -f "$file" ]; then
-              echo "✅ $file exists"
+              echo "✅ $file — exists"
             else
-              echo "❌ $file missing"
-              exit 1
+              echo "::error::Required file missing: $file"
+              missing_files="${missing_files} ${file}"
+              status="failed"
+              errors=$((errors + 1))
             fi
           done
-          
-          # Check file sizes
-          if [ -s "README.md" ]; then
-            echo "✅ README.md has content"
-          else
-            echo "❌ README.md is empty"
-            exit 1
-          fi
-          
-          echo "🎉 Repository health check passed"
 
+          echo "::endgroup::"
+
+          echo "::group::File content checks"
+
+          # ── Проверка наполненности ключевых файлов ─────────────
+          for file in README.md Makefile; do
+            if [ -f "$file" ]; then
+              lines=$(wc -l < "$file")
+              size=$(wc -c < "$file")
+              if [ "$size" -lt 10 ]; then
+                echo "::warning::$file appears to be nearly empty (${size} bytes)"
+                warnings=$((warnings + 1))
+              else
+                echo "✅ $file — ${lines} lines, ${size} bytes"
+              fi
+            fi
+          done
+
+          echo "::endgroup::"
+
+          echo "::group::Source directory checks"
+
+          # ── Проверка source/ ───────────────────────────────────
+          if [ -d "${{ env.SOURCE_DIR }}" ]; then
+            cpp_count=$(find "${{ env.SOURCE_DIR }}" -name "*.cpp" | wc -l)
+            hpp_count=$(find "${{ env.SOURCE_DIR }}" -name "*.hpp" | wc -l)
+            echo "✅ source/ — ${cpp_count} .cpp, ${hpp_count} .hpp"
+
+            if [ "$cpp_count" -eq 0 ]; then
+              echo "::warning::No .cpp files found in source/"
+              warnings=$((warnings + 1))
+            fi
+          else
+            echo "::error::source/ directory not found"
+            status="failed"
+            errors=$((errors + 1))
+          fi
+
+          echo "::endgroup::"
+
+          # ── Итоги ──────────────────────────────────────────────
+          file_count=$(find . -type f | wc -l)
+
+          echo "::notice::Health check: $status | errors=$errors | warnings=$warnings"
+
+          {
+            echo "status=$status"
+            echo "missing_files=${missing_files# }"
+            echo "file_count=$file_count"
+          } >> "$GITHUB_OUTPUT"
+
+          # ── Summary ────────────────────────────────────────────
+          icon=$( [ "$status" = "passed" ] && echo "✅" || echo "❌" )
+          {
+            echo "## 🏥 Health Check"
+            echo ""
+            echo "| Параметр | Значение |"
+            echo "|----------|----------|"
+            echo "| Статус          | $icon $status |"
+            echo "| Ошибок          | $errors |"
+            echo "| Предупреждений  | $warnings |"
+            echo "| Всего файлов    | $file_count |"
+            if [ -n "${missing_files# }" ]; then
+              echo "| Отсутствующие   | \`${missing_files# }\` |"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Завершаем с ошибкой если есть критические проблемы
+          [ "$status" = "passed" ] || exit 1
+
+# ──────────────────────────────────────────────────────────────
+# JOB 2 — Сбор метрик кода
+# ──────────────────────────────────────────────────────────────
   metrics:
+    name: "📊 Code Metrics"
     runs-on: ubuntu-latest
     needs: health-check
-    
+
+    permissions:
+      contents: read
+
+    outputs:
+      total_lines: ${{ steps.collect.outputs.total_lines }}
+      total_files: ${{ steps.collect.outputs.total_files }}
+      repo_size:   ${{ steps.collect.outputs.repo_size }}
+      cpp_files:   ${{ steps.collect.outputs.cpp_files }}
+      hpp_files:   ${{ steps.collect.outputs.hpp_files }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Collect metrics
+        with:
+          fetch-depth: 0   # нужен для git log статистики
+
+      - name: Collect code metrics
+        id: collect
+        shell: bash
         run: |
-          echo "📊 Collecting project metrics..."
-          
-          # Count lines of code
-          echo "📈 Lines of code:"
-          find source -name "*.cpp" -o -name "*.hpp" | xargs wc -l | tail -1 || echo "No source files found"
-          
-          # Count total files
-          echo "📁 Total files:"
-          find . -type f | wc -l
-          
-          # Check repository size
-          echo "📦 Repository size:"
-          du -sh .
-          
-          # Check dependencies
-          echo "📦 Dependencies:"
-          if [ -f ".gitmodules" ]; then
-            echo "Git submodules found"
-            cat .gitmodules
-          fi
-          
-          echo "📊 Build configuration:"
-          if [ -f "Makefile" ]; then
-            echo "✅ Makefile found"
-            grep -E "^(TARGET|LIBS|INCLUDE)" Makefile || echo "No build config found"
+          set -euo pipefail
+
+          echo "::group::Lines of code"
+
+          cpp_files=$(find "${{ env.SOURCE_DIR }}" -name "*.cpp" 2>/dev/null | wc -l || echo 0)
+          hpp_files=$(find "${{ env.SOURCE_DIR }}" -name "*.hpp" 2>/dev/null | wc -l || echo 0)
+
+          # Считаем строки по категориям
+          if [ "$cpp_files" -gt 0 ] || [ "$hpp_files" -gt 0 ]; then
+            total_lines=$(find "${{ env.SOURCE_DIR }}" \
+              \( -name "*.cpp" -o -name "*.hpp" \) \
+              | xargs wc -l 2>/dev/null \
+              | tail -1 \
+              | awk '{print $1}' || echo 0)
+
+            # Строки по файлам
+            find "${{ env.SOURCE_DIR }}" \
+              \( -name "*.cpp" -o -name "*.hpp" \) \
+              | xargs wc -l 2>/dev/null \
+              | sort -rn \
+              | head -10 \
+              | while read -r lines file; do
+                  printf "  %6d  %s\n" "$lines" "$file"
+                done
+          else
+            total_lines=0
+            echo "No source files found"
           fi
 
+          echo "::endgroup::"
+
+          echo "::group::Repository structure"
+
+          total_files=$(find . -type f | wc -l)
+          repo_size=$(du -sh . | cut -f1)
+
+          # Разбивка по типам файлов
+          echo "File types breakdown:"
+          find . -type f -name "*.*" | grep -v ".git/" \
+            | sed 's/.*\.//' \
+            | sort | uniq -c | sort -rn \
+            | head -10 \
+            | while read -r count ext; do
+                printf "  %5d  .%s\n" "$count" "$ext"
+              done
+
+          echo "::endgroup::"
+
+          echo "::group::Git statistics"
+
+          # Статистика коммитов за последние 30 дней
+          commits_30d=$(git log \
+            --since="30 days ago" \
+            --oneline 2>/dev/null | wc -l || echo 0)
+
+          # Топ контрибьюторов
+          echo "Top contributors:"
+          git log --pretty=format:"%an" 2>/dev/null \
+            | sort | uniq -c | sort -rn \
+            | head -5 \
+            | while read -r count name; do
+                printf "  %5d  %s\n" "$count" "$name"
+              done
+
+          # Последний коммит
+          last_commit_date=$(git log -1 --format="%ci" 2>/dev/null || echo "N/A")
+          last_commit_msg=$(git log -1 --format="%s" 2>/dev/null || echo "N/A")
+
+          echo "::endgroup::"
+
+          echo "::group::Makefile analysis"
+
+          if [ -f "Makefile" ]; then
+            # Извлекаем конфигурацию сборки
+            echo "Build targets:"
+            grep -E "^[a-zA-Z_-]+:" Makefile \
+              | grep -v "^#" \
+              | cut -d: -f1 \
+              | head -10 \
+              | while read -r target; do
+                  echo "  - $target"
+                done
+
+            echo "Build variables:"
+            grep -E "^(TARGET|LIBS|INCLUDE|APP_VERSION|APP_TITLE)" Makefile \
+              | head -10 \
+              || echo "  No standard build vars found"
+          fi
+
+          echo "::endgroup::"
+
+          echo "::group::Submodules"
+
+          if [ -f ".gitmodules" ]; then
+            echo "Git submodules:"
+            cat .gitmodules
+          else
+            echo "No submodules"
+          fi
+
+          echo "::endgroup::"
+
+          # ── Записываем outputs ─────────────────────────────────
+          {
+            echo "total_lines=$total_lines"
+            echo "total_files=$total_files"
+            echo "repo_size=$repo_size"
+            echo "cpp_files=$cpp_files"
+            echo "hpp_files=$hpp_files"
+          } >> "$GITHUB_OUTPUT"
+
+          # ── Summary ────────────────────────────────────────────
+          {
+            echo "## 📊 Code Metrics"
+            echo ""
+            echo "### 📁 Структура"
+            echo ""
+            echo "| Параметр | Значение |"
+            echo "|----------|----------|"
+            echo "| Всего файлов       | $total_files |"
+            echo "| Размер репозитория | $repo_size |"
+            echo "| .cpp файлов        | $cpp_files |"
+            echo "| .hpp файлов        | $hpp_files |"
+            echo "| Строк кода (total) | $total_lines |"
+            echo ""
+            echo "### 📈 Git активность"
+            echo ""
+            echo "| Параметр | Значение |"
+            echo "|----------|----------|"
+            echo "| Коммитов за 30 дней | $commits_30d |"
+            echo "| Последний коммит    | $last_commit_date |"
+            echo "| Сообщение           | $last_commit_msg |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+# ──────────────────────────────────────────────────────────────
+# JOB 3 — Сканирование безопасности
+# ──────────────────────────────────────────────────────────────
   security-scan:
+    name: "🔒 Security Scan"
     runs-on: ubuntu-latest
     needs: health-check
-    
+
+    if: ${{ inputs.skip_security != 'true' }}
+
+    permissions:
+      contents: read
+
+    outputs:
+      status:          ${{ steps.scan.outputs.status }}
+      secrets_found:   ${{ steps.scan.outputs.secrets_found }}
+      sensitive_found: ${{ steps.scan.outputs.sensitive_found }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
+        with:
+          fetch-depth: 1
+
       - name: Security scan
+        id: scan
+        shell: bash
         run: |
-          echo "🔒 Running security scan..."
-          
-          # Check for sensitive files
-          sensitive_files=("*.key" "*.pem" "*.p12" "id_rsa" "config.ini")
-          for pattern in "${sensitive_files[@]}"; do
-            if find . -name "$pattern" | grep -q .; then
-              echo "⚠️  Warning: Sensitive files found: $pattern"
+          set -euo pipefail
+
+          status="passed"
+          secrets_found=0
+          sensitive_found=0
+          issues=()
+
+          echo "::group::Sensitive file patterns"
+
+          # ── Проверка чувствительных файлов ────────────────────
+          sensitive_patterns=(
+            "*.key" "*.pem" "*.p12" "*.pfx"
+            "id_rsa" "id_dsa" "id_ecdsa" "id_ed25519"
+            "*.keystore" "*.jks"
+            ".env" ".env.local" ".env.production"
+            "secrets.yml" "secrets.yaml"
+            "config.ini" "config.cfg"
+          )
+
+          for pattern in "${sensitive_patterns[@]}"; do
+            found=$(find . -name "$pattern" \
+              -not -path "./.git/*" \
+              -not -path "*/node_modules/*" \
+              2>/dev/null || true)
+
+            if [ -n "$found" ]; then
+              echo "::warning::Sensitive file pattern '$pattern' found:"
+              echo "$found"
+              sensitive_found=$((sensitive_found + 1))
+              issues+=("Sensitive file: $pattern")
             fi
           done
-          
-          # Check for hardcoded secrets
-          echo "🔍 Checking for hardcoded secrets..."
-          if grep -r -i "password\|secret\|key\|token" --include="*.cpp" --include="*.hpp" --include="*.md" . | grep -v "example\|template"; then
-            echo "⚠️  Potential secrets found"
-          else
-            echo "✅ No obvious secrets found"
+
+          if [ "$sensitive_found" -eq 0 ]; then
+            echo "✅ No sensitive files found"
           fi
 
+          echo "::endgroup::"
+
+          echo "::group::Hardcoded secrets detection"
+
+          # ── Паттерны секретов ──────────────────────────────────
+          # Более точные regex чтобы избежать ложных срабатываний
+          declare -A SECRET_PATTERNS=(
+            ["AWS Access Key"]="AKIA[0-9A-Z]{16}"
+            ["AWS Secret Key"]="[aA]ws.{0,20}['\"][0-9a-zA-Z/+]{40}['\"]"
+            ["GitHub Token"]="gh[pousr]_[A-Za-z0-9]{36}"
+            ["Generic API Key"]="api[_-]?key[[:space:]]*=[[:space:]]*['\"][a-zA-Z0-9]{20,}['\"]"
+            ["Generic Secret"]="secret[[:space:]]*=[[:space:]]*['\"][a-zA-Z0-9]{8,}['\"]"
+            ["Password in code"]="password[[:space:]]*=[[:space:]]*['\"][^'\"]{4,}['\"]"
+            ["Private Key Header"]="-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----"
+          )
+
+          for pattern_name in "${!SECRET_PATTERNS[@]}"; do
+            pattern="${SECRET_PATTERNS[$pattern_name]}"
+            # Ищем в исходниках, исключаем шаблоны/примеры/тесты
+            matches=$(grep -rn -E "$pattern" \
+              --include="*.cpp" \
+              --include="*.hpp" \
+              --include="*.h" \
+              --include="*.c" \
+              --include="*.py" \
+              --include="*.json" \
+              . 2>/dev/null \
+              | grep -iv "example\|template\|sample\|test\|dummy\|placeholder\|YOUR_" \
+              | grep -v ".git/" \
+              || true)
+
+            if [ -n "$matches" ]; then
+              echo "::warning::Potential '$pattern_name' found:"
+              # Маскируем значения в выводе
+              echo "$matches" | sed 's/=.*/= [REDACTED]/'
+              secrets_found=$((secrets_found + 1))
+              issues+=("Potential secret: $pattern_name")
+              status="warning"
+            fi
+          done
+
+          if [ "$secrets_found" -eq 0 ]; then
+            echo "✅ No hardcoded secrets detected"
+          fi
+
+          echo "::endgroup::"
+
+          echo "::group::File permissions check"
+
+          # ── Проверка прав файлов ───────────────────────────────
+          world_writable=$(find . \
+            -not -path "./.git/*" \
+            -perm -o+w \
+            -type f \
+            2>/dev/null || true)
+
+          if [ -n "$world_writable" ]; then
+            echo "::warning::World-writable files found:"
+            echo "$world_writable"
+            issues+=("World-writable files")
+          else
+            echo "✅ No world-writable files"
+          fi
+
+          echo "::endgroup::"
+
+          echo "::group::Dependency check"
+
+          # ── Проверка .gitmodules на подозрительные URL ─────────
+          if [ -f ".gitmodules" ]; then
+            # Ищем HTTP (не HTTPS) submodule URLs
+            http_modules=$(grep "url" .gitmodules \
+              | grep "http://" \
+              || true)
+
+            if [ -n "$http_modules" ]; then
+              echo "::warning::Submodules using insecure HTTP:"
+              echo "$http_modules"
+              issues+=("Insecure submodule URLs")
+            else
+              echo "✅ All submodule URLs use HTTPS"
+            fi
+          fi
+
+          echo "::endgroup::"
+
+          # ── Итоги ──────────────────────────────────────────────
+          total_issues=${#issues[@]}
+          echo "::notice::Security scan: $status | issues=$total_issues"
+
+          {
+            echo "status=$status"
+            echo "secrets_found=$secrets_found"
+            echo "sensitive_found=$sensitive_found"
+          } >> "$GITHUB_OUTPUT"
+
+          # ── Summary ────────────────────────────────────────────
+          icon=$( [ "$status" = "passed" ] && echo "✅" || echo "⚠️" )
+          {
+            echo "## 🔒 Security Scan"
+            echo ""
+            echo "| Параметр | Значение |"
+            echo "|----------|----------|"
+            echo "| Статус                 | $icon $status |"
+            echo "| Чувствительных файлов  | $sensitive_found |"
+            echo "| Потенциальных секретов | $secrets_found |"
+            echo "| Всего проблем          | $total_issues |"
+            echo ""
+            if [ "${#issues[@]}" -gt 0 ]; then
+              echo "### ⚠️ Найденные проблемы"
+              echo ""
+              for issue in "${issues[@]}"; do
+                echo "- $issue"
+              done
+            else
+              echo "### ✅ Проблем безопасности не обнаружено"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+# ──────────────────────────────────────────────────────────────
+# JOB 4 — Мониторинг производительности
+# ──────────────────────────────────────────────────────────────
   performance-monitor:
+    name: "⚡ Performance Monitor"
     runs-on: ubuntu-latest
     needs: health-check
-    
+
+    if: ${{ inputs.skip_performance != 'true' }}
+
+    permissions:
+      contents: read
+
+    outputs:
+      status:          ${{ steps.perf.outputs.status }}
+      avg_file_size:   ${{ steps.perf.outputs.avg_file_size }}
+      largest_file:    ${{ steps.perf.outputs.largest_file }}
+      complexity_score: ${{ steps.perf.outputs.complexity_score }}
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        
-      - name: Performance metrics
-        run: |
-          echo "⚡ Collecting performance metrics..."
-          
-          # Check build time simulation
-          start_time=$(date +%s)
-          
-          # Simulate build process
-          echo "🔨 Simulating build process..."
-          sleep 2
-          
-          end_time=$(date +%s)
-          build_time=$((end_time - start_time))
-          
-          echo "📊 Build time: ${build_time}s"
-          
-          # Check code complexity
-          echo "🔄 Code complexity analysis..."
-          if command -v cppcheck &> /dev/null; then
-            cppcheck --quiet --enable=all source/ 2>/dev/null || echo "cppcheck not available"
-          fi
-          
-          echo "📈 Memory usage estimation..."
-          # Simple memory estimation based on file sizes
-          total_size=$(find source -name "*.cpp" -o -name "*.hpp" | xargs wc -c | tail -1 | awk '{print $1}' || echo "0")
-          echo "Estimated code size: ${total_size} bytes"
+        with:
+          fetch-depth: 1
 
+      - name: Install analysis tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "::group::Installing tools"
+          apt-get update -qq
+          apt-get install -y -qq cppcheck cloc 2>/dev/null || true
+          echo "::endgroup::"
+
+      - name: Performance analysis
+        id: perf
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          status="good"
+          complexity_score=0
+
+          echo "::group::File size analysis"
+
+          # ── Анализ размеров файлов ─────────────────────────────
+          if find "${{ env.SOURCE_DIR }}" \
+              \( -name "*.cpp" -o -name "*.hpp" \) \
+              -type f 2>/dev/null | grep -q .; then
+
+            # Топ-5 самых больших файлов
+            echo "Top 5 largest source files:"
+            find "${{ env.SOURCE_DIR }}" \
+              \( -name "*.cpp" -o -name "*.hpp" \) \
+              -type f \
+              | xargs du -sh 2>/dev/null \
+              | sort -rh \
+              | head -5
+
+            largest_file=$(find "${{ env.SOURCE_DIR }}" \
+              \( -name "*.cpp" -o -name "*.hpp" \) \
+              -type f \
+              | xargs du -sh 2>/dev/null \
+              | sort -rh \
+              | head -1 \
+              | awk '{print $2}' || echo "N/A")
+
+            # Средний размер файла
+            total_size=$(find "${{ env.SOURCE_DIR }}" \
+              \( -name "*.cpp" -o -name "*.hpp" \) \
+              -type f \
+              | xargs wc -c 2>/dev/null \
+              | tail -1 \
+              | awk '{print $1}' || echo 0)
+
+            file_count=$(find "${{ env.SOURCE_DIR }}" \
+              \( -name "*.cpp" -o -name "*.hpp" \) \
+              -type f \
+              | wc -l || echo 1)
+
+            avg_file_size=$((total_size / (file_count > 0 ? file_count : 1)))
+
+            echo "Average file size: ${avg_file_size} bytes"
+            echo "Largest file: $largest_file"
+
+            # Предупреждение если файл > 50KB
+            if [ "$avg_file_size" -gt 51200 ]; then
+              echo "::warning::Average file size is large (${avg_file_size} bytes). Consider splitting."
+              status="warning"
+            fi
+          else
+            echo "No source files for analysis"
+            largest_file="N/A"
+            avg_file_size=0
+          fi
+
+          echo "::endgroup::"
+
+          echo "::group::Code complexity (cppcheck)"
+
+          # ── Статический анализ cppcheck ────────────────────────
+          if command -v cppcheck &>/dev/null; then
+            echo "Running cppcheck..."
+
+            cppcheck_output=$(cppcheck \
+              --quiet \
+              --enable=warning,performance,portability \
+              --error-exitcode=0 \
+              --template="{file}:{line}: [{severity}] {message} ({id})" \
+              "${{ env.SOURCE_DIR }}/" 2>&1 || true)
+
+            if [ -n "$cppcheck_output" ]; then
+              echo "$cppcheck_output"
+
+              # Считаем проблемы по severity
+              errors=$(echo "$cppcheck_output" | grep -c "\[error\]" || echo 0)
+              warnings=$(echo "$cppcheck_output" | grep -c "\[warning\]" || echo 0)
+              perfs=$(echo "$cppcheck_output" | grep -c "\[performance\]" || echo 0)
+
+              complexity_score=$((errors * 10 + warnings * 3 + perfs * 1))
+              echo "Complexity score: $complexity_score (errors=$errors, warnings=$warnings, perf=$perfs)"
+
+              if [ "$errors" -gt 0 ]; then
+                status="warning"
+                echo "::warning::cppcheck found $errors error(s)"
+              fi
+            else
+              echo "✅ cppcheck: no issues found"
+              complexity_score=0
+            fi
+          else
+            echo "cppcheck not available — skipping"
+            complexity_score=-1
+          fi
+
+          echo "::endgroup::"
+
+          echo "::group::CLOC analysis"
+
+          # ── Детальный подсчёт строк через cloc ─────────────────
+          if command -v cloc &>/dev/null; then
+            echo "Detailed code statistics:"
+            cloc "${{ env.SOURCE_DIR }}" \
+              --quiet \
+              --exclude-dir=.git \
+              2>/dev/null || echo "cloc analysis skipped"
+          else
+            echo "cloc not available"
+          fi
+
+          echo "::endgroup::"
+
+          echo "::group::Makefile complexity"
+
+          # ── Анализ сложности Makefile ──────────────────────────
+          if [ -f "Makefile" ]; then
+            make_targets=$(grep -cE "^[a-zA-Z_-]+:" Makefile || echo 0)
+            make_lines=$(wc -l < Makefile)
+            echo "Makefile: $make_lines lines, $make_targets targets"
+
+            if [ "$make_targets" -gt 20 ]; then
+              echo "::warning::Makefile has many targets ($make_targets). Consider splitting."
+            fi
+          fi
+
+          echo "::endgroup::"
+
+          # ── Outputs ────────────────────────────────────────────
+          {
+            echo "status=$status"
+            echo "avg_file_size=${avg_file_size:-0}"
+            echo "largest_file=${largest_file:-N/A}"
+            echo "complexity_score=$complexity_score"
+          } >> "$GITHUB_OUTPUT"
+
+          # ── Score иконка ───────────────────────────────────────
+          if [ "$complexity_score" -eq 0 ]; then
+            score_icon="🟢"
+          elif [ "$complexity_score" -lt 10 ]; then
+            score_icon="🟡"
+          else
+            score_icon="🔴"
+          fi
+
+          # ── Summary ────────────────────────────────────────────
+          perf_icon=$( [ "$status" = "good" ] && echo "✅" || echo "⚠️" )
+          {
+            echo "## ⚡ Performance Monitor"
+            echo ""
+            echo "| Параметр | Значение |"
+            echo "|----------|----------|"
+            echo "| Статус              | $perf_icon $status |"
+            echo "| Средний размер файла | ${avg_file_size:-0} bytes |"
+            echo "| Наибольший файл     | \`${largest_file:-N/A}\` |"
+            echo "| Complexity score    | $score_icon ${complexity_score} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+# ──────────────────────────────────────────────────────────────
+# JOB 5 — Генерация Dashboard и сводного отчёта
+# ──────────────────────────────────────────────────────────────
   update-dashboard:
+    name: "📈 Update Dashboard"
     runs-on: ubuntu-latest
     needs: [metrics, security-scan, performance-monitor]
-    
+
+    # Запускаем даже если security/performance были skipped
+    if: always() && needs.metrics.result == 'success'
+
+    permissions:
+      contents: read
+
     steps:
-      - name: Update dashboard
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Generate metrics dashboard
+        id: dashboard
+        shell: bash
+        env:
+          TOTAL_LINES:     ${{ needs.metrics.outputs.total_lines }}
+          TOTAL_FILES:     ${{ needs.metrics.outputs.total_files }}
+          REPO_SIZE:       ${{ needs.metrics.outputs.repo_size }}
+          CPP_FILES:       ${{ needs.metrics.outputs.cpp_files }}
+          HPP_FILES:       ${{ needs.metrics.outputs.hpp_files }}
+          SEC_STATUS:      ${{ needs.security-scan.outputs.status }}
+          SEC_SECRETS:     ${{ needs.security-scan.outputs.secrets_found }}
+          PERF_STATUS:     ${{ needs.performance-monitor.outputs.status }}
+          COMPLEXITY:      ${{ needs.performance-monitor.outputs.complexity_score }}
+          AVG_SIZE:        ${{ needs.performance-monitor.outputs.avg_file_size }}
         run: |
-          echo "📊 Updating monitoring dashboard..."
-          
-          # Create metrics summary
+          set -euo pipefail
+
+          timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          # ── JSON метрики ───────────────────────────────────────
           cat > metrics-summary.json << EOF
           {
-            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "repository": "Ryazha-Status-Monitor",
-            "health": "passed",
-            "last_build": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
-            "metrics": {
-              "files": $(find . -type f | wc -l),
-              "lines_of_code": $(find source -name "*.cpp" -o -name "*.hpp" | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}' || echo "0"),
-              "security_status": "passed",
-              "performance_status": "good"
+            "timestamp": "${timestamp}",
+            "repository": "${{ env.REPO_NAME }}",
+            "run_id": "${{ github.run_id }}",
+            "run_number": ${{ github.run_number }},
+            "trigger": "${{ github.event_name }}",
+            "commit": "${{ github.sha }}",
+            "ref": "${{ github.ref }}",
+            "health": {
+              "status": "${{ needs.metrics.result == 'success' && 'passed' || 'failed' }}",
+              "file_count": ${TOTAL_FILES:-0}
+            },
+            "code": {
+              "total_lines": ${TOTAL_LINES:-0},
+              "total_files": ${TOTAL_FILES:-0},
+              "cpp_files": ${CPP_FILES:-0},
+              "hpp_files": ${HPP_FILES:-0},
+              "repository_size": "${REPO_SIZE:-N/A}"
+            },
+            "security": {
+              "status": "${SEC_STATUS:-skipped}",
+              "secrets_found": ${SEC_SECRETS:-0}
+            },
+            "performance": {
+              "status": "${PERF_STATUS:-skipped}",
+              "complexity_score": ${COMPLEXITY:--1},
+              "avg_file_size_bytes": ${AVG_SIZE:-0}
             }
           }
           EOF
-          
-          echo "📊 Metrics summary:"
-          cat metrics-summary.json
-          
-          echo "🎉 Monitoring completed successfully!"
 
-  notify:
-    runs-on: ubuntu-latest
-    needs: [health-check, metrics, security-scan, performance-monitor]
-    if: always()
-    
-    steps:
-      - name: Send notification
+          echo "::group::metrics-summary.json"
+          python3 -m json.tool metrics-summary.json
+          echo "::endgroup::"
+
+          # ── Markdown отчёт ─────────────────────────────────────
+          cat > monitoring-report.md << EOF
+          # 📊 Monitoring Report — ${{ env.REPO_NAME }}
+
+          > Generated: ${timestamp}
+          > Run: [#${{ github.run_number }}](${run_url})
+
+          ## Summary
+
+          | Module | Status |
+          |--------|--------|
+          | 🏥 Health Check       | ${{ needs.metrics.result == 'success' && '✅ passed' || '❌ failed' }} |
+          | 📊 Metrics            | ${{ needs.metrics.result == 'success' && '✅ collected' || '❌ failed' }} |
+          | 🔒 Security Scan      | ${{ needs.security-scan.result == 'success' && '✅ passed' || needs.security-scan.result == 'skipped' && '⏭️ skipped' || '⚠️ warning' }} |
+          | ⚡ Performance        | ${{ needs.performance-monitor.result == 'success' && '✅ good' || needs.performance-monitor.result == 'skipped' && '⏭️ skipped' || '⚠️ warning' }} |
+
+          ## Code Statistics
+
+          | Metric | Value |
+          |--------|-------|
+          | Total lines of code | ${TOTAL_LINES:-0} |
+          | Source files (.cpp) | ${CPP_FILES:-0} |
+          | Header files (.hpp) | ${HPP_FILES:-0} |
+          | Total files         | ${TOTAL_FILES:-0} |
+          | Repository size     | ${REPO_SIZE:-N/A} |
+
+          ## Security
+
+          | Metric | Value |
+          |--------|-------|
+          | Status          | ${SEC_STATUS:-skipped} |
+          | Secrets found   | ${SEC_SECRETS:-0} |
+
+          ## Performance
+
+          | Metric | Value |
+          |--------|-------|
+          | Status           | ${PERF_STATUS:-skipped} |
+          | Complexity score | ${COMPLEXITY:--1} |
+          | Avg file size    | ${AVG_SIZE:-0} bytes |
+
+          ---
+          _[${{ env.REPO_NAME }}](${{ env.REPO_URL }}) · Automated monitoring_
+          EOF
+
+          echo "::notice::Dashboard generated successfully"
+
+      - name: Upload dashboard artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: monitoring-dashboard-${{ github.run_number }}
+          path: |
+            metrics-summary.json
+            monitoring-report.md
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Dashboard summary
+        if: always()
+        shell: bash
         run: |
-          echo "📢 Sending monitoring notification..."
-          
-          # Create notification message
-          if [ "${{ needs.health-check.result }}" = "success" ]; then
-            echo "✅ Health check: PASSED"
+          {
+            echo "## 📈 Dashboard"
+            echo ""
+            echo "| Артефакт | Описание |"
+            echo "|----------|----------|"
+            echo "| \`metrics-summary.json\` | Машиночитаемые метрики (JSON) |"
+            echo "| \`monitoring-report.md\` | Полный отчёт (Markdown) |"
+            echo ""
+            echo "_Артефакты хранятся 30 дней_"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+# ──────────────────────────────────────────────────────────────
+# JOB 6 — Итоговый отчёт (всегда выполняется)
+# ──────────────────────────────────────────────────────────────
+  notify:
+    name: "📣 Final Report"
+    runs-on: ubuntu-latest
+    needs: [health-check, metrics, security-scan, performance-monitor, update-dashboard]
+
+    if: always()
+
+    permissions:
+      contents: read
+
+    steps:
+      - name: Final pipeline summary
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          r_health="${{ needs.health-check.result }}"
+          r_metrics="${{ needs.metrics.result }}"
+          r_security="${{ needs.security-scan.result }}"
+          r_perf="${{ needs.performance-monitor.result }}"
+          r_dashboard="${{ needs.update-dashboard.result }}"
+
+          icon() {
+            case "$1" in
+              success)   echo "✅ success"   ;;
+              failure)   echo "❌ failure"   ;;
+              skipped)   echo "⏭️ skipped"   ;;
+              cancelled) echo "🚫 cancelled" ;;
+              *)         echo "❓ $1"        ;;
+            esac
+          }
+
+          # ── Определяем общий статус ────────────────────────────
+          if [ "$r_health" = "failure" ]; then
+            overall="❌ Критическая ошибка — health check провален"
+            exit_code=1
+          elif [ "$r_metrics" = "failure" ]; then
+            overall="❌ Ошибка сбора метрик"
+            exit_code=1
+          elif [ "$r_security" = "failure" ] || [ "$r_perf" = "failure" ]; then
+            overall="⚠️ Мониторинг завершён с предупреждениями"
+            exit_code=0
           else
-            echo "❌ Health check: FAILED"
+            overall="✅ Мониторинг завершён успешно"
+            exit_code=0
           fi
-          
-          if [ "${{ needs.metrics.result }}" = "success" ]; then
-            echo "✅ Metrics collection: COMPLETED"
-          else
-            echo "❌ Metrics collection: FAILED"
-          fi
-          
-          if [ "${{ needs.security-scan.result }}" = "success" ]; then
-            echo "✅ Security scan: COMPLETED"
-          else
-            echo "❌ Security scan: FAILED"
-          fi
-          
-          if [ "${{ needs.performance-monitor.result }}" = "success" ]; then
-            echo "✅ Performance monitoring: COMPLETED"
-          else
-            echo "❌ Performance monitoring: FAILED"
-          fi
-          
-          echo "📊 Monitoring run completed at: $(date -u)"
-          echo "🌐 Repository: https://github.com/Dimasick-git/Ryazha-Status-Monitor"
+
+          # ── Вывод в лог ────────────────────────────────────────
+          echo "═══════════════════════════════════════"
+          echo "  MONITORING PIPELINE RESULTS"
+          echo "═══════════════════════════════════════"
+          echo "  health-check:       $r_health"
+          echo "  metrics:            $r_metrics"
+          echo "  security-scan:      $r_security"
+          echo "  performance-monitor:$r_perf"
+          echo "  update-dashboard:   $r_dashboard"
+          echo "───────────────────────────────────────"
+          echo "  OVERALL: $overall"
+          echo "  REPO:    ${{ env.REPO_URL }}"
+          echo "  RUN:     ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          echo "  TIME:    $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          echo "═══════════════════════════════════════"
+
+          # ── Итоговый GitHub Summary ────────────────────────────
+          {
+            echo "## 📣 Monitoring Complete"
+            echo ""
+            echo "| Job | Результат |"
+            echo "|-----|-----------|"
+            echo "| 🏥 health-check        | $(icon $r_health) |"
+            echo "| 📊 metrics             | $(icon $r_metrics) |"
+            echo "| 🔒 security-scan       | $(icon $r_security) |"
+            echo "| ⚡ performance-monitor | $(icon $r_perf) |"
+            echo "| 📈 update-dashboard    | $(icon $r_dashboard) |"
+            echo ""
+            echo "### $overall"
+            echo ""
+            echo "| Параметр | Значение |"
+            echo "|----------|----------|"
+            echo "| Репозиторий | [${{ env.REPO_NAME }}](${{ env.REPO_URL }}) |"
+            echo "| Триггер     | \`${{ github.event_name }}\` |"
+            echo "| Коммит      | \`${GITHUB_SHA::8}\` |"
+            echo "| Время       | $(date -u '+%Y-%m-%d %H:%M UTC') |"
+            echo "| Run         | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit $exit_code
