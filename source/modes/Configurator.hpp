@@ -479,6 +479,41 @@ public:
             });
             list->addItem(integerCounter);
 
+            auto* emaAlphaItem = new tsl::elm::ListItem("EMA alpha");
+            float currentAlpha = getCurrentEmaAlpha("fps-counter");
+            char alphaBuf[16];
+            snprintf(alphaBuf, sizeof(alphaBuf), "%.2f", currentAlpha);
+            emaAlphaItem->setValue(alphaBuf);
+            emaAlphaItem->setClickListener([emaAlphaItem](uint64_t keys) {
+                if (keys & KEY_A) {
+                    static const std::vector<float> alphaPresets = {0.05f, 0.10f, 0.15f, 0.20f, 0.30f, 0.40f, 0.60f, 0.80f, 1.00f};
+                    float currentAlpha = 0.20f;
+                    const std::string currentValue = ult::parseValueFromIniSection(configIniPath, "fps-counter", "ema_alpha");
+                    if (!currentValue.empty()) {
+                        currentAlpha = std::clamp(std::strtof(currentValue.c_str(), nullptr), 0.01f, 1.0f);
+                    }
+
+                    size_t nextIndex = 0;
+                    float bestDiff = std::fabs(currentAlpha - alphaPresets[0]);
+                    for (size_t i = 1; i < alphaPresets.size(); i++) {
+                        const float diff = std::fabs(currentAlpha - alphaPresets[i]);
+                        if (diff < bestDiff) {
+                            bestDiff = diff;
+                            nextIndex = i;
+                        }
+                    }
+                    nextIndex = (nextIndex + 1) % alphaPresets.size();
+
+                    char newAlphaBuf[16];
+                    snprintf(newAlphaBuf, sizeof(newAlphaBuf), "%.2f", alphaPresets[nextIndex]);
+                    ult::setIniFileValue(configIniPath, "fps-counter", "ema_alpha", newAlphaBuf);
+                    emaAlphaItem->setValue(newAlphaBuf);
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(emaAlphaItem);
+
             // FPS Counter mode: only disable_screenshots
             auto* disableScreenshots = new tsl::elm::ToggleListItem("Запрет скринш.", getCurrentDisableScreenshots("fps-counter"));
             disableScreenshots->setStateChangedListener([this](bool state) {
@@ -635,6 +670,14 @@ private:
         if (value.empty()) return false;  // Default is false (screenshots enabled)
         convertToUpper(value);
         return value != "FALSE";  // True if not explicitly "FALSE"
+    }
+
+    float getCurrentEmaAlpha(const std::string& section) {
+        std::string value = ult::parseValueFromIniSection(configIniPath, section, "ema_alpha");
+        if (value.empty()) return 0.20f;
+        const float parsed = std::strtof(value.c_str(), nullptr);
+        if (parsed <= 0.0f) return 0.20f;
+        return std::clamp(parsed, 0.01f, 1.0f);
     }
 
     bool getCurrentDisableScreenshots(const std::string& section) {

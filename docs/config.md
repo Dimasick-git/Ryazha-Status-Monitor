@@ -72,6 +72,9 @@ Colors are provided in RGBA4444 format, which means that each character represen
 | `layer_height_align` | On which side of the screen Y axis you want this mode | `top`, `center`, `bottom` | `top` |
 | `handheld_font_size` | How big should be rendered text in handheld mode | From `8` to `150` | `40` |
 | `docked_font_size` | How big should be rendered text in docked mode | From `8` to `150` | `40` |
+| `use_integer_counter` | Show FPS as integer instead of one decimal place | `true`, `false` | `false` |
+| `use_ema_counter` | Smooth FPS/Hz counter with EMA filtering | `true`, `false` | `true` |
+| `ema_alpha` | EMA smoothing factor (`1.0` = no smoothing, lower = smoother/slower response) | From `0.01` to `1.0` | `0.20` |
 | `background_color` | Background color in RGBA4444 format | From `#0000` to `#FFFF` | `#1117` |
 | `text_color` | Text color in RGBA4444 format | From `#0000` to `#FFFF` | `#FFFF` |
 
@@ -81,6 +84,7 @@ Colors are provided in RGBA4444 format, which means that each character represen
 |-----|-------------|-----------------|---------------|
 | `layer_width_align` | On which side of the screen X axis you want this mode | `left`, `center`, `right` | `left` |
 | `layer_height_align` | On which side of the screen Y axis you want this mode | `top`, `center`, `bottom` | `top` |
+| `use_ema_counter` | Store EMA toggle state from configurator (currently used by FPS Counter mode logic) | `true`, `false` | `false` |
 | `max_fps_text_color` | Text color of "60" in RGBA4444 format | From `#0000` to `#FFFF` | `#FFFF` |
 | `min_fps_text_color` | Text color of "0" in RGBA4444 format | From `#0000` to `#FFFF` | `#FFFF` |
 | `background_color` | Background color in RGBA4444 format | From `#0000` to `#FFFF` | `#1117` |
