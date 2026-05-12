@@ -8,6 +8,43 @@
 static bool skipMain = false;
 static std::string lastSelectedItem;
 
+namespace {
+
+constexpr const char* LEGACY_STATUS_MONITOR_OVERLAY = "Status-Monitor-Overlay.ovl";
+
+bool checkOverlayFile(const std::string& path) {
+    struct stat buffer;
+    return stat(path.c_str(), &buffer) == 0;
+}
+
+bool resolveOverlayFilePath() {
+    const std::string primaryPath = folderpath + filename;
+    if (!filename.empty() && checkOverlayFile(primaryPath)) {
+        filepath = primaryPath;
+        return true;
+    }
+
+    const std::string ryazhaPath = folderpath + "Ryazha-Status-Monitor.ovl";
+    if (checkOverlayFile(ryazhaPath)) {
+        filepath = ryazhaPath;
+        return true;
+    }
+
+    const std::string upstreamPath = folderpath + LEGACY_STATUS_MONITOR_OVERLAY;
+    if (checkOverlayFile(upstreamPath)) {
+        filepath = upstreamPath;
+        return true;
+    }
+
+    return false;
+}
+
+bool isModeArgument(const char* value, const char* canonical, const char* legacy = nullptr) {
+    return strcasecmp(value, canonical) == 0 || (legacy && strcasecmp(value, legacy) == 0);
+}
+
+}
+
 #include "modes/FPS_Counter.hpp"
 #include "modes/FPS_Graph.hpp"
 #include "modes/Full.hpp"
@@ -211,22 +248,7 @@ public:
         //});
         //list->addItem(Mini);
 
-        bool fileExist = false;
-        FILE* test = fopen(std::string(folderpath + filename).c_str(), "rb");
-        if (test) {
-            fclose(test);
-            fileExist = true;
-            filepath = folderpath + filename;
-        }
-        else {
-            test = fopen(std::string(folderpath + "Ryazha-Status-Monitor.ovl").c_str(), "rb");
-            if (test) {
-                fclose(test);
-                fileExist = true;
-                filepath = folderpath + "Ryazha-Status-Monitor.ovl";
-            }
-        }
-        if (fileExist) {
+        if (resolveOverlayFilePath()) {
             auto* Mini = new tsl::elm::ListItem("Мини");
             Mini->disableClickAnimation();
             Mini->setClickListener([](uint64_t keys) {
@@ -918,12 +940,6 @@ public:
 };
 
 
-// Helper function to check if overlay file exists
-bool checkOverlayFile(const std::string& filename) {
-    struct stat buffer;
-    return stat(filename.c_str(), &buffer) == 0;
-}
-
 // Helper function to setup micro mode paths
 inline void setupMode(const std::string& modeType = "") {
 
@@ -942,17 +958,7 @@ inline void setupMode(const std::string& modeType = "") {
         }
     }
 
-    // Try user-specified filename first, then fallback to default
-    const std::string primaryPath = folderpath + filename;
-    
-    if (checkOverlayFile(primaryPath)) {
-        filepath = primaryPath;
-    } else {
-        const std::string fallbackPath = folderpath + "Ryazha-Status-Monitor.ovl";
-        if (checkOverlayFile(fallbackPath)) {
-            filepath = fallbackPath;
-        }
-    }
+    resolveOverlayFilePath();
 }
 
 //void setupMicroMode() {
@@ -1030,12 +1036,14 @@ int main(int argc, char **argv) {
                 if (section["mode_args"] != expectedArgs) {
                     section["mode_args"] = expectedArgs;
                     section["mode_labels"] = "(Mini, Micro, FPS Graph, FPS Counter, Game Resolutions)";
+                    section["legacy_args"] = "(--microOverlay, --microOverlay_)";
                     ult::saveIniFileData(ult::OVERLAYS_INI_FILEPATH, iniData);
                 }
             } else {
                 // If section doesn't exist, create it with expected values
                 iniData[filename]["mode_args"] = "(-mini, -micro, -fps_graph, -fps_counter, -game_resolutions)";
                 iniData[filename]["mode_labels"] = "(Mini, Micro, FPS Graph, FPS Counter, Game Resolutions)";
+                iniData[filename]["legacy_args"] = "(--microOverlay, --microOverlay_)";
                 ult::saveIniFileData(ult::OVERLAYS_INI_FILEPATH, iniData);
             }
         }
@@ -1061,7 +1069,7 @@ int main(int argc, char **argv) {
             }
             
             // Micro mode
-            if (strcasecmp(compareStr, "-micro") == 0) {
+            if (isModeArgument(compareStr, "-micro", "--microOverlay") || isModeArgument(compareStr, "-micro", "--microOverlay_")) {
                 FullMode = false;
                 lastMode = "micro";
                 if (hasUnderscore) {
