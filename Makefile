@@ -49,8 +49,10 @@ CXXFLAGS	+= -fno-lto
 LDFLAGS		+= -fno-lto
 #ROMFS       :=  romfs
 
-# This location should reflect where you place the libultrahand directory (lib can vary between projects).
-include ${TOPDIR}/lib/libultrahand/ultrahand.mk
+# Подключаем libryazhahand (наш форк libultrahand) как git submodule в
+# lib/libryazhahand. API совместим с upstream -- меняется только путь
+# и имя .mk файла.
+include ${TOPDIR}/lib/libryazhahand/ryazhahand.mk
 
 
 #---------------------------------------------------------------------------------
