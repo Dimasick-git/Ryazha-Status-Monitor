@@ -32,13 +32,13 @@ make clean || true
 
 # Build the project
 echo "🔨 Building Ryazha-Status-Monitor..."
-make switch
+make -j$(nproc)
 
 # Check if build was successful
-if [ -f "Ryazha-Status-Monitor.nro" ]; then
+if [ -f "Ryazha-Status-Monitor.ovl" ]; then
     echo "✅ Build successful!"
     echo "📁 Output files:"
-    ls -la *.nro *.elf *.json 2>/dev/null || echo "No output files found"
+    ls -la *.ovl *.elf *.json 2>/dev/null || echo "No output files found"
 else
     echo "❌ Build failed!"
     exit 1
@@ -47,7 +47,7 @@ fi
 # Create release directory
 echo "📦 Creating release package..."
 mkdir -p releases
-cp *.nro *.elf *.json README.md LICENSE releases/ 2>/dev/null || true
+cp *.ovl *.elf *.json README.md LICENSE releases/ 2>/dev/null || true
 
 echo "🎉 Build completed successfully!"
 echo "📂 Release files are in the 'releases' directory"

@@ -27,7 +27,7 @@ mkdir -p "$RELEASE_DIR"
 
 # Copy all necessary files to release directory
 echo "📋 Preparing release files..."
-cp *.nro "$RELEASE_DIR/" 2>/dev/null || echo "⚠️  No .nro files found"
+cp *.ovl "$RELEASE_DIR/" 2>/dev/null || echo "⚠️  No .ovl files found"
 cp *.elf "$RELEASE_DIR/" 2>/dev/null || echo "⚠️  No .elf files found"
 cp *.json "$RELEASE_DIR/" 2>/dev/null || echo "⚠️  No .json files found"
 cp README.md "$RELEASE_DIR/" 2>/dev/null || echo "⚠️  README.md not found"
@@ -61,12 +61,12 @@ if [ ! -d "/switch" ]; then
 fi
 
 # Create installation directory
-INSTALL_DIR="/switch/Ryazha-Status-Monitor"
+INSTALL_DIR="/switch/.overlays"
 mkdir -p "$INSTALL_DIR"
 
 # Copy files
 echo "📦 Installing files..."
-cp *.nro "$INSTALL_DIR/"
+cp Ryazha-Status-Monitor.ovl "$INSTALL_DIR/"
 cp -r config "$INSTALL_DIR/" 2>/dev/null || true
 cp -r docs "$INSTALL_DIR/" 2>/dev/null || true
 
@@ -91,7 +91,7 @@ cat > "$RELEASE_DIR/package.json" << EOF
     "libnx": ">=4.0.0"
   },
   "files": [
-    "Ryazha-Status-Monitor.nro",
+    "Ryazha-Status-Monitor.ovl",
     "config/",
     "docs/",
     "README.md",
@@ -103,7 +103,7 @@ EOF
 # Create checksums
 echo "🔐 Creating checksums..."
 cd "$RELEASE_DIR"
-sha256sum *.nro *.elf *.json 2>/dev/null > checksums.txt || sha256sum *.nro 2>/dev/null > checksums.txt || echo "No files to checksum"
+sha256sum *.ovl *.elf *.json 2>/dev/null > checksums.txt || sha256sum *.ovl 2>/dev/null > checksums.txt || echo "No files to checksum"
 cd ..
 
 # Create zip archive
