@@ -35,6 +35,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Configure environment
         run: echo "$DEVKITA64/bin" >> $GITHUB_PATH
@@ -77,6 +79,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Configure environment
         run: echo "$DEVKITA64/bin" >> $GITHUB_PATH
