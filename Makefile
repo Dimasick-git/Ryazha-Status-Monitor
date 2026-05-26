@@ -52,7 +52,7 @@ LDFLAGS		+= -fno-lto
 # Подключаем libryazhahand (наш форк libultrahand) как git submodule в
 # lib/libryazhahand. API совместим с upstream -- меняется только путь
 # и имя .mk файла.
-include ${TOPDIR}/lib/libryazhahand/ryazhahand.mk
+include $(TOPDIR)/lib/libryazhahand/ryazhahand.mk
 
 
 #---------------------------------------------------------------------------------
@@ -226,7 +226,7 @@ $(OUTPUT).ovl		:	$(OUTPUT).elf $(OUTPUT).nacp
 	@elf2nro $< $@ $(NROFLAGS)
 	@echo "built ... $(notdir $(OUTPUT).ovl)"
 	@printf 'ULTR' >> $@
-	@printf "Ultrahand signature has been added.\n"
+	@printf "Ryazhahand signature has been added.\n"
 
 $(OUTPUT).elf	:	$(OFILES)
 
