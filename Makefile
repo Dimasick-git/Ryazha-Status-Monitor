@@ -84,7 +84,9 @@ CXXFLAGS	:= $(CFLAGS) -std=c++26 -Wno-dangling-else -fno-unwind-tables -fno-asyn
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS := -lnx
+# libpng + zlib нужны libryazhahand'у с e527ba5 — wallpaper loader перешёл
+# на PNG (feat(wallpaper): PNG-based loader (libpng) в libryazhahand).
+LIBS := -lpng -lz -lnx
 
 CXXFLAGS += -fno-exceptions -ffunction-sections -fdata-sections -fno-rtti
 LDFLAGS += -Wl,--gc-sections -Wl,--as-needed
