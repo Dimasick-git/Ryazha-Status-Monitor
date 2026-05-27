@@ -53,12 +53,3 @@ jobs:
           generate_release_notes: true
           name: "Ryazha-Status-Monitor ${{ github.ref_name }}"
           fail_on_unmatched_files: true
-
-      - name: Publish latest release
-        if: github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: Ryazha-Status-Monitor.ovl
-          tag_name: latest
-          name: "Ryazha-Status-Monitor (latest build)"
-          fail_on_unmatched_files: true
