@@ -104,7 +104,7 @@ const std::string folderpath = "sdmc:/switch/.overlays/";
 // Use const string_view for paths to avoid string copying
 constexpr const char* directoryPath = "sdmc:/config/status-monitor/";
 constexpr const char* configIniPath = "sdmc:/config/status-monitor/config.ini";
-constexpr const char* ultrahandConfigIniPath = "sdmc:/config/ryazhahand/config.ini";
+constexpr const char* ultrahandConfigIniPath = "sdmc:/config/ultrahand/config.ini";
 constexpr const char* teslaConfigIniPath = "sdmc:/config/tesla/config.ini";
 
 std::string filename;

@@ -69,8 +69,12 @@ CFLAGS	:=	-g -Wall -Wno-address-of-packed-member -O1 -ffunction-sections -ffast-
 IS_STATUS_MONITOR_DIRECTIVE := 1
 CFLAGS += -DIS_STATUS_MONITOR_DIRECTIVE=$(IS_STATUS_MONITOR_DIRECTIVE)
 
-# Enable appearance overriding
-UI_OVERRIDE_PATH := /config/status-monitor/
+# Enable appearance overriding.
+# Unified under /config/ultrahand/ so theme.ini, wallpaper.rgba и lang/
+# лежат там же, где libryazhahand хардкодит themes/, sounds/, wallpapers/
+# (BASE_CONFIG_PATH = sdmc:/config/ultrahand/). Иначе UI override и пути
+# из библиотеки расходились — sounds/themes не подхватывались.
+UI_OVERRIDE_PATH := /config/ultrahand/
 CFLAGS += -DUI_OVERRIDE_PATH="\"$(UI_OVERRIDE_PATH)\""
 
 
