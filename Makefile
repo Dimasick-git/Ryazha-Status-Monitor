@@ -44,9 +44,6 @@ BUILD		:=	build
 SOURCES		:=	source
 INCLUDES	:=	include lib/Atmosphere-libs/libstratosphere/source/dmnt lib/Atmosphere-libs/libstratosphere/source
 NO_ICON		:=  1
-CFLAGS		+= -fno-lto
-CXXFLAGS	+= -fno-lto
-LDFLAGS		+= -fno-lto
 #ROMFS       :=  romfs
 
 # Подключаем libryazhahand (наш форк libultrahand) как git submodule в
@@ -230,7 +227,7 @@ all	:	 $(OUTPUT).ovl
 $(OUTPUT).ovl		:	$(OUTPUT).elf $(OUTPUT).nacp 
 	@elf2nro $< $@ $(NROFLAGS)
 	@echo "built ... $(notdir $(OUTPUT).ovl)"
-	@printf 'ULTR' >> $@
+	@printf 'RYZH' >> $@
 	@printf "Ryazhahand signature has been added.\n"
 
 $(OUTPUT).elf	:	$(OFILES)
