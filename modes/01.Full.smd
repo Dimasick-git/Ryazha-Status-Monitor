@@ -27,6 +27,12 @@ User_ShowRealFrequencies = true
 ;;User_ShowRealFrequencies_Name_RU-RU = Показывать реальные частоты
 
 ;;User_ShowRealFrequencies_DefaultValue = true
+User_UseTheme = true
+;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode's text.
+;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для текста этого режима.
+;;User_UseTheme_Name = Use theme colors
+;;User_UseTheme_Name_RU-RU = Цвета из темы
+;;User_UseTheme_DefaultValue = true
 User_ShowTargetFrequencies = true
 ;;User_ShowTargetFrequencies_Description = Show target frequencies for CPU, GPU and RAM.
 ;;User_ShowTargetFrequencies_Description_PL-PL = Pokaż docelowe taktowanie CPU, GPU\ni RAM.
@@ -168,15 +174,15 @@ IETF_LOCALE{CPULoadTextFormat,         "RU-RU", "Ядро #0: %.2lf%%\nЯдро 
 IETF_LOCALE{GPULoadTextFormat,         "RU-RU", "Нагрузка: %u.%u%%"}
 IETF_LOCALE{RAMLoadTextFormat,         "RU-RU", "Нагрузка: %u.%u%% (CPU %u.%u | GPU %u.%u)"}
 IETF_LOCALE{RAMUsageBaseTextFormat,    "RU-RU", "Всего: \nПриложение: \nАплет: \nСистема: \nНебезопасная система: "}
-IETF_LOCALE{BatteryChargingTextFormat, "RU-RU", "Поток мощности батареи: %+.2fВт[%s]"}
-IETF_LOCALE{FanRotationTextFormat,     "RU-RU", "Обороты вентилятора: %2.1f%%"}
+IETF_LOCALE{BatteryChargingTextFormat, "RU-RU", "Батарея: %+.2f Вт [%s]"}
+IETF_LOCALE{FanRotationTextFormat,     "RU-RU", "Вентилятор: %2.1f%%"}
 IETF_LOCALE{FPSNDText,                 "RU-RU", "PFPS: н/д; FPS: н/д"}
-IETF_LOCALE{ReadSpeedTextFormat,       "RU-RU", "Скорость чтения: %.2f МиБ/с"}
-IETF_LOCALE{ReadSpeedUnkTextFormat,    "RU-RU", "Скорость чтения: н/д"}
-IETF_LOCALE{CpuUsageText,              "RU-RU", "Использование CPU:"}
-IETF_LOCALE{GpuUsageText,              "RU-RU", "Использование GPU:"}
-IETF_LOCALE{RamUsageText,              "RU-RU", "Использование RAM:"}
-IETF_LOCALE{BoardUsageText,            "RU-RU", "Плата:"}
+IETF_LOCALE{ReadSpeedTextFormat,       "RU-RU", "Чтение: %.2f МиБ/с"}
+IETF_LOCALE{ReadSpeedUnkTextFormat,    "RU-RU", "Чтение: н/д"}
+IETF_LOCALE{CpuUsageText,              "RU-RU", "Процессор (CPU):"}
+IETF_LOCALE{GpuUsageText,              "RU-RU", "Графика (GPU):"}
+IETF_LOCALE{RamUsageText,              "RU-RU", "Память (RAM):"}
+IETF_LOCALE{BoardUsageText,            "RU-RU", "Плата и питание:"}
 IETF_LOCALE{TemperatureText,           "RU-RU", "Температуры:"}
 IETF_LOCALE{ThermalSensorsText,        "RU-RU", "SOC \nPCB \nКорпус "}
 IETF_LOCALE{GameText,                  "RU-RU", "Игра:"}
@@ -225,6 +231,14 @@ EnableBenchmark = false
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Start:
+; Ryazha theming: colors follow /config/ryazhahand/theme.ini when enabled.
+#if $User_UseTheme
+	VAR{CatColor, Theme_CategoryColor_int}
+	VAR{TxtColor, Theme_TextColor_int}
+#else
+	VAR{CatColor, color(0xCCCF)}
+	VAR{TxtColor, color(0xFFFF)}
+#endif
 #if $EnableBenchmark
 	HISTORY_UPDATE{FrameTimeAverage, System_OverlayRenderingFrameTimeInNs_int}
 	VAR{Average, HISTORY_AVERAGE{FrameTimeAverage}}
@@ -232,17 +246,17 @@ Start:
 #endif
 ;CPU
 #if $EnableCPU
-	TEXT{0, 120, 20, COLOR{0xCCCF}, false, IETF_GET{CpuUsageText}}
+	TEXT{0, 120, 20, CatColor, false, IETF_GET{CpuUsageText}}
 	VAR{height_offset, 155}
 
 	#if $User_ShowTargetFrequencies
-		TEXT{0, height_offset, 15, 0xFFFF, false, CPUTargetFreqText}
+		TEXT{0, height_offset, 15, TxtColor, false, CPUTargetFreqText}
 		GET_DIMENSIONS{TargetDims, 15, false, CPUTargetFreqText}
 	#endif
 
 	#if $CPU_RealHz_int and $User_ShowRealFrequencies
 		VAR{height_offset, height_offset + TargetDims.y}
-		TEXT{0, height_offset, 15, 0xFFFF, false, CPURealFreqText}
+		TEXT{0, height_offset, 15, TxtColor, false, CPURealFreqText}
 		GET_DIMENSIONS{RealDims, 15, false, CPURealFreqText}
 	#endif
 
@@ -254,24 +268,24 @@ Start:
 		#else
 			VAR{delta_offset, height_offset}
 		#endif
-		TEXT{DeltaOffset + 20, delta_offset, 15, 0xFFFF, false, CPUdeltaText}
+		TEXT{DeltaOffset + 20, delta_offset, 15, TxtColor, false, CPUdeltaText}
 	#endif
 
-	TEXT{0, 200, 15, 0xFFFF, false, CPUloadText}
+	TEXT{0, 200, 15, TxtColor, false, CPUloadText}
 #endif
 
 ;GPU
 #if $EnableGPU
 	VAR{height_offset, 310}
-	TEXT{0, 285, 20, COLOR{0xCCCF}, false, IETF_GET{GpuUsageText}}
+	TEXT{0, 285, 20, CatColor, false, IETF_GET{GpuUsageText}}
 	#if $User_ShowTargetFrequencies
-		TEXT{0, height_offset, 15, 0xFFFF, false, GPUTargetFreqText}
+		TEXT{0, height_offset, 15, TxtColor, false, GPUTargetFreqText}
 		GET_DIMENSIONS{TargetDims, 15, false, GPUTargetFreqText}
 	#endif
 
 	#if $GPU_RealHz_int and $User_ShowRealFrequencies
 		VAR{height_offset, height_offset + TargetDims.y}
-		TEXT{0, height_offset, 15, 0xFFFF, false, GPURealFreqText}
+		TEXT{0, height_offset, 15, TxtColor, false, GPURealFreqText}
 		GET_DIMENSIONS{RealDims, 15, false, GPURealFreqText}
 	#endif
 
@@ -293,7 +307,7 @@ Start:
 			GET_DIMENSIONS{dimensions, 15, false, "Ą"}
 			VAR{height_offset, height_offset + dimensions.y}
 		#endif
-		TEXT{DeltaOffset + 20, delta_offset, 15, 0xFFFF, false, GPUdeltaText}
+		TEXT{DeltaOffset + 20, delta_offset, 15, TxtColor, false, GPUdeltaText}
 	#else
 		#if $User_ShowRealFrequencies and $GPU_RealHz_int
 			VAR{height_offset, height_offset + RealDims.y}
@@ -305,7 +319,7 @@ Start:
 		#endif
 	#endif
 
-	TEXT{0, height_offset, 15, 0xFFFF, false, GPUloadText}
+	TEXT{0, height_offset, 15, TxtColor, false, GPUloadText}
 	GET_DIMENSIONS{Dims, 15, false, GPUloadText}
 	VAR{height_offset, height_offset + Dims.y}
 #endif
@@ -317,17 +331,17 @@ Start:
 		VAR{height_offset, 375}
 	#endif
 
-	TEXT{0, height_offset, 20, COLOR{0xCCCF}, false, IETF_GET{RamUsageText}}
+	TEXT{0, height_offset, 20, CatColor, false, IETF_GET{RamUsageText}}
 
 	VAR{height_offset, 400}
 	#if $User_ShowTargetFrequencies
-		TEXT{0, height_offset, 15, 0xFFFF, false, RAMTargetFreqText}
+		TEXT{0, height_offset, 15, TxtColor, false, RAMTargetFreqText}
 		GET_DIMENSIONS{TargetDims, 15, false, RAMTargetFreqText}
 	#endif
 
 	#if $CPU_RealHz_int and $User_ShowRealFrequencies
 		VAR{height_offset, height_offset + TargetDims.y}
-		TEXT{0, height_offset, 15, 0xFFFF, false, RAMRealFreqText}
+		TEXT{0, height_offset, 15, TxtColor, false, RAMRealFreqText}
 		GET_DIMENSIONS{RealDims, 15, false, RAMRealFreqText}
 	#endif
 
@@ -349,7 +363,7 @@ Start:
 			GET_DIMENSIONS{dimensions, 15, false, "Ą"}
 			VAR{height_offset, height_offset + dimensions.y}
 		#endif
-		TEXT{DeltaOffset + 20, delta_offset, 15, 0xFFFF, false, RAMdeltaText}
+		TEXT{DeltaOffset + 20, delta_offset, 15, TxtColor, false, RAMdeltaText}
 	#else
 		#if $User_ShowRealFrequencies
 			VAR{height_offset, height_offset + RealDims.y}
@@ -359,7 +373,7 @@ Start:
 	#endif
 
 	#if $RAM_LoadAll_int
-		TEXT{0, height_offset, 15, 0xFFFF, false, RAMloadText}
+		TEXT{0, height_offset, 15, TxtColor, false, RAMloadText}
 		GET_DIMENSIONS{dimensions, 15, false, RAMloadText}
 		VAR{height_offset, height_offset + dimensions.y}
 	#endif
@@ -369,38 +383,38 @@ Start:
 	#endif
 
 	GET_DIMENSIONS{dimensions, 15, false, RAMusageBaseText}
-	TEXT{0, height_offset, 15, 0xFFFF, false, RAMusageBaseText}
-	TEXT{dimensions.x, height_offset, 15, 0xFFFF, false, RAMusageText}
+	TEXT{0, height_offset, 15, TxtColor, false, RAMusageBaseText}
+	TEXT{dimensions.x, height_offset, 15, TxtColor, false, RAMusageText}
 #endif
 
 ;Board
 #if $EnableBoard
-	TEXT{0, 550, 20, COLOR{0xCCCF}, false, IETF_GET{BoardUsageText}}
+	TEXT{0, 550, 20, CatColor, false, IETF_GET{BoardUsageText}}
 	VAR{height_offset, 570}
-	TEXT{0, height_offset, 15, 0xFFFF, false, BatteryChargingText}
+	TEXT{0, height_offset, 15, TxtColor, false, BatteryChargingText}
 	GET_DIMENSIONS{dimensions, 15, false, BatteryChargingText}
 	VAR{height_offset, height_offset + dimensions.y}
 	VAR{TemperText, IETF_GET{TemperatureText}}
 	VAR{SensorsText, IETF_GET{ThermalSensorsText}}
 	GET_DIMENSIONS{dimensions1, 15, false, TemperText}
 	GET_DIMENSIONS{dimensions2, 15, false, SensorsText}
-	TEXT{0, height_offset, 15, 0xFFFF, false, TemperText}
-	TEXT{dimensions1.x, height_offset, 15, 0xFFFF, false, SensorsText}
-	TEXT{dimensions1.x + dimensions2.x, height_offset, 15, 0xFFFF, false, TemperatureText}
+	TEXT{0, height_offset, 15, TxtColor, false, TemperText}
+	TEXT{dimensions1.x, height_offset, 15, TxtColor, false, SensorsText}
+	TEXT{dimensions1.x + dimensions2.x, height_offset, 15, TxtColor, false, TemperatureText}
 	GET_DIMENSIONS{dimensions, 15, false, SensorsText}
 	VAR{height_offset, height_offset + dimensions.y}
-	TEXT{0, height_offset, 15, 0xFFFF, false, RotationText}
+	TEXT{0, height_offset, 15, TxtColor, false, RotationText}
 #endif
 
 #if $EnableGame
 	#if $Game_IsGameRunning
 		VAR{width_offset, 150}
 		#if $User_ShowFPS or $User_ShowResolution or $User_ShowReadSpeed
-			TEXT{width_offset, 200, 20, COLOR{0xCCCF}, false, IETF_GET{GameText}}
+			TEXT{width_offset, 200, 20, CatColor, false, IETF_GET{GameText}}
 		#endif
 		VAR{height_offset, 225}
 		#if $User_ShowFPS
-			TEXT{width_offset, height_offset, 15, 0xFFFF, false, FPSText}
+			TEXT{width_offset, height_offset, 15, TxtColor, false, FPSText}
 			GET_DIMENSIONS{dimensions, 15, false, FPSText}
 			VAR{height_offset, height_offset + dimensions.y}
 		#endif
@@ -425,22 +439,22 @@ Start:
 			VAR{ResolutionsTwoText, {IETF_GET{Resolutions2Text}, resolutionOutput0.width, resolutionOutput0.height, resolutionOutput1.width, resolutionOutput1.height}}
 			#if $resolutionOutput0.width == 0 or $resolutionOutput1.width == 0
 				#if $resolutionOutput0.width > 0
-					TEXT{width_offset, height_offset, 15, 0xFFFF, false, ResolutionsText}
+					TEXT{width_offset, height_offset, 15, TxtColor, false, ResolutionsText}
 				#else
-					TEXT{width_offset, height_offset, 15, 0xFFFF, false, ResolutionsBackText}
+					TEXT{width_offset, height_offset, 15, TxtColor, false, ResolutionsBackText}
 				#endif
 			#endif
 			#if $resolutionOutput0.width > 0 and $resolutionOutput1.width > 0
-				TEXT{width_offset, height_offset, 15, 0xFFFF, false, ResolutionsTwoText}
+				TEXT{width_offset, height_offset, 15, TxtColor, false, ResolutionsTwoText}
 			#endif
 			GET_DIMENSIONS{Dimensions, 15, false, "Ą"}
 			VAR{height_offset, height_offset + Dimensions.y}
 		#endif
 		#if $User_ShowReadSpeed
 			#if $Game_ReadSpeedPerSecond_float
-				TEXT{width_offset, height_offset, 15, 0xFFFF, false, ReadSpeedText}
+				TEXT{width_offset, height_offset, 15, TxtColor, false, ReadSpeedText}
 			#else
-				TEXT{width_offset, height_offset, 15, 0xFFFF, false, ReadSpeedUnkText}
+				TEXT{width_offset, height_offset, 15, TxtColor, false, ReadSpeedUnkText}
 			#endif
 		#endif
 	#endif

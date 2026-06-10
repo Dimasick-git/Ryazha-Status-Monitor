@@ -309,7 +309,7 @@ public:
 		}
 		m_name = name;
 		m_show = std::string("\uE130 ") + m_name;
-		section_name = filepath.substr(strlen("sdmc:/config/status-monitor-deux/modes/"));
+		section_name = filepath.substr(strlen("sdmc:/config/status-monitor/modes/"));
 		auto it = config.find(section_name);
 		if (it == config.end()) {
 			config[section_name] = std::map<std::string, std::string>();
@@ -361,7 +361,7 @@ public:
 					it->second.value = list;
 				}
 			}
-			setDataToIniFile("sdmc:/config/status-monitor-deux/config.ini", section_name);
+			setDataToIniFile("sdmc:/config/status-monitor/config.ini", section_name);
 
 			auto settings = config.find(section_name);
 			if (settings == config.end()) {
@@ -441,7 +441,7 @@ public:
 		Item->setClickListener([this](uint64_t keys) {
 			if (keys & KEY_A) {
 				tsl::hlp::requestForeground(true);
-				removeIniSection("sdmc:/config/status-monitor-deux/config.ini", section_name);
+				removeIniSection("sdmc:/config/status-monitor/config.ini", section_name);
 				config.extract(section_name);
 				tsl::goBack();
 				return true;

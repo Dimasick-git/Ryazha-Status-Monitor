@@ -56,7 +56,7 @@ extern "C" {
 class MainMenu : public tsl::Gui {
 public:
     
-    const std::string root_path = "sdmc:/config/status-monitor-deux/modes/";
+    const std::string root_path = "sdmc:/config/status-monitor/modes/";
     std::string standard_path = root_path;
 	std::vector<Designs> filesChecked;
 	std::string formattedKeyCombo;
@@ -396,7 +396,7 @@ public:
 				LoadSharedMemoryAndRefreshRate();
 			}
 
-			smseLoadFolder("sdmc:/config/status-monitor-deux/extensions/");
+			smseLoadFolder("sdmc:/config/status-monitor/extensions/");
 			smseExecuteAll();
 		});
 		// Ryazha sound feedback (no-op when sound_effects=false or the
@@ -485,7 +485,7 @@ int main(int argc, char **argv) {
 		filepath = folderpath + filename;
 	}
 	auto loadSmdFile = [](const char* smd_filename) {
-		std::string path = "sdmc:/config/status-monitor-deux/modes/";
+		std::string path = "sdmc:/config/status-monitor/modes/";
 		path += smd_filename;
 
 		struct stat filedata;

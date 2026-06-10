@@ -17,7 +17,7 @@ private:
 public:
 	EditConfigLanguage(bool* skipSavingConfig) {
 		m_skipSavingConfig = skipSavingConfig;
-		m_locale = getParsedDataFromIniFile("sdmc:/config/status-monitor-deux/locale.ini");
+		m_locale = getParsedDataFromIniFile("sdmc:/config/status-monitor/locale.ini");
 		std::unordered_map<std::string, std::unordered_map<std::string, std::string>> defaultIni = parseIni(std::string((const char*)impl_defaultLocale, sizeof(impl_defaultLocale)));
 		defaultSection = defaultIni["EN-US"];
 
@@ -50,8 +50,8 @@ public:
 			Item->setClickListener([this, code](uint64_t keys) {
 				if (keys & KEY_A) {
 					*m_skipSavingConfig = true;
-					setIniFileValue("sdmc:/config/status-monitor-deux/config.ini", "status-monitor-deux", "override_language", "true");
-					setIniFileValue("sdmc:/config/status-monitor-deux/config.ini", "status-monitor-deux", "override_language_ietf_code", code);
+					setIniFileValue("sdmc:/config/status-monitor/config.ini", "status-monitor", "override_language", "true");
+					setIniFileValue("sdmc:/config/status-monitor/config.ini", "status-monitor", "override_language_ietf_code", code);
 					tsl::setNextOverlay(filepath, "");
 					tsl::goBack();
 					tsl::goBack();
@@ -67,7 +67,7 @@ public:
 		Item->setClickListener([this](uint64_t keys) {
 			if (keys & KEY_A) {
 				*m_skipSavingConfig = true;
-				setIniFileValue("sdmc:/config/status-monitor-deux/config.ini", "status-monitor-deux", "override_language", "false");
+				setIniFileValue("sdmc:/config/status-monitor/config.ini", "status-monitor", "override_language", "false");
 				tsl::setNextOverlay(filepath, "");
 				tsl::goBack();
 				tsl::goBack();

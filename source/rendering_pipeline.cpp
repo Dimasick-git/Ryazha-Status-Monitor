@@ -258,7 +258,7 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 		return;
 	}
 	Movable = doc.GetConfigBool("Movable", false);
-	rel_filepath = filepath.substr(strlen("sdmc:/config/status-monitor-deux/modes/"));
+	rel_filepath = filepath.substr(strlen("sdmc:/config/status-monitor/modes/"));
 	if (Movable && saveAndLoadMovableOverlayPosition) {
 		smd_hash = doc.GetFileHash();
 		uint16_t saved_x_pos;
@@ -271,9 +271,9 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 			auto [ptr, ec] = std::to_chars(&buffer[0], &buffer[sizeof(buffer)], smd_hash, 16);
 			if (ec == std::errc{}) {
 				std::string value = std::string(&buffer[0], ptr - &buffer[0]);
-				setIniFile("sdmc:/config/status-monitor-deux/config.ini", rel_filepath, "hash", value, "");
-				setIniFile("sdmc:/config/status-monitor-deux/config.ini", rel_filepath, "x", "0", "");
-				setIniFile("sdmc:/config/status-monitor-deux/config.ini", rel_filepath, "y", "0", "");
+				setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "hash", value, "");
+				setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "x", "0", "");
+				setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "y", "0", "");
 			}
 		}
 		else if (saved_x_pos > 1280 || saved_y_pos > 720) {
@@ -284,6 +284,13 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 		m_saved_base_y = (int64_t)saved_y_pos;
 		if (saved_x_pos == 1280) reachedMaxX = true;
 		if (saved_y_pos == 720) reachedMaxY = true;
+
+		// Ryazha pinch-to-resize: restore the saved layer scale (percent).
+		std::string savedScale = parseValueFromIniSection("sdmc:/config/status-monitor/config.ini", rel_filepath, "scale");
+		if (savedScale.length() > 0) {
+			unsigned long pct = strtoul(savedScale.c_str(), nullptr, 10);
+			if (pct >= 35 && pct <= 200) m_saved_scale_pct = (uint32_t)pct;
+		}
 	}
 	HeaderText = doc.GetConfigBool("HeaderText", true);
 	FooterText = doc.GetConfigBool("FooterText", true);
@@ -390,11 +397,23 @@ RenderingPipeline::~RenderingPipeline() {
 		auto [ptr3, ec3] = std::to_chars(&buffer3[0], &buffer3[sizeof(buffer3)], smd_hash, 16);
 		std::string value3 = buffer3;
 		if (ec == std::errc{} && ec2 == std::errc{} && ec3 == std::errc{}) {
-			setIniFile("sdmc:/config/status-monitor-deux/config.ini", rel_filepath, "x", value, "");
-			setIniFile("sdmc:/config/status-monitor-deux/config.ini", rel_filepath, "y", value2, "");
-			setIniFile("sdmc:/config/status-monitor-deux/config.ini", rel_filepath, "hash", value3, "");
+			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "x", value, "");
+			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "y", value2, "");
+			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "hash", value3, "");
+		}
+		// Ryazha pinch-to-resize: persist the layer scale (percent).
+		{
+			uint32_t pct = (uint32_t)(tsl::gfx::Renderer::getRenderer().getLayerScale() * 100.0f + 0.5f);
+			if (pct < 35) pct = 35;
+			if (pct > 200) pct = 200;
+			char buffer4[10] = {0};
+			auto [ptr4, ec4] = std::to_chars(&buffer4[0], &buffer4[sizeof(buffer4)], pct, 10);
+			if (ec4 == std::errc{})
+				setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "scale", std::string(buffer4), "");
 		}
 	}
+	// Restore the unscaled layer for the menus.
+	tsl::gfx::Renderer::getRenderer().setLayerScale(1.0f);
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
 	tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
@@ -622,7 +641,40 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 			}
 			(void)changed;
 		}
+		// Ryazha pinch-to-resize: apply the saved scale once the layer is live.
+		if (!m_savedScaleApplied) {
+			m_savedScaleApplied = true;
+			if (m_saved_scale_pct != 100)
+				tsl::gfx::Renderer::getRenderer().setLayerScale(m_saved_scale_pct / 100.0f);
+		}
 		if (m_touchScreen && sixaxisChangingPos == false) [[unlikely]] {
+			// Two fingers: pinch resizes the overlay instead of dragging it.
+			HidTouchScreenState pinchState = {0};
+			if (hidGetTouchScreenStates(&pinchState, 1) && pinchState.count >= 2) {
+				const float dx = (float)pinchState.touches[0].x - (float)pinchState.touches[1].x;
+				const float dy = (float)pinchState.touches[0].y - (float)pinchState.touches[1].y;
+				const float dist = sqrtf(dx * dx + dy * dy);
+				if (!m_pinching) {
+					if (dist > 1.0f &&
+					    (IsInsideTouchRange(pinchState.touches[0].x, pinchState.touches[0].y) ||
+					     IsInsideTouchRange(pinchState.touches[1].x, pinchState.touches[1].y))) {
+						m_pinching = true;
+						m_pinchStartDist = dist;
+						m_pinchStartScale = tsl::gfx::Renderer::getRenderer().getLayerScale();
+						// Cancel any in-progress drag.
+						changingPos = false;
+						touch_pos_x = -1;
+						touch_pos_y = -1;
+					}
+				}
+				if (m_pinching && dist > 1.0f && m_pinchStartDist > 1.0f)
+					tsl::gfx::Renderer::getRenderer().setLayerScale(m_pinchStartScale * (dist / m_pinchStartDist));
+			}
+			else if (m_pinching) {
+				m_pinching = false;
+			}
+
+			if (!m_pinching) {
 			if (!changingPos && *touchInput.delta_time != 0) {
 				if (IsInsideTouchRange(*touchInput.x, *touchInput.y)) {
 					changingPos = true;
@@ -639,6 +691,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 				touch_pos_x = *touchInput.x;
 				touch_pos_y = *touchInput.y;
 				applyDrag();
+			}
 			}
 		}
 		if (m_motionControl == true && (changingPos == false || sixaxisChangingPos == true)) [[unlikely]] {
