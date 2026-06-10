@@ -906,6 +906,37 @@ namespace tsl {
                 setLayerPosImpl(x, y);
             }
 
+            // Ryazha pinch-to-resize: scale the VI layer destination rectangle.
+            // The framebuffer is untouched — the display hardware stretches it,
+            // so SMD overlays can be resized live without re-rendering.
+            float m_layerScale = 1.0f;
+
+            inline float getLayerScale() const { return m_layerScale; }
+
+            inline void setLayerScale(float scale) {
+                if (scale < 0.35f) scale = 0.35f;
+                else if (scale > 2.0f) scale = 2.0f;
+
+                u32 w = (u32)(cfg::OrigLayerWidth  * scale);
+                u32 h = (u32)(cfg::OrigLayerHeight * scale);
+                if (w > cfg::ScreenWidth)  w = cfg::ScreenWidth;
+                if (h > cfg::ScreenHeight) h = cfg::ScreenHeight;
+                if (w == 0 || h == 0) return;
+
+                m_layerScale = scale;
+                if (w == cfg::LayerWidth && h == cfg::LayerHeight) return;
+
+                cfg::LayerWidth  = w;
+                cfg::LayerHeight = h;
+                viSetLayerSize(&this->m_layer, w, h);
+
+                // Keep the layer fully on screen after shrinking/growing.
+                u32 x = cfg::LayerPosX, y = cfg::LayerPosY;
+                if (x > cfg::ScreenWidth  - w) x = cfg::ScreenWidth  - w;
+                if (y > cfg::ScreenHeight - h) y = cfg::ScreenHeight - h;
+                setLayerPosImpl(x, y);
+            }
+
 			static Renderer& getRenderer() {
 				return get();
 			}

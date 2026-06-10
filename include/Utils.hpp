@@ -227,6 +227,16 @@ extern CpuDataType CpuData;
 extern GpuDataType GpuData;
 extern RamDataType RamData;
 extern BoardDataType BoardData;
+// Ryazha theme colors in raw framebuffer (ABGR4444) format, filled from
+// /config/ryazhahand/theme.ini at startup (defaults match the classic look).
+struct ThemeDataType {
+	int64_t TextColor_int     = 0xFFFF; // text_color
+	int64_t CategoryColor_int = 0xFCCC; // highlight_color_1
+	int64_t AccentColor_int   = 0xFFF8; // highlight_color_2
+	int64_t BoxColor_int      = 0x7111; // bg_color + bg_alpha
+};
+extern ThemeDataType ThemeData;
+
 extern GameDataType GameData;
 extern SystemDataType SystemData;
 extern MiscDataType MiscData;
@@ -283,6 +293,10 @@ inline void BindAllPredefined(smd::Document& doc) {
     doc.BindFloat ("Game_ReadSpeedPerSecond_float",       		&GameData.ReadSpeedPerSecond_float);
     doc.BindResolutionArray("Game_ResolutionRenderCalls_int",   GameData.ResolutionRenderCalls_int);
     doc.BindResolutionArray("Game_ResolutionViewportCalls_int", GameData.ResolutionViewportCalls_int);
+    doc.BindInt64 ("Theme_TextColor_int",                 		&ThemeData.TextColor_int);
+    doc.BindInt64 ("Theme_CategoryColor_int",             		&ThemeData.CategoryColor_int);
+    doc.BindInt64 ("Theme_AccentColor_int",               		&ThemeData.AccentColor_int);
+    doc.BindInt64 ("Theme_BoxColor_int",                  		&ThemeData.BoxColor_int);
     doc.BindInt64 ("System_DisplayRefreshRate_int",       		&SystemData.DisplayRefreshRate_int);
     doc.BindBool  ("System_IsDocked",                     		&SystemData.IsDocked);
     doc.BindInt64 ("System_KeysDown_int",                 		&SystemData.KeysDown_int);

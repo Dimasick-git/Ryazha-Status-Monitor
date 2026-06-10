@@ -903,24 +903,24 @@ uint64_t MapButtons(const std::string& buttonCombo) {
 
 void createDefaultFile(std::string filepath) {
 	mkdir("sdmc:/config/", 69);
-	mkdir("sdmc:/config/status-monitor-deux/", 420);
-	setIniFile(filepath, "status-monitor-deux", ";key_combo", "L+DDOWN+RSTICK", "");
-	setIniFile(filepath, "status-monitor-deux", "key_combo_time_delay_ms", "200", "");
-	setIniFile(filepath, "status-monitor-deux", "battery_avg_iir_filter", "false", "");
-	setIniFile(filepath, "status-monitor-deux", "battery_time_left_refreshrate", "10", "");
-	setIniFile(filepath, "status-monitor-deux", "touch_screen", "true", "");
-	setIniFile(filepath, "status-monitor-deux", "motion_control", "true", "");
-	setIniFile(filepath, "status-monitor-deux", "left_joycon_motion_key_combo", "ZL+L+LSTICK", "");
-	setIniFile(filepath, "status-monitor-deux", "right_joycon_motion_key_combo", "ZR+R+RSTICK", "");
-	setIniFile(filepath, "status-monitor-deux", "pro_controller_motion_key_combo", "ZR+R+RSTICK", "");
-	setIniFile(filepath, "status-monitor-deux", "jump_immediately_to_single_smd", "true", "");
-	setIniFile(filepath, "status-monitor-deux", "save_and_load_movable_overlay_position", "true", "");
-	setIniFile(filepath, "status-monitor-deux", "override_language", "false", "");
-	setIniFile(filepath, "status-monitor-deux", "override_language_ietf_code", "EN-US", "");
+	mkdir("sdmc:/config/status-monitor/", 420);
+	setIniFile(filepath, "status-monitor", ";key_combo", "L+DDOWN+RSTICK", "");
+	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "200", "");
+	setIniFile(filepath, "status-monitor", "battery_avg_iir_filter", "false", "");
+	setIniFile(filepath, "status-monitor", "battery_time_left_refreshrate", "10", "");
+	setIniFile(filepath, "status-monitor", "touch_screen", "true", "");
+	setIniFile(filepath, "status-monitor", "motion_control", "true", "");
+	setIniFile(filepath, "status-monitor", "left_joycon_motion_key_combo", "ZL+L+LSTICK", "");
+	setIniFile(filepath, "status-monitor", "right_joycon_motion_key_combo", "ZR+R+RSTICK", "");
+	setIniFile(filepath, "status-monitor", "pro_controller_motion_key_combo", "ZR+R+RSTICK", "");
+	setIniFile(filepath, "status-monitor", "jump_immediately_to_single_smd", "true", "");
+	setIniFile(filepath, "status-monitor", "save_and_load_movable_overlay_position", "true", "");
+	setIniFile(filepath, "status-monitor", "override_language", "false", "");
+	setIniFile(filepath, "status-monitor", "override_language_ietf_code", "EN-US", "");
 }
 
 bool ProcessSmdSettings(std::string filename, uint32_t crc32, uint16_t* x, uint16_t* y) {
-	std::string configIniPath = "sdmc:/config/status-monitor-deux/config.ini";
+	std::string configIniPath = "sdmc:/config/status-monitor/config.ini";
 	FILE* configFileIn = fopen(configIniPath.c_str(), "r");
 	if (configFileIn) {
 		fseek(configFileIn, 0, SEEK_END);
@@ -980,9 +980,53 @@ std::string resolveHexEscapes(const std::string& s) {
 }
 
 // Custom utility function for parsing an ini file
+ThemeDataType ThemeData;
+
+// Parse "#RRGGBB" into raw ABGR4444 with the given 0-15 alpha; returns -1 on bad input.
+static int64_t themeHexToAbgr4444(const std::string& hex, unsigned alpha) {
+	std::string h = hex;
+	if (!h.empty() && h[0] == '#') h = h.substr(1);
+	if (h.size() != 6) return -1;
+	for (char c : h) if (!isxdigit((unsigned char)c)) return -1;
+	const unsigned long rgb = strtoul(h.c_str(), nullptr, 16);
+	const unsigned r = ((rgb >> 16) & 0xFF) >> 4;
+	const unsigned g = ((rgb >>  8) & 0xFF) >> 4;
+	const unsigned b = ( rgb        & 0xFF) >> 4;
+	return (int64_t)(((alpha & 0xF) << 12) | (b << 8) | (g << 4) | r);
+}
+
+static std::string ryazhaThemeIniValue(const char* key) {
+	std::string v = parseValueFromIniSection("sdmc:/config/ryazhahand/theme.ini", "theme", key);
+	if (v.empty())
+		v = parseValueFromIniSection("sdmc:/config/ultrahand/theme.ini", "theme", key);
+	return v;
+}
+
+// Fill ThemeData (Theme_* SMD bindings) from the Ryazhahand theme.
+static void LoadRyazhaThemeData() {
+	int64_t v;
+	if ((v = themeHexToAbgr4444(ryazhaThemeIniValue("text_color"), 15)) >= 0)
+		ThemeData.TextColor_int = v;
+	if ((v = themeHexToAbgr4444(ryazhaThemeIniValue("highlight_color_1"), 15)) >= 0)
+		ThemeData.CategoryColor_int = v;
+	if ((v = themeHexToAbgr4444(ryazhaThemeIniValue("highlight_color_2"), 15)) >= 0)
+		ThemeData.AccentColor_int = v;
+	unsigned bgAlpha = 7;
+	{
+		std::string a = ryazhaThemeIniValue("bg_alpha");
+		if (!a.empty()) {
+			unsigned long parsed = strtoul(a.c_str(), nullptr, 10);
+			if (parsed <= 15) bgAlpha = (unsigned)parsed;
+		}
+	}
+	if ((v = themeHexToAbgr4444(ryazhaThemeIniValue("bg_color"), bgAlpha)) >= 0)
+		ThemeData.BoxColor_int = v;
+}
+
 void ParseIniFile() {
+	LoadRyazhaThemeData();
 	std::string overlayName;
-	std::string directoryPath = "sdmc:/config/status-monitor-deux/";
+	std::string directoryPath = "sdmc:/config/status-monitor/";
 	std::string ultrahandDirectoryPath = "sdmc:/config/ultrahand/";
 	std::string teslaDirectoryPath = "sdmc:/config/tesla/";
 	std::string configIniPath = directoryPath + "config.ini";
@@ -1000,7 +1044,7 @@ void ParseIniFile() {
 
 	// Open the INI file
 	config = getParsedDataFromIniFile(configIniPath.c_str());
-	auto it = config.find("status-monitor-deux");
+	auto it = config.find("status-monitor");
 	bool override_check = false;
 	std::string temp_overrideLanguage;
 	if (it != config.end()) {
@@ -1171,34 +1215,60 @@ void ParseIniFile() {
 		}
 	}
 	else {
+		// Ryazhahand integration: the language selected in the Ryazhahand menu
+		// (default_lang in /config/ryazhahand/config.ini) takes priority over
+		// the system language; Ultrahand's config is honoured as a fallback.
+		overrideLanguage.clear();
+		{
+			std::string ryazhaLang = parseValueFromIniSection("sdmc:/config/ryazhahand/config.ini", "ryazhahand", "default_lang");
+			if (ryazhaLang.empty())
+				ryazhaLang = parseValueFromIniSection("sdmc:/config/ultrahand/config.ini", "ultrahand", "default_lang");
+			for (auto& c : ryazhaLang) c = tolower(c);
+			static constexpr std::pair<const char*, const char*> kLangMap[] = {
+				{"ru", "RU-RU"}, {"en", "EN-US"}, {"pl", "PL-PL"}, {"de", "DE-DE"},
+				{"fr", "FR-FR"}, {"it", "IT-IT"}, {"es", "ES-ES"}, {"pt", "PT-PT"},
+				{"nl", "NL-NL"}, {"ja", "JA-JP"}, {"ko", "KO-KR"},
+				{"zh-cn", "ZH-CN"}, {"zh-tw", "ZH-TW"},
+				{"es-419", "ES-419"}, {"fr-ca", "FR-CA"}, {"pt-br", "PT-BR"},
+			};
+			for (const auto& [shortCode, ietf] : kLangMap) {
+				if (ryazhaLang == shortCode) {
+					overrideLanguage = ietf;
+					break;
+				}
+			}
+		}
 		smInitialize();
 		Result rc = setInitialize();
 		smExit();
 		if (R_SUCCEEDED(rc)) {
-			u64 languageCode;
-			setGetSystemLanguage(&languageCode);
-			SetLanguage language;
-			setMakeLanguage(languageCode, &language);
-			setExit();
-			switch(language) {
-				case SetLanguage_JA:     {overrideLanguage = "JA-JP"; break;}
-				case SetLanguage_FR:     {overrideLanguage = "FR-FR"; break;}
-				case SetLanguage_DE:     {overrideLanguage = "DE-DE"; break;}
-				case SetLanguage_IT:     {overrideLanguage = "IT-IT"; break;}
-				case SetLanguage_ES:     {overrideLanguage = "ES-ES"; break;}
-				case SetLanguage_ZHCN:
-				case SetLanguage_ZHHANS: {overrideLanguage = "ZH-CN"; break;}
-				case SetLanguage_ZHTW:
-				case SetLanguage_ZHHANT: {overrideLanguage = "ZH-TW"; break;}
-				case SetLanguage_KO:     {overrideLanguage = "KO-KR"; break;}
-				case SetLanguage_NL:     {overrideLanguage = "NL-NL"; break;}
-				case SetLanguage_PT:     {overrideLanguage = "PT-PT"; break;}
-				case SetLanguage_RU:     {overrideLanguage = "RU-RU"; break;}
-				case SetLanguage_FRCA:   {overrideLanguage = "FR-CA"; break;}
-				case SetLanguage_ES419:  {overrideLanguage = "ES-419"; break;}
-				case SetLanguage_PTBR:   {overrideLanguage = "PT-BR"; break;}
-				default:                 {overrideLanguage = "EN-US"; break;}
+			if (overrideLanguage.empty()) {
+				u64 languageCode;
+				setGetSystemLanguage(&languageCode);
+				SetLanguage language;
+				setMakeLanguage(languageCode, &language);
+				switch(language) {
+					case SetLanguage_JA:     {overrideLanguage = "JA-JP"; break;}
+					case SetLanguage_FR:     {overrideLanguage = "FR-FR"; break;}
+					case SetLanguage_DE:     {overrideLanguage = "DE-DE"; break;}
+					case SetLanguage_IT:     {overrideLanguage = "IT-IT"; break;}
+					case SetLanguage_ES:     {overrideLanguage = "ES-ES"; break;}
+					case SetLanguage_ZHCN:
+					case SetLanguage_ZHHANS: {overrideLanguage = "ZH-CN"; break;}
+					case SetLanguage_ZHTW:
+					case SetLanguage_ZHHANT: {overrideLanguage = "ZH-TW"; break;}
+					case SetLanguage_KO:     {overrideLanguage = "KO-KR"; break;}
+					case SetLanguage_NL:     {overrideLanguage = "NL-NL"; break;}
+					case SetLanguage_PT:     {overrideLanguage = "PT-PT"; break;}
+					case SetLanguage_RU:     {overrideLanguage = "RU-RU"; break;}
+					case SetLanguage_FRCA:   {overrideLanguage = "FR-CA"; break;}
+					case SetLanguage_ES419:  {overrideLanguage = "ES-419"; break;}
+					case SetLanguage_PTBR:   {overrideLanguage = "PT-BR"; break;}
+					// Ryazha default is Russian.
+					default:                 {overrideLanguage = "RU-RU"; break;}
+				}
 			}
+			setExit();
 
 			auto it = temp.find(overrideLanguage);
 			bool isGood = false;
@@ -1215,6 +1285,27 @@ void ParseIniFile() {
 					auto it2 = locale.find(key);
 					if (it2 != locale.end()) it2->second = resolveHexEscapes(locale[key]);
 					else locale[key] = resolveHexEscapes(data);
+				}
+			}
+			if (isGood == false) {
+				// Ryazha default: fall back to Russian from locale.ini before
+				// the embedded English strings.
+				auto ru = temp.find("RU-RU");
+				if (ru != temp.end()) {
+					overrideLanguage = "RU-RU";
+					locale = std::unordered_map<std::string, std::string>(ru->second.begin(), ru->second.end());
+					isGood = true;
+					for (const auto& [key, data] : m_defaultLocale) {
+						if (locale.find(key) == locale.end()) {
+							isGood = false;
+							break;
+						}
+					}
+					if (isGood == true) for (const auto& [key, data] : m_defaultLocale) {
+						auto it2 = locale.find(key);
+						if (it2 != locale.end()) it2->second = resolveHexEscapes(it2->second);
+						else locale[key] = resolveHexEscapes(data);
+					}
 				}
 			}
 			if (isGood == false) {

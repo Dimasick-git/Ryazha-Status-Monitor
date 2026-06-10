@@ -385,9 +385,24 @@ namespace ryz {
     CondVar           RyazhaSound::m_queueCv = {};
     Audio::SoundType  RyazhaSound::m_queue[RyazhaSound::QUEUE_CAP];
     uint32_t          RyazhaSound::m_queueCount = 0;
+    bool              RyazhaSound::m_soundsActive  = false;
+    bool              RyazhaSound::m_hapticsActive = false;
     bool              RyazhaSound::m_useNavigate = true;
     bool              RyazhaSound::m_useEnter    = true;
     bool              RyazhaSound::m_useExit     = true;
+    HidVibrationDeviceHandle RyazhaSound::m_vibHandheld[2] = {};
+    HidVibrationDeviceHandle RyazhaSound::m_vibPlayer1[2]  = {};
+    u32               RyazhaSound::m_handheldStyle = 0;
+    u32               RyazhaSound::m_player1Style  = 0;
+
+    // Rumble presets ported from libryazhahand's haptics engine.
+    static constexpr HidVibrationValue kRumblePreset = {
+        .amp_low = 0.80f, .freq_low = 210.0f, .amp_high = 0.00f, .freq_high = 210.0f
+    };
+    static constexpr HidVibrationValue kRumblePresetHandheld = {
+        .amp_low = 0.65f, .freq_low = 210.0f, .amp_high = 0.00f, .freq_high = 210.0f
+    };
+    static constexpr HidVibrationValue kRumbleStop{};
 
     static bool ryazhaConfigBool(const char* key, bool defaultValue) {
         std::string v = parseValueFromIniSection("/config/ryazhahand/config.ini", "ryazhahand", key);
@@ -395,26 +410,87 @@ namespace ryz {
         return !(strcasecmp(v.c_str(), "false") == 0 || v == "0");
     }
 
+    void RyazhaSound::initHaptics() {
+        const u32 handheldStyle = hidGetNpadStyleSet(HidNpadIdType_Handheld);
+        const u32 player1Style  = hidGetNpadStyleSet(HidNpadIdType_No1);
+
+        static HidVibrationDeviceHandle tmp[2];
+        if (handheldStyle) {
+            if (R_SUCCEEDED(hidInitializeVibrationDevices(tmp, 2, HidNpadIdType_Handheld,
+                                                          (HidNpadStyleTag)handheldStyle))) {
+                m_vibHandheld[0] = tmp[0];
+                m_vibHandheld[1] = tmp[1];
+            } else {
+                m_hapticsActive = false;
+            }
+        }
+        if (player1Style) {
+            if (R_SUCCEEDED(hidInitializeVibrationDevices(tmp, 2, HidNpadIdType_No1,
+                                                          (HidNpadStyleTag)player1Style))) {
+                m_vibPlayer1[0] = tmp[0];
+                m_vibPlayer1[1] = tmp[1];
+            }
+        }
+        m_handheldStyle = handheldStyle;
+        m_player1Style  = player1Style;
+    }
+
+    void RyazhaSound::rumbleClick() {
+        const u32 handheldStyle = hidGetNpadStyleSet(HidNpadIdType_Handheld);
+        const u32 player1Style  = hidGetNpadStyleSet(HidNpadIdType_No1);
+        if (handheldStyle != m_handheldStyle || player1Style != m_player1Style)
+            initHaptics();
+        if (!m_hapticsActive) return;
+
+        const HidVibrationValue& preset = m_handheldStyle ? kRumblePresetHandheld : kRumblePreset;
+        const HidVibrationValue values[2] = { preset, preset };
+        const HidVibrationValue stops[2]  = { kRumbleStop, kRumbleStop };
+
+        if (m_player1Style) {
+            hidSendVibrationValues(m_vibPlayer1, values, 2);
+        } else if (m_handheldStyle) {
+            hidSendVibrationValues(m_vibHandheld, values, 2);
+        } else {
+            return;
+        }
+        svcSleepThread(30'000'000ULL); // 30 ms click
+        if (m_player1Style)       hidSendVibrationValues(m_vibPlayer1, stops, 2);
+        else if (m_handheldStyle) hidSendVibrationValues(m_vibHandheld, stops, 2);
+    }
+
+    bool RyazhaSound::soundAllowed(Audio::SoundType type) {
+        switch (type) {
+            case Audio::SoundType::Navigate: return m_useNavigate;
+            case Audio::SoundType::Enter:    return m_useEnter;
+            case Audio::SoundType::Exit:     return m_useExit;
+            default:                         return true;
+        }
+    }
+
     void RyazhaSound::start() {
         if (m_running.load(std::memory_order_relaxed)) return;
 
-        if (!ryazhaConfigBool("sound_effects", true)) return;
-        if (!Audio::anySoundExists()) return;
+        m_soundsActive  = ryazhaConfigBool("sound_effects", true) && Audio::anySoundExists();
+        m_hapticsActive = ryazhaConfigBool("haptic_feedback", true);
+        if (!m_soundsActive && !m_hapticsActive) return;
 
         m_useNavigate = ryazhaConfigBool("sound_navigation", true);
         m_useEnter    = ryazhaConfigBool("sound_enter", true);
         m_useExit     = ryazhaConfigBool("sound_exit", true);
 
-        {
+        if (m_soundsActive) {
             std::string vol = parseValueFromIniSection("/config/ryazhahand/config.ini", "ryazhahand", "sound_volume");
             if (!vol.empty()) {
                 unsigned long pct = strtoul(vol.c_str(), nullptr, 10);
                 if (pct > 100) pct = 100;
                 Audio::setMasterVolume(pct / 100.0f);
             }
+            if (!Audio::initialize())
+                m_soundsActive = false;
         }
-
-        if (!Audio::initialize()) return;
+        if (m_hapticsActive)
+            initHaptics();
+        if (!m_soundsActive && !m_hapticsActive) return;
 
         mutexInit(&m_queueMutex);
         condvarInit(&m_queueCv);
@@ -469,8 +545,18 @@ namespace ryz {
             m_queueCount = 0;
             mutexUnlock(&m_queueMutex);
 
-            if (count == 1)     Audio::playSound(pending[0]);
-            else if (count > 1) Audio::playSounds(pending, count);
+            if (m_hapticsActive)
+                rumbleClick();
+
+            if (m_soundsActive) {
+                Audio::SoundType allowed[QUEUE_CAP];
+                uint32_t allowedCount = 0;
+                for (uint32_t i = 0; i < count; ++i)
+                    if (soundAllowed(pending[i]))
+                        allowed[allowedCount++] = pending[i];
+                if (allowedCount == 1)     Audio::playSound(allowed[0]);
+                else if (allowedCount > 1) Audio::playSounds(allowed, allowedCount);
+            }
         }
     }
 }

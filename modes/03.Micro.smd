@@ -17,6 +17,12 @@ User_RefreshRate = 1
 ;;User_RefreshRate_Name_RU-RU = Частота обновления
 ;;User_RefreshRate_DefaultValue = 1
 ;;User_RefreshRate_Range = {int, 1, 60}
+User_UseTheme = false
+;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) instead of the colors below.
+;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) вместо цветов ниже.
+;;User_UseTheme_Name = Use theme colors
+;;User_UseTheme_Name_RU-RU = Цвета из темы
+;;User_UseTheme_DefaultValue = false
 User_CategoryColor = COLOR{0xFCCF}
 ;;User_CategoryColor_Name = Data type color
 ;;User_CategoryColor_Name_PL-PL = Kolor kategorii danych
@@ -29,12 +35,12 @@ User_TextColor = COLOR{0xFFFF}
 ;;User_TextColor_Name_DE-DE = Datenfarbe
 ;;User_TextColor_Name_RU-RU = Цвет данных
 ;;User_TextColor_DefaultValue = COLOR{0xFFFF}
-User_BoxColor = COLOR{0x1117}
+User_BoxColor = COLOR{0x1115}
 ;;User_BoxColor_Name = Background color
 ;;User_BoxColor_Name_PL-PL = Kolor tła
 ;;User_BoxColor_Name_DE-DE = Hintergrundfarbe
 ;;User_BoxColor_Name_RU-RU = Цвет фона
-;;User_BoxColor_DefaultValue = COLOR{0x1117}
+;;User_BoxColor_DefaultValue = COLOR{0x1115}
 User_HandheldFontSize = 18
 ;;User_HandheldFontSize_Description = Size of text in handheld mode.
 ;;User_HandheldFontSize_Description_PL-PL = Rozmiar tekstu w trybie handheld.
@@ -200,6 +206,16 @@ FPSplaceholder = "FPS 444.4 "
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Start:
+; Ryazha theming: colors follow /config/ryazhahand/theme.ini when enabled.
+#if $User_UseTheme
+	VAR{CatColor, Theme_CategoryColor_int}
+	VAR{TxtColor, Theme_TextColor_int}
+	VAR{BoxColor, Theme_BoxColor_int}
+#else
+	VAR{CatColor, User_CategoryColor}
+	VAR{TxtColor, User_TextColor}
+	VAR{BoxColor, BoxColor}
+#endif
 VAR{Text, ""}
 VAR{DimensionsWholeText, ""}
 VAR{X_OFFSET, 0}
@@ -208,7 +224,7 @@ VAR{X_OFFSET, 0}
 #else
 	VAR{fontsize, User_HandheldFontSize}
 #endif
-BOX{0, 0, LayerWidth, fontsize+2, User_BoxColor}
+BOX{0, 0, LayerWidth, fontsize+2, BoxColor}
 
 #for $category in $User_Ordering
 	#if $EnableCPU and $User_ShowCPU and $category == "CPU"
@@ -265,8 +281,8 @@ BOX{0, 0, LayerWidth, fontsize+2, User_BoxColor}
 		VAR{FrontText, IETF_GET{CpuTextCat} + " "}
 		GET_DIMENSIONS{Dimensions, fontsize, true, FrontText}
 		GET_DIMENSIONS{Dimensions2, fontsize, true, DimensionsText};
-		TEXT{X_OFFSET, fontsize, fontsize, User_CategoryColor, true, FrontText}
-		TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, User_TextColor, true, Text}
+		TEXT{X_OFFSET, fontsize, fontsize, CatColor, true, FrontText}
+		TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, TxtColor, true, Text}
 		VAR{X_OFFSET, X_OFFSET + Dimensions2.x}
 	#endif
 	#if $EnableGPU and $User_ShowGPU and $category == "GPU"
@@ -289,8 +305,8 @@ BOX{0, 0, LayerWidth, fontsize+2, User_BoxColor}
 		VAR{FrontText, IETF_GET{GpuTextCat} + " "}
 		GET_DIMENSIONS{Dimensions, fontsize, true, FrontText}
 		GET_DIMENSIONS{Dimensions2, fontsize, true, DimensionsText};
-		TEXT{X_OFFSET, fontsize, fontsize, User_CategoryColor, true, FrontText}
-		TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, User_TextColor, true, Text}
+		TEXT{X_OFFSET, fontsize, fontsize, CatColor, true, FrontText}
+		TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, TxtColor, true, Text}
 		VAR{X_OFFSET, X_OFFSET + Dimensions2.x}
 	#endif
 	#if $EnableRAM and $User_ShowRAM and $category == "RAM"
@@ -328,8 +344,8 @@ BOX{0, 0, LayerWidth, fontsize+2, User_BoxColor}
 		VAR{FrontText, IETF_GET{RamTextCat} + " "}
 		GET_DIMENSIONS{Dimensions, fontsize, true, FrontText}
 		GET_DIMENSIONS{Dimensions2, fontsize, true, DimensionsText};
-		TEXT{X_OFFSET, fontsize, fontsize, User_CategoryColor, true, FrontText}
-		TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, User_TextColor, true, Text}
+		TEXT{X_OFFSET, fontsize, fontsize, CatColor, true, FrontText}
+		TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, TxtColor, true, Text}
 		VAR{X_OFFSET, X_OFFSET + Dimensions2.x}
 	#endif
 	#if $EnableBoard and $User_ShowBRD and $category == "BRD"
@@ -337,16 +353,16 @@ BOX{0, 0, LayerWidth, fontsize+2, User_BoxColor}
 		VAR{FrontText, IETF_GET{BoardTextCat} + " "}
 		GET_DIMENSIONS{Dimensions, fontsize, true, FrontText}
 		GET_DIMENSIONS{Dimensions2, fontsize, true, DimensionsText};
-		TEXT{X_OFFSET, fontsize, fontsize, User_CategoryColor, true, FrontText}
-		TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, User_TextColor, true, BoardText}
+		TEXT{X_OFFSET, fontsize, fontsize, CatColor, true, FrontText}
+		TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, TxtColor, true, BoardText}
 		VAR{X_OFFSET, X_OFFSET + Dimensions2.x}
 		#if $User_ShowFAN
 			VAR{DimensionsText, Fanplaceholder}
 			VAR{FrontText, IETF_GET{FanTextCat} + " "}
 			GET_DIMENSIONS{Dimensions, fontsize, true, FrontText}
 			GET_DIMENSIONS{Dimensions2, fontsize, true, DimensionsText};
-			TEXT{X_OFFSET, fontsize, fontsize, User_CategoryColor, true, FrontText}
-			TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, User_TextColor, true, FanText}
+			TEXT{X_OFFSET, fontsize, fontsize, CatColor, true, FrontText}
+			TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, TxtColor, true, FanText}
 			VAR{X_OFFSET, X_OFFSET + Dimensions2.x}
 		#endif
 	#endif
@@ -362,8 +378,8 @@ BOX{0, 0, LayerWidth, fontsize+2, User_BoxColor}
 			#endif
 			GET_DIMENSIONS{Dimensions, fontsize, true, FrontText}
 			GET_DIMENSIONS{Dimensions2, fontsize, true, DimensionsText};
-			TEXT{X_OFFSET, fontsize, fontsize, User_CategoryColor, true, FrontText}
-			TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, User_TextColor, true, Text}
+			TEXT{X_OFFSET, fontsize, fontsize, CatColor, true, FrontText}
+			TEXT{X_OFFSET + Dimensions.x, fontsize, fontsize, TxtColor, true, Text}
 			VAR{X_OFFSET, X_OFFSET + Dimensions2.x}
 		#endif
 	#endif

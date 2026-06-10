@@ -38,7 +38,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	Ryazha-Status-Monitor
-APP_VERSION	:=	1.4.4
+APP_VERSION	:=	1.4.5
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
 SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/libtesla/source lib/slre
@@ -187,8 +187,8 @@ $(BUILD):
 	@rm -rf out/
 	@mkdir -p out/switch/.overlays/
 	@cp -a $(CURDIR)/config out/
-	@cp -a $(CURDIR)/modes out/config/status-monitor-deux/
-	@cp -a $(CURDIR)/extensions out/config/status-monitor-deux/
+	@cp -a $(CURDIR)/modes out/config/status-monitor/
+	@cp -a $(CURDIR)/extensions out/config/status-monitor/
 	@cp $(CURDIR)/$(TARGET).ovl out/switch/.overlays/$(TARGET).ovl
 
 #---------------------------------------------------------------------------------

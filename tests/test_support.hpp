@@ -51,6 +51,10 @@ inline void NoOpCallback(smd::RenderCommand& cmd, void*) {
 // the spec. Bind once with BindAllPredefined() so tests can focus on
 // what they actually want to drive.
 struct DummyHost {
+    int64_t Theme_TextColor_int     = 0xFFFF;
+    int64_t Theme_CategoryColor_int = 0xFCCC;
+    int64_t Theme_AccentColor_int   = 0xFFF8;
+    int64_t Theme_BoxColor_int      = 0x7111;
     int64_t CPU_Hz_int{}, CPU_RealHz_int{}, CPU_DeltaHz_int{};
     double  CPU_Core0Load_double{}, CPU_Core1Load_double{},
             CPU_Core2Load_double{}, CPU_Core3Load_double{};
@@ -92,6 +96,10 @@ struct DummyHost {
 };
 
 inline void BindAllPredefined(smd::Document& doc, DummyHost& h) {
+    doc.BindInt64("Theme_TextColor_int",     &h.Theme_TextColor_int);
+    doc.BindInt64("Theme_CategoryColor_int", &h.Theme_CategoryColor_int);
+    doc.BindInt64("Theme_AccentColor_int",   &h.Theme_AccentColor_int);
+    doc.BindInt64("Theme_BoxColor_int",      &h.Theme_BoxColor_int);
     doc.BindInt64 ("CPU_Hz_int",                          &h.CPU_Hz_int);
     doc.BindInt64 ("CPU_RealHz_int",                      &h.CPU_RealHz_int);
     doc.BindInt64 ("CPU_DeltaHz_int",                     &h.CPU_DeltaHz_int);

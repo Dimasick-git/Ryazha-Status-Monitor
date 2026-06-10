@@ -109,7 +109,7 @@ public:
 	ConfigurationMainMenu() {
 		buttonBackup = defaultButtonView;
 		defaultButtonView = locale["Footer"];
-		auto it = config.find("status-monitor-deux");
+		auto it = config.find("status-monitor");
 		if (it != config.end()) m_configs = it->second;
 
 		if (m_configs.find("battery_avg_iir_filter") == m_configs.end()) m_configs["battery_avg_iir_filter"] = "false";
@@ -129,9 +129,9 @@ public:
 	~ConfigurationMainMenu() {
 		defaultButtonView = buttonBackup;
 		if (skipConfigSaving == false) {
-			setDataToIniFile("sdmc:/config/status-monitor-deux/config.ini", "status-monitor-deux");
+			setDataToIniFile("sdmc:/config/status-monitor/config.ini", "status-monitor");
 			for (const auto& [key, value] : m_configs) {
-				if (value.length() > 0) config["status-monitor-deux"][key] = value;
+				if (value.length() > 0) config["status-monitor"][key] = value;
 			}
 		}
 		if (keyComboTimeDelay >= 20 && keyComboTimeDelay <= 1000) keyComboTimeDelay *= 1'000'000;
@@ -282,7 +282,7 @@ public:
 			Item->setClickListener([this](uint64_t keys) {
 				if (keys & KEY_A) {
 					skipConfigSaving = true;
-					removeIniSection("sdmc:/config/status-monitor-deux/config.ini", "status-monitor-deux");
+					removeIniSection("sdmc:/config/status-monitor/config.ini", "status-monitor");
 					tsl::setNextOverlay(filepath, "");
 					tsl::goBack();
 					tsl::goBack();

@@ -23,6 +23,12 @@ User_ShowRealFrequencies = true
 ;;User_ShowRealFrequencies_Name_DE-DE = Echte Frequenzen anzeigen
 ;;User_ShowRealFrequencies_Name_RU-RU = Показывать реальные частоты
 ;;User_ShowRealFrequencies_DefaultValue = true
+User_UseTheme = false
+;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) instead of the colors below.
+;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) вместо цветов ниже.
+;;User_UseTheme_Name = Use theme colors
+;;User_UseTheme_Name_RU-RU = Цвета из темы
+;;User_UseTheme_DefaultValue = false
 User_CategoryColor = COLOR{0xCCCF}
 ;;User_CategoryColor_Description = Color of categories (left column of text).
 ;;User_CategoryColor_Description_PL-PL = Kolor kategorii (lewa kolumna).
@@ -39,12 +45,12 @@ User_TextColor = COLOR{0xFFFF}
 ;;User_TextColor_Name_DE-DE = Datenfarbe
 ;;User_TextColor_Name_RU-RU = Цвет данных
 ;;User_TextColor_DefaultValue = COLOR{0xFFFF}
-User_BoxColor = COLOR{0x1117}
+User_BoxColor = COLOR{0x1115}
 ;;User_BoxColor_Name = Background color
 ;;User_BoxColor_Name_PL-PL = Kolor tła
 ;;User_BoxColor_Name_DE-DE = Hintergrundfarbe
 ;;User_BoxColor_Name_RU-RU = Цвет фона
-;;User_BoxColor_DefaultValue = COLOR{0x1117}
+;;User_BoxColor_DefaultValue = COLOR{0x1115}
 User_HandheldFontSize = 15
 ;;User_HandheldFontSize_Description = Size of text in handheld mode.
 ;;User_HandheldFontSize_Description_PL-PL = Rozmiar tekstu w trybie handheld.
@@ -225,6 +231,16 @@ ReadText: {"%.2f MiB/s", Game_ReadSpeedPerSecond_float / 1048576}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Start:
+; Ryazha theming: colors follow /config/ryazhahand/theme.ini when enabled.
+#if $User_UseTheme
+	VAR{CatColor, Theme_CategoryColor_int}
+	VAR{TxtColor, Theme_TextColor_int}
+	VAR{BoxColor, Theme_BoxColor_int}
+#else
+	VAR{CatColor, User_CategoryColor}
+	VAR{TxtColor, User_TextColor}
+	VAR{BoxColor, BoxColor}
+#endif
 VAR{LeftText, ""}
 VAR{RightText, ""}
 VAR{BoxWidth, 0}
@@ -403,6 +419,6 @@ VAR{BoxWidth, 0}
 
 GET_DIMENSIONS{LeftDimensions, fontsize, true, LeftText}
 VAR{BoxWidth, BoxWidth + LeftDimensions.x}
-BOX{0, 0, BoxWidth, LeftDimensions.y + 4, User_BoxColor}
-TEXT{0, fontsize, fontsize, User_CategoryColor, true, LeftText}
-TEXT{LeftDimensions.x, fontsize, fontsize, User_TextColor, true, RightText}
+BOX{0, 0, BoxWidth, LeftDimensions.y + 4, BoxColor}
+TEXT{0, fontsize, fontsize, CatColor, true, LeftText}
+TEXT{LeftDimensions.x, fontsize, fontsize, TxtColor, true, RightText}

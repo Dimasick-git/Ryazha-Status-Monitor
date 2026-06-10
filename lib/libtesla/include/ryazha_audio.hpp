@@ -111,13 +111,14 @@ namespace ryz {
         static void     playSoundImpl(const SoundType* types, uint32_t count);
     };
 
-    // ── RyazhaSound: async facade ─────────────────────────────────────────────
+    // ── RyazhaSound: async feedback facade (sound + haptics) ──────────────────
     // start() reads /config/ryazhahand/config.ini ([ryazhahand] section):
-    //   sound_effects    — master switch (default true)
+    //   sound_effects    — sound master switch (default true)
     //   sound_volume     — 0..100 (default 60)
-    //   sound_navigation / sound_enter / sound_exit — per-event toggles
-    // If the master switch is off or no sound files exist, everything becomes
-    // a no-op and no thread is started.
+    //   sound_navigation / sound_enter / sound_exit — per-event sound toggles
+    //   haptic_feedback  — rumble click on UI events (default true)
+    // Haptics are ported from libryazhahand: a short rumble click is sent to
+    // the handheld/player-1 vibration devices alongside each UI sound.
     class RyazhaSound {
     public:
         static void start();
@@ -125,14 +126,17 @@ namespace ryz {
 
         static void trigger(Audio::SoundType type);
 
-        static inline void navigate() { if (m_useNavigate) trigger(Audio::SoundType::Navigate); }
-        static inline void enter()    { if (m_useEnter)    trigger(Audio::SoundType::Enter);    }
-        static inline void back()     { if (m_useExit)     trigger(Audio::SoundType::Exit);     }
+        static inline void navigate() { trigger(Audio::SoundType::Navigate); }
+        static inline void enter()    { trigger(Audio::SoundType::Enter);    }
+        static inline void back()     { trigger(Audio::SoundType::Exit);     }
 
         static inline bool active() { return m_running.load(std::memory_order_relaxed); }
 
     private:
         static void workerLoop(void* arg);
+        static void initHaptics();
+        static void rumbleClick();
+        static bool soundAllowed(Audio::SoundType type);
 
         static constexpr uint32_t QUEUE_CAP = 4;
 
@@ -143,8 +147,15 @@ namespace ryz {
         static Audio::SoundType  m_queue[QUEUE_CAP];
         static uint32_t          m_queueCount;
 
+        static bool m_soundsActive;
+        static bool m_hapticsActive;
         static bool m_useNavigate;
         static bool m_useEnter;
         static bool m_useExit;
+
+        static HidVibrationDeviceHandle m_vibHandheld[2];
+        static HidVibrationDeviceHandle m_vibPlayer1[2];
+        static u32 m_handheldStyle;
+        static u32 m_player1Style;
     };
 }
