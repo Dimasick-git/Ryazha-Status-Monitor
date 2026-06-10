@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# sync-upstream.sh — Sync changes from masagrator/Status-Monitor-Overlay
+# sync-upstream.sh — Sync changes from masagrator/Status-Monitor-Deux
 # Applies upstream changes while protecting our customizations.
 #
 # Usage:
@@ -9,8 +9,8 @@
 set -euo pipefail
 
 UPSTREAM_REMOTE="upstream"
-UPSTREAM_URL="https://github.com/masagrator/Status-Monitor-Overlay.git"
-UPSTREAM_BRANCH="master"
+UPSTREAM_URL="https://github.com/masagrator/Status-Monitor-Deux.git"
+UPSTREAM_BRANCH="main"
 SYNC_FILE=".upstream-sync"
 DRY_RUN=false
 
@@ -18,23 +18,20 @@ DRY_RUN=false
 
 # ─── Protected files ───────────────────────────────────────────────────────
 # These are never overwritten from upstream (our custom code lives here).
+# Everything else (source/, include/, lib/, modes/, extensions/, config/)
+# is merged 3-way, so our RU-RU locale additions in modes/*.smd and
+# config/status-monitor-deux/locale.ini survive upstream updates.
 PROTECTED=(
-    # Library: libryazhahand replaces libultrahand/libtesla
-    "lib/libryazhahand"
-    ".gitmodules"
-    # Build & CI
+    # Build & CI (branding: APP_TITLE/TARGET/APP_VERSION + RYZH signature)
     "Makefile"
     ".github"
     # Docs
     "README.md"
+    "docs/DOCKER_SETUP.md"
     # Scripts
     "sync-upstream.sh"
     "scripts"
     ".upstream-sync"
-    # Lang files (our translations)
-    "lang"
-    # Config template
-    "config"
     # Docker setup
     "Dockerfile"
     "docker-compose.yml"
@@ -42,12 +39,9 @@ PROTECTED=(
 
 # ─── Patches always re-applied after merge ─────────────────────────────────
 apply_permanent_patches() {
-    # Ensure libryazhahand is used, not libultrahand
-    if [[ -f Makefile ]]; then
-        sed -i 's|include.*libultrahand.*\.mk|include $(TOPDIR)/lib/libryazhahand/ryazhahand.mk|g' Makefile
-        sed -i 's|${TOPDIR}|$(TOPDIR)|g' Makefile
-        sed -i 's|Ultrahand signature has been added|Ryazhahand signature has been added|g' Makefile
-    fi
+    # Makefile is protected, so nothing to re-patch. Kept as an extension
+    # point for future permanent deviations from upstream.
+    :
 }
 
 # ─── Helpers ───────────────────────────────────────────────────────────────
