@@ -1,1192 +1,467 @@
 #define TESLA_INIT_IMPL
 #include <tesla.hpp>
 #include "Utils.hpp"
+#include <malloc.h>
+#include <set>
+#include "Extensions/smse.hpp"
 #include <cstdlib>
-#include <ctime>
 
-//static tsl::elm::HeaderOverlayFrame* rootFrame = nullptr;
-static bool skipMain = false;
-static std::string lastSelectedItem;
+std::list<ServiceExtensions> serviceExt;
 
-namespace {
+tsl::elm::OverlayFrame* rootFrame = nullptr;
 
-constexpr const char* LEGACY_STATUS_MONITOR_OVERLAY = "Status-Monitor-Overlay.ovl";
+std::string file_to_load = "";
+HidSixAxisSensorHandle sixaxisHandles[Controller_Max];
 
-bool checkOverlayFile(const std::string& path) {
-    struct stat buffer;
-    return stat(path.c_str(), &buffer) == 0;
+#include "rendering_pipeline.hpp"
+#include "DataTypes.hpp"
+#include "Configuration/EditConfigInt.hpp"
+#include "Configuration/ConfigurationMainMenu.hpp"
+#include "Configuration/Configuration.hpp"
+#include "RenderingPipelineDummy.hpp"
+#ifdef DEBUG
+#include "MemoryDebug.hpp"
+#endif
+
+extern "C" {
+	//This is done to save some space as they have no practical use in our case
+	void* __real___cxa_throw();
+	void* __real___cxa_rethrow();
+	void* __real___cxa_allocate_exception();
+	void* __real___cxa_free_exception();
+	void* __real___cxa_begin_catch();
+	void* __real___cxa_end_catch();
+	void* __real___cxa_call_unexpected();
+	void* __real___cxa_call_terminate();
+	void* __real__ZSt19__throw_logic_errorPKc();
+	void* __real__ZSt20__throw_length_errorPKc();
+	void* __real__ZNSt11logic_errorC2EPKc();
+	void* __real__Unwind_Resume();
+	void* __real___gxx_personality_v0();
+	void __wrap___cxa_throw() {__builtin_unreachable();}
+	void __wrap___cxa_rethrow() {__builtin_unreachable();}
+	void __wrap___cxa_allocate_exception() {__builtin_unreachable();}
+	void __wrap___cxa_free_exception() {__builtin_unreachable();}
+	void __wrap___cxa_begin_catch() {__builtin_unreachable();}
+	void __wrap___cxa_end_catch() {__builtin_unreachable();}
+	void __wrap___cxa_call_unexpected() {__builtin_unreachable();}
+	void __wrap___cxa_call_terminate() {__builtin_unreachable();}
+	void __wrap__ZSt19__throw_logic_errorPKc() {__builtin_unreachable();}
+	void __wrap__ZSt20__throw_length_errorPKc() {__builtin_unreachable();}
+	void __wrap__ZNSt11logic_errorC2EPKc() {__builtin_unreachable();}
+	void __wrap__Unwind_Resume() {__builtin_unreachable();}
+	void __wrap___gxx_personality_v0() {__builtin_unreachable();}
 }
 
-bool resolveOverlayFilePath() {
-    const std::string primaryPath = folderpath + filename;
-    if (!filename.empty() && checkOverlayFile(primaryPath)) {
-        filepath = primaryPath;
-        return true;
-    }
-
-    const std::string ryazhaPath = folderpath + "Ryazha-Status-Monitor.ovl";
-    if (checkOverlayFile(ryazhaPath)) {
-        filepath = ryazhaPath;
-        return true;
-    }
-
-    const std::string upstreamPath = folderpath + LEGACY_STATUS_MONITOR_OVERLAY;
-    if (checkOverlayFile(upstreamPath)) {
-        filepath = upstreamPath;
-        return true;
-    }
-
-    return false;
-}
-
-bool isModeArgument(const char* value, const char* canonical, const char* legacy = nullptr) {
-    return strcasecmp(value, canonical) == 0 || (legacy && strcasecmp(value, legacy) == 0);
-}
-
-}
-
-#include "modes/FPS_Counter.hpp"
-#include "modes/FPS_Graph.hpp"
-#include "modes/Full.hpp"
-#include "modes/Mini.hpp"
-#include "modes/Micro.hpp"
-#include "modes/Battery.hpp"
-#include "modes/Misc.hpp"
-#include "modes/Resolutions.hpp"
-#include "modes/Configurator.hpp"
-
-
-
-//Graphs
-//class GraphsMenu : public tsl::Gui {
-//public:
-//    GraphsMenu() {}
-//
-//    virtual tsl::elm::Element* createUI() override {
-//        
-//        auto* list = new tsl::elm::List();
-//
-//        list->addItem(new tsl::elm::CategoryHeader("FPS"));
-//
-//        auto* comFPSGraph = new tsl::elm::ListItem("Graph");
-//        comFPSGraph->setClickListener([](uint64_t keys) {
-//            if (keys & KEY_A) {
-//                tsl::swapTo<com_FPSGraph>();
-//                return true;
-//            }
-//            return false;
-//        });
-//        list->addItem(comFPSGraph);
-//
-//        auto* comFPSCounter = new tsl::elm::ListItem("Counter");
-//        comFPSCounter->setClickListener([](uint64_t keys) {
-//            if (keys & KEY_A) {
-//                tsl::swapTo<com_FPS>();
-//                return true;
-//            }
-//            return false;
-//        });
-//        list->addItem(comFPSCounter);
-//
-//        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Ryazha-Status-Monitor", "Modes");
-//        rootFrame->setContent(list);
-//
-//        return rootFrame;
-//    }
-//
-//    virtual void update() override {
-//        if (fixForeground) {
-//            fixForeground = false;
-//            tsl::hlp::requestForeground(true);
-//        }
-//    }
-//
-//    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState joyStickPosLeft, HidAnalogStickState joyStickPosRight) override {
-//        if (disableJumpTo)
-//            disableJumpTo = false;
-//        if (fixHiding) {
-//            if (isKeyComboPressed2(keysDown, keysHeld)) {
-//                tsl::Overlay::get()->hide();
-//                fixHiding = false;
-//                return true;
-//            }
-//        }
-//
-//        if (keysDown & KEY_B) {
-//            tsl::goBack();
-//            return true;
-//        }
-//        return false;
-//    }
-//};
-
-//Other
-class OtherMenu : public tsl::Gui {
-public:
-    OtherMenu() { }
-
-    virtual tsl::elm::Element* createUI() override {
-        
-        auto* list = new tsl::elm::List();
-
-        list->addItem(new tsl::elm::CategoryHeader("Другое"));
-
-        auto* Battery = new tsl::elm::ListItem("Батарея/Зарядка");
-        Battery->disableClickAnimation();
-        Battery->setClickListener([](uint64_t keys) {
-            if (keys & KEY_A) {
-                tsl::swapTo<BatteryOverlay>();
-                return true;
-            }
-            return false;
-        });
-        list->addItem(Battery);
-
-        auto* Misc = new tsl::elm::ListItem("Разное");
-        Misc->disableClickAnimation();
-        Misc->setClickListener([](uint64_t keys) {
-            if (keys & KEY_A) {
-                tsl::swapTo<MiscOverlay>();
-                return true;
-            }
-            return false;
-        });
-        list->addItem(Misc);
-
-        //if (SaltySD) {
-        //    auto* Res = new tsl::elm::ListItem("Game Resolutions");
-        //    Res->setClickListener([](uint64_t keys) {
-        //        if (keys & KEY_A) {
-        //            tsl::swapTo<ResolutionsOverlay>();
-        //            return true;
-        //        }
-        //        return false;
-        //    });
-        //    list->addItem(Res);
-        //}
-        //tsl::elm::g_disableMenuCacheOnReturn.store(true, std::memory_order_release);
-        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Ryazha-Status-Monitor", "Режимы");
-        if (!lastSelectedItem.empty()) {
-            list->jumpToItem(lastSelectedItem);
-        }
-        lastSelectedItem = "Другое";
-
-        rootFrame->setContent(list);
-
-        return rootFrame;
-    }
-
-    virtual void update() override {
-        if (fixForeground) {
-            fixForeground = false;
-            tsl::hlp::requestForeground(true);
-        }
-    }
-
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState joyStickPosLeft, HidAnalogStickState joyStickPosRight) override {
-        if (disableJumpTo)
-            disableJumpTo = false;
-        if (fixHiding) {
-            if (isKeyComboPressed2(keysDown, keysHeld)) {
-                tsl::Overlay::get()->hide();
-                fixHiding = false;
-                return true;
-            }
-        }
-
-        if (keysDown & KEY_B) {
-            
-            tsl::swapTo<MainMenu>();
-            triggerRumbleDoubleClick.store(true, std::memory_order_release);
-            triggerExitSound.store(true, std::memory_order_release);
-            return true;
-        }
-        return false;
-    }
-};
-
-//Main Menu
 class MainMenu : public tsl::Gui {
 public:
-    MainMenu() {
-        if (lastMode != "returning")
-            lastMode = "";
+    
+    const std::string root_path = "sdmc:/config/status-monitor-deux/modes/";
+    std::string standard_path = root_path;
+	std::vector<Designs> filesChecked;
+	std::string formattedKeyCombo;
+	std::string m_folderName;
+	std::string footerBackup;
+	bool isMainMenu = false;
+
+	bool FindConfigs(const char* data, size_t size) {
+		size_t lineStart = 0;
+		for (size_t i = 0; i < size; ++i) {
+			if (data[i] != '\n') continue;
+
+			// Slice the current line [lineStart, i), peeling off a trailing \r.
+			size_t end = i;
+			while (end > lineStart && data[end - 1] == '\r') --end;
+			std::string rawLine(data + lineStart, end - lineStart);
+			lineStart = i + 1;
+
+			std::string trimmedRaw = trim(rawLine);
+
+			// 2. Standard configuration line processing
+			std::string line = StripLineComment(rawLine);
+			line = trim(line);
+			if (line.empty()) continue;
+
+			if (line == "Start:" || line == "Start: ") break;
+
+			size_t sep = std::string::npos;
+			{
+				int depth = 0; bool inStr = false;
+				for (size_t j = 0; j < line.size(); ++j) {
+					char c = line[j];
+					if (inStr) {
+						if (c == '\\' && j + 1 < line.size()) { ++j; continue; }
+						if (c == '"') inStr = false;
+						continue;
+					}
+					if (c == '"') { inStr = true; continue; }
+					if (c == '{') ++depth;
+					else if (c == '}') --depth;
+					else if (depth == 0 && c == '=') { sep = j; break; }
+				}
+			}
+			if (sep == std::string::npos) continue;
+
+			std::string key  = trim(line.substr(0, sep));
+			std::string rest = trim(line.substr(sep + 1));
+
+			if (key.starts_with("User_") == true) return true;
+		}
+
+		return false;
+	}
+
+	bool itHasCustomExitCombo(const char* data, size_t size) {
+		size_t lineStart = 0;
+		for (size_t i = 0; i < size; ++i) {
+			if (data[i] != '\n') continue;
+
+			// Slice the current line [lineStart, i), peeling off a trailing \r.
+			size_t end = i;
+			while (end > lineStart && data[end - 1] == '\r') --end;
+			std::string rawLine(data + lineStart, end - lineStart);
+			lineStart = i + 1;
+
+			std::string trimmedRaw = trim(rawLine);
+
+			// 2. Standard configuration line processing
+			std::string line = StripLineComment(rawLine);
+			line = trim(line);
+			if (line.empty()) continue;
+
+			if (line == "Start:" || line == "Start: ") break;
+
+			size_t sep = std::string::npos;
+			{
+				int depth = 0; bool inStr = false;
+				for (size_t j = 0; j < line.size(); ++j) {
+					char c = line[j];
+					if (inStr) {
+						if (c == '\\' && j + 1 < line.size()) { ++j; continue; }
+						if (c == '"') inStr = false;
+						continue;
+					}
+					if (c == '"') { inStr = true; continue; }
+					if (c == '{') ++depth;
+					else if (c == '}') --depth;
+					else if (depth == 0 && c == '=') { sep = j; break; }
+				}
+			}
+			if (sep == std::string::npos) continue;
+
+			std::string key  = trim(line.substr(0, sep));
+			std::string rest = trim(line.substr(sep + 1));
+
+			if (key.compare("UseCustomExitCombo") == 0 && rest.compare("true") == 0) return true;
+		}
+
+		return false;
+	}
+
+    MainMenu(std::string rel_path, std::string folderName = "") {
+		footerBackup = defaultButtonView;
+		formattedKeyCombo = keyCombo;
+		formatButtonCombination(formattedKeyCombo);
+        if (!rel_path.empty()) {
+            standard_path = rel_path;
+        }
+        find_smd_files(standard_path, filesChecked);
+		if (folderName.length() != 0) {
+			m_folderName = folderName;
+			defaultButtonView = locale["Footer"];
+		}
+		else {
+			isMainMenu = true;
+			defaultButtonView = locale["MainMenuFooter"];
+		}
     }
 
+	~MainMenu() {
+		defaultButtonView = footerBackup;
+	}
+
     virtual tsl::elm::Element* createUI() override {
-        
-        auto* list = new tsl::elm::List();
-        
-        //list->addItem(new tsl::elm::CategoryHeader("Modes " + ult::DIVIDER_SYMBOL + " \uE0E0 Enter " + ult::DIVIDER_SYMBOL + " \uE0E3 Configure"));
-        list->addItem(new tsl::elm::CategoryHeader("Режимы " + ult::DIVIDER_SYMBOL + " \uE0E3 Настроить"));
 
-        auto* Full = new tsl::elm::ListItem("Полный");
-        Full->disableClickAnimation();
-        Full->setClickListener([](uint64_t keys) {
-            if (keys & KEY_A) {
-                lastMode = "full";
-                tsl::swapTo<FullOverlay>();
-                return true;
-            }
-            if (keys & KEY_Y) {
-                triggerRumbleClick.store(true, std::memory_order_release);
-                triggerSettingsSound.store(true, std::memory_order_release);
-                // Launch configurator for Mini mode
-                tsl::swapTo<ConfiguratorOverlay>("Full");
-                return true;
-            }
-            return false;
-        });
-        list->addItem(Full);
-        //auto* Mini = new tsl::elm::ListItem("Mini");
-        //Mini->setClickListener([](uint64_t keys) {
-        //    if (keys & KEY_A) {
-        //        tsl::swapTo<MiniOverlay>();
-        //        return true;
-        //    }
-        //    return false;
-        //});
-        //list->addItem(Mini);
+		if (jumpImmediatelyToSingleSmd == true && filesChecked.size() == 1) {
+			if (filesChecked[0].is_directory == false && standard_path.compare(root_path) == 0) {		
+				std::string full_path = standard_path + filesChecked[0].name;
 
-        if (resolveOverlayFilePath()) {
-            auto* Mini = new tsl::elm::ListItem("Мини");
-            Mini->disableClickAnimation();
-            Mini->setClickListener([](uint64_t keys) {
-                if (keys & KEY_A) {
-                    tsl::setNextOverlay(filepath, "-mini_");
-                    tsl::Overlay::get()->close();
-                    return true;
-                }
-                if (keys & KEY_Y) {
-                    triggerRumbleClick.store(true, std::memory_order_release);
-                    triggerSettingsSound.store(true, std::memory_order_release);
-                    // Launch configurator for Mini mode
-                    tsl::swapTo<ConfiguratorOverlay>("Mini");
-                    return true;
-                }
-                return false;
-            });
-            list->addItem(Mini);
+				smd::Document::PeekInfo info;
 
-            auto* Micro = new tsl::elm::ListItem("Микро");
-            Micro->disableClickAnimation();
-            Micro->setClickListener([](uint64_t keys) {
-                if (keys & KEY_A) {
-                    tsl::setNextOverlay(filepath, "-micro_");
-                    tsl::Overlay::get()->close();
-                    return true;
-                }
-                if (keys & KEY_Y) {
-                    triggerRumbleClick.store(true, std::memory_order_release);
-                    triggerSettingsSound.store(true, std::memory_order_release);
-                    // Launch configurator for Micro mode
-                    tsl::swapTo<ConfiguratorOverlay>("Micro");
-                    return true;
-                }
-                return false;
-            });
-            list->addItem(Micro);
-        }
-        if (SaltySD) {
-            //auto* Graphs = new tsl::elm::ListItem("FPS");
-            //Graphs->setValue(ult::DROPDOWN_SYMBOL);
-            //Graphs->setClickListener([](uint64_t keys) {
-            //    if (keys & KEY_A) {
-            //        tsl::swapTo<GraphsMenu>();
-            //        return true;
-            //    }
-            //    return false;
-            //});
-            //list->addItem(Graphs);
+				if (smd::Document::Peek(full_path.c_str(), info, overrideLanguage.c_str())) {
+					std::string args = "--file " + filesChecked[0].name;
+					tsl::setNextOverlay(filepath, args);
+					tsl::Overlay::get()->close();
+					backgroundColor = 0x0000;
+					rootFrame = new tsl::elm::OverlayFrame("", "");
+					return rootFrame;
+				}
+			}
+		}
 
-            auto* comFPSGraph = new tsl::elm::ListItem("График FPS");
-            comFPSGraph->disableClickAnimation();
-            comFPSGraph->setClickListener([](uint64_t keys) {
-                //if (keys & KEY_A) {
-                //    tsl::elm::g_disableMenuCacheOnReturn.store(true, std::memory_order_release);
-                //    lastMode = "fps_graph";
-                //    tsl::swapTo<com_FPSGraph>();
-                //    return true;
-                //}
-                if (keys & KEY_A) {
-                    tsl::setNextOverlay(filepath, "-fps_graph_");
-                    tsl::Overlay::get()->close();
-                    return true;
-                }
+		std::string version = APP_VERSION;
+		if (m_folderName.length() > 0) version += "\n\n" + m_folderName;
 
-                if (keys & KEY_Y) {
-                    triggerRumbleClick.store(true, std::memory_order_release);
-                    triggerSettingsSound.store(true, std::memory_order_release);
-                    // Launch configurator for Micro mode
-                    tsl::swapTo<ConfiguratorOverlay>("FPS Graph");
-                    return true;
-                }
-                return false;
-            });
-            list->addItem(comFPSGraph);
+		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, version.c_str());
+		auto list = new tsl::elm::List();
 
-            auto* comFPSCounter = new tsl::elm::ListItem("Счетчик ФПС|Гц");
-            comFPSCounter->disableClickAnimation();
-            comFPSCounter->setClickListener([](uint64_t keys) {
-                if (keys & KEY_A) {
-                    tsl::setNextOverlay(filepath, "-fps_counter_");
-                    tsl::Overlay::get()->close();
-                    return true;
-                }
-                if (keys & KEY_Y) {
-                    triggerRumbleClick.store(true, std::memory_order_release);
-                    triggerSettingsSound.store(true, std::memory_order_release);
-                    tsl::swapTo<ConfiguratorOverlay>("FPS Counter");
-                    return true;
-                }
-                return false;
-            });
-            list->addItem(comFPSCounter);
-
-            auto* Res = new tsl::elm::ListItem("Разрешение игр");
-            Res->disableClickAnimation();
-            Res->setClickListener([](uint64_t keys) {
-                //if (keys & KEY_A) {
-                //    tsl::elm::g_disableMenuCacheOnReturn.store(true, std::memory_order_release);
-                //    lastMode = "game_resolutions";
-                //    tsl::swapTo<ResolutionsOverlay>();
-                //    return true;
-                //}
-                if (keys & KEY_A) {
-                    tsl::setNextOverlay(filepath, "-game_resolutions_");
-                    tsl::Overlay::get()->close();
-                    return true;
-                }
-                if (keys & KEY_Y) {
-                    triggerRumbleClick.store(true, std::memory_order_release);
-                    triggerSettingsSound.store(true, std::memory_order_release);
-                    // Launch configurator for Micro mode
-                    tsl::swapTo<ConfiguratorOverlay>("Game Resolutions");
-                    return true;
-                }
-                return false;
-            });
-            list->addItem(Res);
-
+        std::string rel_dir = "";
+        if (standard_path.length() > root_path.length()) {
+            rel_dir = standard_path.substr(root_path.length());
         }
 
-        auto* Other = new tsl::elm::ListItem("Другое");
-        Other->disableClickAnimation();
-        Other->setValue(ult::DROPDOWN_SYMBOL);
-        Other->setClickListener([](uint64_t keys) {
-            if (keys & KEY_A) {
-                tsl::swapTo<OtherMenu>();
-                return true;
+        if (!filesChecked.empty()) {
+            for (const auto& item : filesChecked) {
+                if (item.is_directory) {
+					std::string localPath = standard_path + item.name + "/";
+					std::string localName = lookupSMF(localPath);
+					std::string name = localName.length() == 0 ? item.name : localName;
+                    auto folderItem = new tsl::elm::ListItem(name, "\uE133", true);
+                    folderItem->setClickListener([this, localPath, name](uint64_t keys) {
+                        if (keys & KEY_A) {
+                            tsl::changeTo<MainMenu>(localPath, name);
+                            return true;
+                        }
+						#ifdef DEBUG
+						else if (keys & KEY_Y) {
+							tsl::changeTo<MemoryCheck>();
+							return true;							
+						}
+						#endif
+						else if (isMainMenu && (keys & KEY_DLEFT)) {
+							tsl::changeTo<ConfigurationMainMenu>();
+							return true;
+						}
+                        return false;
+                    });
+                    list->addItem(folderItem);
+                } 
+                else {
+                    std::string full_path = standard_path + item.name;
+                    
+                    smd::Document::PeekInfo info;
+                    smd::Document::Peek(full_path.c_str(), info, overrideLanguage.c_str());
+					FILE* file = fopen(full_path.c_str(), "rb");
+					bool doesHaveConfig = false;
+					bool customExitCombo = false;
+					if (file) {
+						fseek(file, 0, 2);
+						size_t size = ftell(file);
+						fseek(file, 0, 0);
+						char* buffer = 0;
+						buffer = (char*)malloc(size);
+						if (buffer) {
+							fread(buffer, 1, size, file);
+							doesHaveConfig = FindConfigs(buffer, size);
+							customExitCombo = itHasCustomExitCombo(buffer, size);
+							free(buffer);
+						}
+						fclose(file);
+					}
+					std::string second = "";
+					if (info.name.empty()) second = "\uE098";
+					else {
+						if (customExitCombo) second = "\uE136";
+						if (doesHaveConfig) second += "\uE04F";
+					} 
+                    auto fileItem = new tsl::elm::ListItem(info.name.empty() ? item.name : info.name, second.c_str(), info.name.empty() ? true : false);
+                    fileItem->setClickListener([this, item, info, full_path, rel_dir, doesHaveConfig](uint64_t keys) {
+						if (info.name.empty() == false) {
+							if (keys & KEY_A) {
+								if (info.layerWidth != 0 && info.layerHeight != 0 && info.layerWidth != 448 && info.layerHeight != 720) {
+									smd::Document doc;
+									if (doc.LoadFromFile(full_path.c_str()) == false) {
+										tsl::changeTo<RenderingPipeline>(full_path);
+										return true;
+									}
+									BindAllPredefined(doc);
+									if (doc.Compile() == false) {
+										tsl::changeTo<RenderingPipeline>(full_path);
+										return true;
+									}
+									std::string args = "--file " + rel_dir + item.name + " --submenu";
+									tsl::setNextOverlay(filepath, args);
+									tsl::Overlay::get()->close();
+									return true;
+								}
+								tsl::changeTo<RenderingPipeline>(full_path);
+								return true;
+							}
+							else if (doesHaveConfig == true && (keys & KEY_Y)) {
+								tsl::changeTo<Configuration>(full_path, info.name);
+								return true;
+							}
+							else if (isMainMenu && (keys & KEY_DLEFT)) {
+								tsl::changeTo<ConfigurationMainMenu>();
+								return true;
+							}
+						}
+                        return false;
+                    });
+                    list->addItem(fileItem);
+                }
             }
-            return false;
-        });
-        list->addItem(Other);
-
-        if (!lastSelectedItem.empty()) {
-            list->jumpToItem(lastSelectedItem);
-            lastSelectedItem = "";
+            rootFrame->setContent(list);
         }
-
-
-        //list->disableCaching();
-        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Ryazha-Status-Monitor", APP_VERSION);
-        rootFrame->setContent(list);
+        else {
+            auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
+                renderer->drawString("No folders or .smd files found!", false, 20, 20, 20, renderer->a(0xFFFF));
+            });
+            rootFrame->setContent(Status);
+        }
 
         return rootFrame;
     }
 
-    virtual void update() override {
-        if (!ult::useRightAlignment) {
-            //if ((tsl::cfg::LayerPosX || tsl::cfg::LayerPosY)) {
-            tsl::gfx::Renderer::get().setLayerPos(0, 0);
-            //}
-        } else {
-            const auto [horizontalUnderscanPixels, verticalUnderscanPixels] = tsl::gfx::getUnderscanPixels();
-            tsl::gfx::Renderer::get().setLayerPos(1280-32 - horizontalUnderscanPixels, 0);
-        }
-        if (fixForeground) {
-            fixForeground = false;
-            tsl::hlp::requestForeground(true);
-        }
-    }
+	virtual void update() override {}
 
-    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState joyStickPosLeft, HidAnalogStickState joyStickPosRight) override {
-        if (disableJumpTo)
-            disableJumpTo = false;
-        if (fixHiding) {
-            if (isKeyComboPressed2(keysDown, keysHeld)) {
-                tsl::Overlay::get()->hide();
-                fixHiding = false;
-                return true;
-            }
-        }
-
-        if (keysDown & KEY_B) {
-            tsl::goBack();
-            return true;
-        }
-        return false;
-    }
+	virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+		if (keysDown & KEY_B) {
+			tsl::hlp::requestForeground(true);
+			tsl::goBack();
+			return true;
+		}
+		return false;
+	}
 };
 
 class MonitorOverlay : public tsl::Overlay {
 public:
 
-    virtual void initServices() override {
-        //Initialize services
-        tsl::hlp::doWithSmSession([this]{
+	virtual void initServices() override {
+		//Initialize services
+		tsl::hlp::doWithSmSession([this]{
 
-            apmInitialize();
-            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
-            else pcvCheck = pcvInitialize();
+			if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
+			else pcvCheck = pcvInitialize();
 
-            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
+			if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
 
-            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
-                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
-            }
+			if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
+				pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
+			}
 
-            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+			if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
 
-            psmCheck = psmInitialize();
-            if (R_SUCCEEDED(psmCheck)) {
-                psmService = psmGetServiceSession();
-            }
-            i2cCheck = i2cInitialize();
+			psmCheck = psmInitialize();
+			i2cCheck = i2cInitialize();
 
-            SaltySD = CheckPort();
+			SaltySD = CheckPort();
 
-            if (SaltySD) {
-                LoadSharedMemoryAndRefreshRate();
-            }
-            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
-                uint32_t sysClkApiVer = 0;
-                sysclkIpcGetAPIVersion(&sysClkApiVer);
-                if (sysClkApiVer < 4) {
-                    sysclkIpcExit();
-                }
-                else sysclkCheck = 0;
-            }
-            if (R_SUCCEEDED(splInitialize())) {
-                u64 sku = 0;
-                splGetConfig(SplConfigItem_HardwareType, &sku);
-                switch(sku) {
-                    case 2 ... 5:
-                        isMariko = true;
-                        break;
-                    default:
-                        isMariko = false;
-                }
-            }
-            splExit();
+			if (SaltySD) {
+				LoadSharedMemoryAndRefreshRate();
+			}
 
-        });
-        Hinted = envIsSyscallHinted(0x6F);
-    }
+			smseLoadFolder("sdmc:/config/status-monitor-deux/extensions/");
+			smseExecuteAll();
+		});
+		Hinted = envIsSyscallHinted(0x6F);
+		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_ProController], 1, HidNpadIdType_No1,      HidNpadStyleTag_NpadFullKey);
+		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_JoyConL], 2, HidNpadIdType_No1,      HidNpadStyleTag_NpadJoyDual);
+	}
 
-    virtual void exitServices() override {
-        CloseThreads();
-        if (R_SUCCEEDED(sysclkCheck)) {
-            sysclkIpcExit();
-        }
-        shmemClose(&_sharedmemory);
-        //Exit services
-        clkrstExit();
-        pcvExit();
-        tsExit();
-        tcExit();
-        pwmChannelSessionClose(&g_ICon);
-        pwmExit();
-        nvClose(fd);
-        nvExit();
-        psmExit();
-        i2cExit();
-        apmExit();
-    }
+	virtual void exitServices() override {
+		for (auto& se : serviceExt) {
+			serviceClose(&se.service);
+		}
 
-    virtual void onShow() override {}    // Called before overlay wants to change from invisible to visible state
-    virtual void onHide() override {}    // Called before overlay wants to change from visible to invisible state
+		shmemClose(&_sharedmemory);
+		//Exit services
+		clkrstExit();
+		pcvExit();
+		tcExit();
+		pwmChannelSessionClose(&g_ICon);
+		pwmExit();
+		nvClose(fd);
+		nvExit();
+		psmExit();
+		i2cExit();
+	}
+
+    virtual void onShow() override {}
+    virtual void onHide() override {}
 
     virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
-        return initially<MainMenu>();  // Initial Gui to load. It's possible to pass arguments to it's constructor like this
+		//Get actual time without using time service
+		remove("sdmc:/dddd.dddd");
+		FsFileSystem* filesystem = fsdevGetDeviceFileSystem("sdmc");
+		char out_path[FS_MAX_PATH] = "";
+		fsdevTranslatePath("sdmc:/dddd.dddd", &filesystem, out_path);
+		LocalTime.relative_tick = svcGetSystemTick();
+		Result rc = fsFsCreateFile(filesystem, out_path, 0, 0);
+		if (R_SUCCEEDED(rc)) {
+			struct stat attr;
+			stat("sdmc:/dddd.dddd", &attr);
+			remove("sdmc:/dddd.dddd");
+			LocalTime.timestamp = attr.st_mtime;
+		}
+		if (file_to_load.length() == 0)
+        	return initially<MainMenu>("");
+		else {
+			return initially<RenderingPipelineDummy>(file_to_load);
+		}
     }
 };
 
-class MicroMode : public tsl::Overlay {
-public:
-
-    virtual void initServices() override {
-        //tsl::hlp::requestForeground(false);
-        //Initialize services
-        tsl::hlp::doWithSmSession([this]{
-            apmInitialize();
-            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
-            else pcvCheck = pcvInitialize();
-
-            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
-
-            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
-
-            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
-                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
-            }
-
-            i2cCheck = i2cInitialize();
-
-            psmCheck = psmInitialize();
-            if (R_SUCCEEDED(psmCheck)) {
-                psmService = psmGetServiceSession();
-            }
-
-            SaltySD = CheckPort();
-
-            if (SaltySD) {
-                LoadSharedMemory();
-            }
-            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
-                uint32_t sysClkApiVer = 0;
-                sysclkIpcGetAPIVersion(&sysClkApiVer);
-                if (sysClkApiVer < 4) {
-                    sysclkIpcExit();
-                }
-                else sysclkCheck = 0;
-            }
-            if (R_SUCCEEDED(splInitialize())) {
-                u64 sku = 0;
-                splGetConfig(SplConfigItem_HardwareType, &sku);
-                switch(sku) {
-                    case 2 ... 5:
-                        isMariko = true;
-                        break;
-                    default:
-                        isMariko = false;
-                }
-            }
-            splExit();
-        });
-        Hinted = envIsSyscallHinted(0x6F);
-    }
-
-    virtual void exitServices() override {
-        CloseThreads();
-        shmemClose(&_sharedmemory);
-        if (R_SUCCEEDED(sysclkCheck)) {
-            sysclkIpcExit();
-        }
-        //Exit services
-        clkrstExit();
-        pcvExit();
-        tsExit();
-        tcExit();
-        pwmChannelSessionClose(&g_ICon);
-        pwmExit();
-        i2cExit();
-        psmExit();
-        nvClose(fd);
-        nvExit();
-        apmExit();
-    }
-
-    virtual void onShow() override { // Called before overlay wants to change from invisible to visible state
-        tsl::hlp::requestForeground(false);
-    }    
-    virtual void onHide() override {}    // Called before overlay wants to change from visible to invisible state
-
-    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
-        return initially<MicroOverlay>();  // Initial Gui to load. It's possible to pass arguments to it's constructor like this
-    }
-};
-
-class MiniEntryOverlay : public tsl::Overlay {
-public:
-    MiniEntryOverlay() {}
-
-    virtual void initServices() override {
-
-        //tsl::hlp::requestForeground(false);
-        // Same service‐init as before
-        tsl::hlp::doWithSmSession([this]{
-            apmInitialize();
-            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
-            else pcvCheck = pcvInitialize();
-
-            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
-
-            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
-
-            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
-                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
-            }
-
-            i2cCheck = i2cInitialize();
-
-            psmCheck = psmInitialize();
-            if (R_SUCCEEDED(psmCheck)) {
-                psmService = psmGetServiceSession();
-            }
-
-            SaltySD = CheckPort();
-
-            if (SaltySD) {
-                LoadSharedMemory();
-            }
-            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
-                uint32_t sysClkApiVer = 0;
-                sysclkIpcGetAPIVersion(&sysClkApiVer);
-                if (sysClkApiVer < 4) {
-                    sysclkIpcExit();
-                }
-                else sysclkCheck = 0;
-            }
-            if (R_SUCCEEDED(splInitialize())) {
-                u64 sku = 0;
-                splGetConfig(SplConfigItem_HardwareType, &sku);
-                switch(sku) {
-                    case 2 ... 5:
-                        isMariko = true;
-                        break;
-                    default:
-                        isMariko = false;
-                }
-            }
-            splExit();
-        });
-        Hinted = envIsSyscallHinted(0x6F);
-
-    }
-
-    virtual void exitServices() override {
-        CloseThreads();
-        shmemClose(&_sharedmemory);
-        if (R_SUCCEEDED(sysclkCheck)) {
-            sysclkIpcExit();
-        }
-        // Exit services
-        clkrstExit();
-        pcvExit();
-        tsExit();
-        tcExit();
-        pwmChannelSessionClose(&g_ICon);
-        pwmExit();
-        i2cExit();
-        psmExit();
-        nvClose(fd);
-        nvExit();
-        apmExit();
-    }
-
-    // **Override onShow** so that as soon as this Overlay appears, we let input pass through.
-    virtual void onShow() override {
-        // Request that Tesla stop grabbing all buttons/touches
-        tsl::hlp::requestForeground(false);
-
-        // (Optional) hide Tesla’s footer if you don’t want it
-        //deactivateOriginalFooter = true;
-    }
-
-    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
-        // Immediately show your MiniOverlay page
-        return initially<MiniOverlay>();
-    }
-};
-
-class FPSGraphEntryOverlay : public tsl::Overlay {
-public:
-    FPSGraphEntryOverlay() {}
-
-    virtual void initServices() override {
-        tsl::hlp::doWithSmSession([this]{
-            apmInitialize();
-            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
-            else pcvCheck = pcvInitialize();
-
-            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
-
-            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
-
-            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
-                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
-            }
-
-            i2cCheck = i2cInitialize();
-
-            psmCheck = psmInitialize();
-            if (R_SUCCEEDED(psmCheck)) {
-                psmService = psmGetServiceSession();
-            }
-
-            SaltySD = CheckPort();
-
-            if (SaltySD) {
-                LoadSharedMemoryAndRefreshRate();
-            }
-            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
-                uint32_t sysClkApiVer = 0;
-                sysclkIpcGetAPIVersion(&sysClkApiVer);
-                if (sysClkApiVer < 4) {
-                    sysclkIpcExit();
-                }
-                else sysclkCheck = 0;
-            }
-            if (R_SUCCEEDED(splInitialize())) {
-                u64 sku = 0;
-                splGetConfig(SplConfigItem_HardwareType, &sku);
-                switch(sku) {
-                    case 2 ... 5:
-                        isMariko = true;
-                        break;
-                    default:
-                        isMariko = false;
-                }
-            }
-            splExit();
-        });
-        Hinted = envIsSyscallHinted(0x6F);
-    }
-
-    virtual void exitServices() override {
-        CloseThreads();
-        shmemClose(&_sharedmemory);
-        if (R_SUCCEEDED(sysclkCheck)) {
-            sysclkIpcExit();
-        }
-        clkrstExit();
-        pcvExit();
-        tsExit();
-        tcExit();
-        pwmChannelSessionClose(&g_ICon);
-        pwmExit();
-        i2cExit();
-        psmExit();
-        nvClose(fd);
-        nvExit();
-        apmExit();
-    }
-
-    virtual void onShow() override {
-        tsl::hlp::requestForeground(false);
-        //deactivateOriginalFooter = true;
-    }
-
-    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
-        return initially<com_FPSGraph>();
-    }
-};
-
-class FPSCounterEntryOverlay : public tsl::Overlay {
-public:
-    FPSCounterEntryOverlay() {}
-
-    virtual void initServices() override {
-        tsl::hlp::doWithSmSession([this]{
-            apmInitialize();
-            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
-            else pcvCheck = pcvInitialize();
-
-            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
-
-            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
-
-            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
-                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
-            }
-
-            i2cCheck = i2cInitialize();
-
-            psmCheck = psmInitialize();
-            if (R_SUCCEEDED(psmCheck)) {
-                psmService = psmGetServiceSession();
-            }
-
-            SaltySD = CheckPort();
-
-            if (SaltySD) {
-                LoadSharedMemoryAndRefreshRate();
-            }
-            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
-                uint32_t sysClkApiVer = 0;
-                sysclkIpcGetAPIVersion(&sysClkApiVer);
-                if (sysClkApiVer < 4) {
-                    sysclkIpcExit();
-                }
-                else sysclkCheck = 0;
-            }
-            if (R_SUCCEEDED(splInitialize())) {
-                u64 sku = 0;
-                splGetConfig(SplConfigItem_HardwareType, &sku);
-                switch(sku) {
-                    case 2 ... 5:
-                        isMariko = true;
-                        break;
-                    default:
-                        isMariko = false;
-                }
-            }
-            splExit();
-        });
-        Hinted = envIsSyscallHinted(0x6F);
-    }
-
-    virtual void exitServices() override {
-        CloseThreads();
-        shmemClose(&_sharedmemory);
-        if (R_SUCCEEDED(sysclkCheck)) {
-            sysclkIpcExit();
-        }
-        clkrstExit();
-        pcvExit();
-        tsExit();
-        tcExit();
-        pwmChannelSessionClose(&g_ICon);
-        pwmExit();
-        i2cExit();
-        psmExit();
-        nvClose(fd);
-        nvExit();
-        apmExit();
-    }
-
-    virtual void onShow() override {
-        tsl::hlp::requestForeground(false);
-        //deactivateOriginalFooter = true;
-    }
-
-    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
-        return initially<com_FPS>();
-    }
-};
-
-class GameResolutionsEntryOverlay : public tsl::Overlay {
-public:
-    GameResolutionsEntryOverlay() {}
-
-    virtual void initServices() override {
-        tsl::hlp::doWithSmSession([this]{
-            apmInitialize();
-            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
-            else pcvCheck = pcvInitialize();
-
-            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
-
-            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
-
-            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
-                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
-            }
-
-            i2cCheck = i2cInitialize();
-
-            psmCheck = psmInitialize();
-            if (R_SUCCEEDED(psmCheck)) {
-                psmService = psmGetServiceSession();
-            }
-
-            SaltySD = CheckPort();
-
-            if (SaltySD) {
-                LoadSharedMemoryAndRefreshRate();
-            }
-            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
-                uint32_t sysClkApiVer = 0;
-                sysclkIpcGetAPIVersion(&sysClkApiVer);
-                if (sysClkApiVer < 4) {
-                    sysclkIpcExit();
-                }
-                else sysclkCheck = 0;
-            }
-            if (R_SUCCEEDED(splInitialize())) {
-                u64 sku = 0;
-                splGetConfig(SplConfigItem_HardwareType, &sku);
-                switch(sku) {
-                    case 2 ... 5:
-                        isMariko = true;
-                        break;
-                    default:
-                        isMariko = false;
-                }
-            }
-            splExit();
-        });
-        Hinted = envIsSyscallHinted(0x6F);
-    }
-
-    virtual void exitServices() override {
-        CloseThreads();
-        shmemClose(&_sharedmemory);
-        if (R_SUCCEEDED(sysclkCheck)) {
-            sysclkIpcExit();
-        }
-        clkrstExit();
-        pcvExit();
-        tsExit();
-        tcExit();
-        pwmChannelSessionClose(&g_ICon);
-        pwmExit();
-        i2cExit();
-        psmExit();
-        nvClose(fd);
-        nvExit();
-        apmExit();
-    }
-
-    virtual void onShow() override {
-        tsl::hlp::requestForeground(false);
-        //deactivateOriginalFooter = true;
-    }
-
-    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
-        return initially<ResolutionsOverlay>();
-    }
-};
-
-
-// Helper function to setup micro mode paths
-inline void setupMode(const std::string& modeType = "") {
-
-    if (modeType == "micro") {
-        if (!ult::limitedMemory) {
-            ult::DefaultFramebufferWidth = 1280;
-            ult::DefaultFramebufferHeight = 720;
-        } else {
-            ult::DefaultFramebufferWidth = 1280;
-            ult::DefaultFramebufferHeight = 28;
-        }
-    } else {
-        if (!ult::limitedMemory) {
-            ult::DefaultFramebufferWidth = 1280;
-            ult::DefaultFramebufferHeight = 720;
-        }
-    }
-
-    resolveOverlayFilePath();
-}
-
-//void setupMicroMode() {
-//    ult::DefaultFramebufferWidth = 1280;
-//    //ult::DefaultFramebufferHeight = 28;
-//    ult::DefaultFramebufferHeight = 720;
-//    
-//    // Try user-specified filename first, then fallback to default
-//    const std::string primaryPath = folderpath + filename;
-//    
-//    if (checkOverlayFile(primaryPath)) {
-//        filepath = primaryPath;
-//    } else {
-//        const std::string fallbackPath = folderpath + "Ryazha-Status-Monitor.ovl";
-//        if (checkOverlayFile(fallbackPath)) {
-//            filepath = fallbackPath;
-//        }
-//    }
-//}
-
-
-// This function gets called on startup to create a new Overlay object
 int main(int argc, char **argv) {
+	#if !defined(__SWITCH__) && !defined(__OUNCE__)
+		systemtickfrequency = armGetSystemTickFreq();
+	#endif
 
-    // load heap settings outside of loop (only Ryazha-Status-Monitor directive)
-    ult::currentHeapSize = ult::getCurrentHeapSize();
-    ult::expandedMemory = ult::currentHeapSize >= ult::OverlayHeapSize::Size_8MB;
-    ult::limitedMemory = ult::currentHeapSize == ult::OverlayHeapSize::Size_4MB;
+	ParseIniFile();
     
-    
-    // Initialize buffer sizes based on expanded memory setting
-    if (ult::expandedMemory) {
-        ult::furtherExpandedMemory = ult::currentHeapSize > ult::OverlayHeapSize::Size_8MB;
-        
-        if (!ult::furtherExpandedMemory) {
-            ult::loaderTitle += "+";
-            ult::COPY_BUFFER_SIZE = 262144;
-            ult::HEX_BUFFER_SIZE = 8192;
-            ult::UNZIP_READ_BUFFER = 262144;
-            ult::UNZIP_WRITE_BUFFER = 131072;
-            ult::DOWNLOAD_READ_BUFFER = 131072;
-            ult::DOWNLOAD_WRITE_BUFFER = 131072;
-        } else {
-            ult::loaderTitle += "×";
-            ult::COPY_BUFFER_SIZE = 262144*2;
-            ult::HEX_BUFFER_SIZE = 8192;
-            ult::UNZIP_READ_BUFFER = 262144*2;
-            ult::UNZIP_WRITE_BUFFER = 131072*4;
-            ult::DOWNLOAD_READ_BUFFER = 131072*4;
-            ult::DOWNLOAD_WRITE_BUFFER = 131072*4;
-        }
-    } else if (ult::limitedMemory) {
-        ult::loaderTitle += "-";
-        ult::DOWNLOAD_READ_BUFFER = 16*1024;
-        ult::UNZIP_READ_BUFFER = 16*1024;
-    }
-    
-    systemtickfrequency = armGetSystemTickFreq();
-    ParseIniFile(); // parse INI from file
-    
-    if (argc > 0) {
-        filename = argv[0]; // set global
-        
-        {
-            // Read the entire INI file once
-            auto iniData = ult::getParsedDataFromIniFile(ult::OVERLAYS_INI_FILEPATH);
-            
-            auto sectionIt = iniData.find(filename);
-            if (sectionIt != iniData.end()) {
-                auto& section = sectionIt->second;
-                
-                // Compare and update if values differ
-                const std::string expectedArgs = "(-mini, -micro, -fps_graph, -fps_counter, -game_resolutions)";
-                
-                if (section["mode_args"] != expectedArgs) {
-                    section["mode_args"] = expectedArgs;
-                    section["mode_labels"] = "(Mini, Micro, FPS Graph, FPS Counter, Game Resolutions)";
-                    section["legacy_args"] = "(--microOverlay, --microOverlay_)";
-                    ult::saveIniFileData(ult::OVERLAYS_INI_FILEPATH, iniData);
-                }
-            } else {
-                // If section doesn't exist, create it with expected values
-                iniData[filename]["mode_args"] = "(-mini, -micro, -fps_graph, -fps_counter, -game_resolutions)";
-                iniData[filename]["mode_labels"] = "(Mini, Micro, FPS Graph, FPS Counter, Game Resolutions)";
-                iniData[filename]["legacy_args"] = "(--microOverlay, --microOverlay_)";
-                ult::saveIniFileData(ult::OVERLAYS_INI_FILEPATH, iniData);
-            }
-        }
-    
-        // Process command line arguments
-        for (u8 arg = 0; arg < argc; arg++) {
-            const char* argStr = argv[arg];
-            if (argStr[0] != '-') continue;
-            
-            // Check if ends with underscore and create comparison string without it
-            const size_t len = strlen(argStr);
-            const bool hasUnderscore = (len > 1 && argStr[len-1] == '_');
-            
-            // For underscore variants, compare without the trailing underscore
-            char modeStr[32];
-            const char* compareStr;
-            if (hasUnderscore) {
-                strncpy(modeStr, argStr, len - 1);
-                modeStr[len - 1] = '\0';
-                compareStr = modeStr;
-            } else {
-                compareStr = argStr;
-            }
-            
-            // Micro mode
-            if (isModeArgument(compareStr, "-micro", "--microOverlay") || isModeArgument(compareStr, "-micro", "--microOverlay_")) {
-                FullMode = false;
-                lastMode = "micro";
-                if (hasUnderscore) {
-                    setupMode(lastMode);
-                } else {
-                    skipMain = true;
+	if (argc > 0) {
+		filename = argv[0];
+		filepath = folderpath + filename;
+	}
+	auto loadSmdFile = [](const char* smd_filename) {
+		std::string path = "sdmc:/config/status-monitor-deux/modes/";
+		path += smd_filename;
 
-                    if (!ult::limitedMemory) {
-                        ult::DefaultFramebufferWidth = 1280;
-                        ult::DefaultFramebufferHeight = 720;
-                    } else {
-                        ult::DefaultFramebufferWidth = 1280;
-                        ult::DefaultFramebufferHeight = 28;
-                    }
-                }
-                return tsl::loop<MicroMode>(argc, argv);
-            }
-            // Mini mode
-            else if (strcasecmp(compareStr, "-mini") == 0) {
-                FullMode = false;
-                lastMode = "mini";
-                if (hasUnderscore) {
-                    setupMode();
-                } else {
-                    skipMain = true;
-                    if (!ult::limitedMemory) {
-                        ult::DefaultFramebufferWidth = 1280;
-                        ult::DefaultFramebufferHeight = 720;
-                    }
-                }
-                return tsl::loop<MiniEntryOverlay>(argc, argv);
-            }
-            // FPS Graph mode
-            else if (strcasecmp(compareStr, "-fps_graph") == 0) {
-                FullMode = false;
-                lastMode = "fps_graph";
-                if (hasUnderscore) {
-                    setupMode();
-                } else {
-                    skipMain = true;
-                    if (!ult::limitedMemory) {
-                        ult::DefaultFramebufferWidth = 1280;
-                        ult::DefaultFramebufferHeight = 720;
-                    }
-                }
-                return tsl::loop<FPSGraphEntryOverlay>(argc, argv);
-            }
-            // FPS Counter mode
-            else if (strcasecmp(compareStr, "-fps_counter") == 0) {
-                FullMode = false;
-                lastMode = "fps_counter";
-                if (hasUnderscore) {
-                    setupMode();
-                } else {
-                    skipMain = true;
-                    if (!ult::limitedMemory) {
-                        ult::DefaultFramebufferWidth = 1280;
-                        ult::DefaultFramebufferHeight = 720;
-                    }
-                }
-                return tsl::loop<FPSCounterEntryOverlay>(argc, argv);
-            }
-            // Game Resolutions mode
-            else if (strcasecmp(compareStr, "-game_resolutions") == 0) {
-                FullMode = false;
-                lastMode = "game_resolutions";
-                if (hasUnderscore) {
-                    setupMode();
-                } else {
-                    skipMain = true;
-                    if (!ult::limitedMemory) {
-                        ult::DefaultFramebufferWidth = 1280;
-                        ult::DefaultFramebufferHeight = 720;
-                    }
-                }
-                return tsl::loop<GameResolutionsEntryOverlay>(argc, argv);
-            }
-            // Handle --lastSelectedItem (multi-token argument)
-            else if (strcmp(argStr, "--lastSelectedItem") == 0 && arg + 1 < argc) {
-                lastSelectedItem.clear();
-                
-                for (++arg; arg < argc; ++arg) {
-                    const char* token = argv[arg];
-                    
-                    // Stop if we hit another flag
-                    if (token[0] == '-' && !lastSelectedItem.empty())
-                        break;
-                    
-                    // Add space separator
-                    if (!lastSelectedItem.empty())
-                        lastSelectedItem += ' ';
-                    
-                    lastSelectedItem += token;
-                    
-                    // Stop if token ends with quote
-                    const char lastChar = token[strlen(token) - 1];
-                    if (lastChar == '"' || lastChar == '\'') {
-                        ++arg;
-                        break;
-                    }
-                }
-                
-                // Clean up quotes and whitespace
-                ult::removeQuotes(lastSelectedItem);
-                
-                // Trim whitespace
-                const size_t start = lastSelectedItem.find_first_not_of(" \t");
-                if (start != std::string::npos) {
-                    const size_t end = lastSelectedItem.find_last_not_of(" \t");
-                    lastSelectedItem = lastSelectedItem.substr(start, end - start + 1);
-                } else {
-                    lastSelectedItem.clear();
-                }
-            }
-        }
-    }
-    
-    // Default case
+		struct stat filedata;
+		if (stat(path.c_str(), &filedata) == 0) {
+			smd::Document doc;
+			if (doc.LoadFromFile(path.c_str()) == true) {
+				doc.Free();
+				smd::Document::PeekInfo peek;
+				smd::Document::Peek(path.c_str(), peek);
+				if (peek.layerWidth != 0 && peek.layerHeight != 0) {
+					framebufferWidth = peek.layerWidth;
+					framebufferHeight = peek.layerHeight;
+				}
+			}
+			file_to_load = path;
+		}
+	};
+
+	// Legacy Ryazha/Status-Monitor-Overlay mode arguments are mapped to the
+	// bundled SMD files so pre-Deux shortcuts keep working after the update.
+	auto legacySmdFor = [](const char* arg) -> const char* {
+		if (strcasecmp(arg, "-micro") == 0
+		 || strcasecmp(arg, "--microOverlay") == 0
+		 || strcasecmp(arg, "--microOverlay_") == 0) return "03.Micro.smd";
+		if (strcasecmp(arg, "-mini") == 0)             return "02.Mini.smd";
+		if (strcasecmp(arg, "-full") == 0)             return "01.Full.smd";
+		if (strcasecmp(arg, "-fps_graph") == 0)        return "FPS/01.FPSGraph.smd";
+		if (strcasecmp(arg, "-fps_counter") == 0)      return "FPS/02.FPSCounter.smd";
+		if (strcasecmp(arg, "-game_resolutions") == 0) return "Other/03.GameResolutions.smd";
+		return nullptr;
+	};
+
+	int arg = 1;
+	while (arg < argc) {
+		if (strcasecmp(argv[arg], "--file") == 0) {
+			if (arg + 1 < argc) {
+				loadSmdFile(argv[arg+1]);
+			}
+		}
+		else if (strcasecmp(argv[arg], "--submenu") == 0) {
+			tsl::setNextOverlay(filepath, "");
+		}
+		else if (const char* legacy = legacySmdFor(argv[arg])) {
+			loadSmdFile(legacy);
+		};
+		arg++;
+	}
     return tsl::loop<MonitorOverlay>(argc, argv);
 }
