@@ -75,6 +75,7 @@ extern "C" {
 
 
 #include "ini_funcs.hpp"
+#include "ryazha_audio.hpp"
 
 
 inline bool isValid888HexColor(const std::string& hexColor) {
@@ -130,8 +131,21 @@ inline bool isValid4444HexColor(const std::string& hexColor) {
 #define ELEMENT_BOUNDS(elem) elem->getX(), elem->getY(), elem->getWidth(), elem->getHeight()
 
 inline u16 backgroundColor = 0xD000;
+// Menu background color (RGBA4444). backgroundColor is reset to this value
+// whenever the rendering pipeline returns to menus; themable via the Ryazha
+// theme.ini keys bg_color/bg_alpha.
+inline u16 menuBackgroundColor = 0xD000;
 inline bool FullMode = true;
 inline PadState pad;
+
+// Ryazha theme support: prefer /config/ryazhahand/theme.ini, fall back to
+// Ultrahand's theme so either ecosystem styles the overlay.
+inline std::string ryazhaThemeValue(const char* key) {
+	std::string value = parseValueFromIniSection("/config/ryazhahand/theme.ini", "theme", key);
+	if (value.empty())
+		value = parseValueFromIniSection("/config/ultrahand/theme.ini", "theme", key);
+	return value;
+}
 inline uint16_t framebufferWidth = 448;
 inline uint16_t framebufferHeight = 720;
 inline bool deactivateOriginalFooter = false;
@@ -1421,12 +1435,14 @@ namespace tsl {
 							updateUnderscan(0);
 						}
 						isDocked = true;
+						ryz::Audio::setDocked(true);
 					}
 					else {
 						if (last_underscan_value != 0) {
 							updateUnderscan(0);
 						}
 						isDocked = false;
+						ryz::Audio::setDocked(false);
 					}
 				}
 				this->waitForVSync();
@@ -1505,8 +1521,8 @@ namespace tsl {
 			Element() {}
 			virtual ~Element() {}
 
-            std::string highlightColor1Str = parseValueFromIniSection("/config/ultrahand/theme.ini", "theme", "highlight_color_1");
-            std::string highlightColor2Str = parseValueFromIniSection("/config/ultrahand/theme.ini", "theme", "highlight_color_2");
+            std::string highlightColor1Str = ryazhaThemeValue("highlight_color_1");
+            std::string highlightColor2Str = ryazhaThemeValue("highlight_color_2");
             
             tsl::gfx::Color highlightColor1 = tsl::gfx::RGB888(highlightColor1Str, "#2288CC");
             tsl::gfx::Color highlightColor2 = tsl::gfx::RGB888(highlightColor2Str, "#88FFFF");
@@ -1795,11 +1811,11 @@ namespace tsl {
 		 */
 		class OverlayFrame : public Element {
 		public:
-            std::string defaultTextColorStr = parseValueFromIniSection("/config/ultrahand/theme.ini", "theme", "text_color");
+            std::string defaultTextColorStr = ryazhaThemeValue("text_color");
             tsl::gfx::Color defaultTextColor = tsl::gfx::RGB888(defaultTextColorStr);
-            std::string clockColorStr = parseValueFromIniSection("/config/ultrahand/theme.ini", "theme", "clock_color");
+            std::string clockColorStr = ryazhaThemeValue("clock_color");
             tsl::gfx::Color clockColor = tsl::gfx::RGB888(clockColorStr);
-            std::string batteryColorStr = parseValueFromIniSection("/config/ultrahand/theme.ini", "theme", "battery_color");
+            std::string batteryColorStr = ryazhaThemeValue("battery_color");
             tsl::gfx::Color batteryColor = tsl::gfx::RGB888(batteryColorStr);
             
 			/**
@@ -1896,7 +1912,7 @@ namespace tsl {
 		 */
 		class ListItem : public Element {
 		public:
-            std::string defaultTextColorStr = parseValueFromIniSection("/config/ultrahand/theme.ini", "theme", "text_color");
+            std::string defaultTextColorStr = ryazhaThemeValue("text_color");
             tsl::gfx::Color defaultTextColor = tsl::gfx::RGB888(defaultTextColorStr);
             
 			/**
@@ -2907,6 +2923,10 @@ virtual Element* requestFocus(Element *oldFocus, FocusDirection direction) overr
 				parentElement = parentElement->getParent();
 			} while (!handled && parentElement != nullptr);
 
+			// Ryazha sound feedback: an element accepted the A press.
+			if (handled && (keysDown & KEY_A))
+				ryz::RyazhaSound::enter();
+
 			if (currentGui != this->getCurrentGui())
 				return;
 
@@ -2921,6 +2941,10 @@ virtual Element* requestFocus(Element *oldFocus, FocusDirection direction) overr
 					currentGui->requestFocus(currentFocus->getParent(), FocusDirection::Left);
 				else if (keysDown & KEY_RIGHT)
 					currentGui->requestFocus(currentFocus->getParent(), FocusDirection::Right);
+
+				// Ryazha sound feedback: d-pad navigation tick.
+				if (keysDown & (KEY_UP | KEY_DOWN | KEY_LEFT | KEY_RIGHT))
+					ryz::RyazhaSound::navigate();
 			}
 		}
 
@@ -3006,6 +3030,9 @@ virtual Element* requestFocus(Element *oldFocus, FocusDirection direction) overr
 		 * @note The Overlay gets closes once there are no more Guis on the stack
 		 */
 		void goBack() {
+			// Ryazha sound feedback: leaving the current menu.
+			ryz::RyazhaSound::back();
+
 			if (cache.size()) {
 				for (const auto& [key, value] : cache) {
 					std::free(value.pointer);

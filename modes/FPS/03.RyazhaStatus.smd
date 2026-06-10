@@ -1,0 +1,151 @@
+Name = RyazhaStatus
+NAME_LOCALE{"RU-RU", "Ряжа-статус"}
+NAME_LOCALE{"PL-PL", "RyazhaStatus"}
+NAME_LOCALE{"DE-DE", "RyazhaStatus"}
+LayerWidth = 450
+LayerHeight = 200
+VERSION = 1
+
+; Recreation of the legacy Ryazha-Status-Monitor (<=1.4.3) RyazhaStatus mode:
+; a movable FPS + display refresh rate counter, now with EMA smoothing.
+
+User_RefreshRate = 30
+;;User_RefreshRate_Description = Max refresh rate of rendered overlay. It won't be faster than your current display refresh rate because of vsync.
+;;User_RefreshRate_Description_RU-RU = Максимальная частота обновления оверлея. Из-за vsync не будет выше текущей частоты обновления экрана.
+;;User_RefreshRate_Name = Refresh rate
+;;User_RefreshRate_Name_RU-RU = Частота обновления
+;;User_RefreshRate_DefaultValue = 30
+;;User_RefreshRate_Range = {int, 1, 60}
+User_HandheldFontSize = 40
+;;User_HandheldFontSize_Description = Size of text in handheld mode.
+;;User_HandheldFontSize_Description_RU-RU = Размер текста в портативном режиме.
+;;User_HandheldFontSize_Name = Font size
+;;User_HandheldFontSize_Name_RU-RU = Размер шрифта
+;;User_HandheldFontSize_DefaultValue = 40
+;;User_HandheldFontSize_Range = {font, 8, 80}
+User_DockedFontSize = 40
+;;User_DockedFontSize_Description = Size of text in docked mode.
+;;User_DockedFontSize_Description_RU-RU = Размер текста в режиме док-станции.
+;;User_DockedFontSize_Name = Docked font size
+;;User_DockedFontSize_Name_RU-RU = Размер шрифта в доке
+;;User_DockedFontSize_DefaultValue = 40
+;;User_DockedFontSize_Range = {font, 8, 80}
+User_ShowHz = true
+;;User_ShowHz_Description = Show the current display refresh rate on a second line.
+;;User_ShowHz_Description_RU-RU = Показывать текущую частоту обновления экрана второй строкой.
+;;User_ShowHz_Name = Show Hz
+;;User_ShowHz_Name_RU-RU = Показывать герцы
+;;User_ShowHz_DefaultValue = true
+User_EmaStrength = 20
+;;User_EmaStrength_Description = EMA smoothing strength in percent. Higher reacts faster, lower is smoother.
+;;User_EmaStrength_Description_RU-RU = Сила EMA-сглаживания в процентах. Больше — быстрее реакция, меньше — плавнее.
+;;User_EmaStrength_Name = EMA smoothing
+;;User_EmaStrength_Name_RU-RU = EMA-сглаживание
+;;User_EmaStrength_DefaultValue = 20
+;;User_EmaStrength_Range = {int, 1, 100}
+User_OldFpsAverage = false
+;;User_OldFpsAverage_Description = Don't clamp FPS if they are in close range of PFPS value.
+;;User_OldFpsAverage_Description_RU-RU = Не округлять FPS, если значение близко к PFPS.
+;;User_OldFpsAverage_Name = Use old FPS averaging
+;;User_OldFpsAverage_Name_RU-RU = Старое усреднение FPS
+;;User_OldFpsAverage_DefaultValue = false
+User_GoodColor = COLOR{0x3F3F}
+;;User_GoodColor_Description = FPS color at full display refresh rate.
+;;User_GoodColor_Description_RU-RU = Цвет FPS при полной частоте обновления экрана.
+;;User_GoodColor_Name = Full refresh rate color
+;;User_GoodColor_Name_RU-RU = Цвет полной частоты
+;;User_GoodColor_DefaultValue = COLOR{0x3F3F}
+User_MediumColor = COLOR{0xFF3F}
+;;User_MediumColor_Description = FPS color at half display refresh rate or above.
+;;User_MediumColor_Description_RU-RU = Цвет FPS при половине частоты обновления экрана и выше.
+;;User_MediumColor_Name = Half refresh rate color
+;;User_MediumColor_Name_RU-RU = Цвет половинной частоты
+;;User_MediumColor_DefaultValue = COLOR{0xFF3F}
+User_BadColor = COLOR{0xF33F}
+;;User_BadColor_Description = FPS color below half display refresh rate, and the no-data color.
+;;User_BadColor_Description_RU-RU = Цвет FPS ниже половины частоты обновления, а также цвет «нет данных».
+;;User_BadColor_Name = Low FPS color
+;;User_BadColor_Name_RU-RU = Цвет низкого FPS
+;;User_BadColor_DefaultValue = COLOR{0xF33F}
+User_HzColor = COLOR{0x9FFF}
+;;User_HzColor_Name = Hz value color
+;;User_HzColor_Name_RU-RU = Цвет значения герц
+;;User_HzColor_DefaultValue = COLOR{0x9FFF}
+User_BoxColor = COLOR{0x1117}
+;;User_BoxColor_Name = Background color
+;;User_BoxColor_Name_RU-RU = Цвет фона
+;;User_BoxColor_DefaultValue = COLOR{0x1117}
+
+EmaFps: -1
+
+BackgroundColor = COLOR{0x0000}
+COMMON_MARGIN = 0
+Movable = true
+HeaderText = false
+FooterText = false
+UseCustomExitCombo = true
+EnableControls = false
+ClampToLayerBottom = true
+ClampToLayerRight = true
+
+EnableGame = true
+FpsTextFormat: {"FPS: %2.1f", EmaFps}
+HzTextFormat: {"Hz: %d", System_DisplayRefreshRate_int}
+FpsNoDataText = IETF{"FPS: n/d"}
+IETF_LOCALE{FpsNoDataText, "RU-RU", "FPS: н/д"}
+IETF_LOCALE{FpsNoDataText, "PL-PL", "FPS: b/d"}
+IETF_LOCALE{FpsNoDataText, "DE-DE", "FPS: b/d"}
+
+Start:
+#if $System_IsDocked
+	VAR{fontsize, User_DockedFontSize}
+#else
+	VAR{fontsize, User_HandheldFontSize}
+#endif
+VAR{margin, fontsize / 8}
+VAR{rr, System_DisplayRefreshRate_int}
+VAR{HasFps, 0}
+VAR{FpsColor, User_BadColor}
+#if $EnableGame
+	#if $Game_IsGameRunning
+		VAR{RawFps, User_OldFpsAverage ? Game_FpsAvgOld_float : Game_FpsAvg_float}
+		#if RawFps < 254
+			#if RawFps >= 0
+				VAR{HasFps, 1}
+				#if EmaFps < 0
+					VAR{EmaFps, RawFps}
+				#else
+					VAR{EmaFps, (RawFps * User_EmaStrength + EmaFps * (100 - User_EmaStrength)) / 100}
+				#endif
+				#if EmaFps >= rr - 0.5
+					VAR{FpsColor, User_GoodColor}
+				#elif EmaFps >= (rr / 2) - 0.5
+					VAR{FpsColor, User_MediumColor}
+				#else
+					VAR{FpsColor, User_BadColor}
+				#endif
+			#endif
+		#endif
+	#endif
+#endif
+#if HasFps == 0
+	VAR{EmaFps, -1}
+	VAR{FpsLine, FpsNoDataText}
+#else
+	VAR{FpsLine, FpsTextFormat}
+#endif
+GET_DIMENSIONS{FpsDim, fontsize, true, FpsLine}
+#if $User_ShowHz
+	GET_DIMENSIONS{HzDim, fontsize, true, HzTextFormat}
+	VAR{BoxW, FpsDim.x}
+	#if HzDim.x > FpsDim.x
+		VAR{BoxW, HzDim.x}
+	#endif
+	VAR{BoxW, BoxW + margin}
+	BOX{0, 0, BoxW, fontsize * 2 + (margin / 2), User_BoxColor}
+	TEXT{margin / 2, fontsize - margin, fontsize, FpsColor, true, FpsLine}
+	TEXT{margin / 2, fontsize * 2 - margin, fontsize, User_HzColor, true, HzTextFormat}
+#else
+	BOX{0, 0, FpsDim.x + margin, fontsize + (margin / 2), User_BoxColor}
+	TEXT{margin / 2, fontsize - margin, fontsize, FpsColor, true, FpsLine}
+#endif

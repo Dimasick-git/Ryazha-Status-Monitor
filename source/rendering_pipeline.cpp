@@ -403,7 +403,7 @@ RenderingPipeline::~RenderingPipeline() {
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConL]);
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConR]);
 	}
-	backgroundColor = 0xD000;
+	backgroundColor = menuBackgroundColor;
 	deactivateOriginalFooter = false;
 	FullMode = true;
 	tsl::hlp::requestForeground(true);

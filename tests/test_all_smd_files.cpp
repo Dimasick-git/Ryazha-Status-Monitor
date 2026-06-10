@@ -80,6 +80,10 @@ void ConfigureHost(const std::string& file, DummyHost& h) {
     } else if (file == "FPS/02.FPSCounter.smd") {
         h.Game_FPS_int = 60;
         h.Game_FpsAvg_float = 59.9f;
+    } else if (file == "FPS/03.RyazhaStatus.smd") {
+        h.Game_FPS_int = 60;
+        h.Game_FpsAvg_float = 59.9f;
+        h.Game_FpsAvgOld_float = 59.8f;
     } else if (file == "FPS/01.FPSGraph.smd") {
         h.Game_FPS_int = 60;
         h.Game_FpsAvg_float = 59.9f;
@@ -154,6 +158,12 @@ const std::vector<FixtureExpectation>& Expectations() {
         { "FPS/02.FPSCounter.smd",
           { T::Text, T::Box, T::GetDimensions },
           { } },
+
+        // RyazhaStatus: EMA-smoothed FPS counter + Hz line — BOX behind two
+        // TEXT lines, measured with GET_DIMENSIONS first.
+        { "FPS/03.RyazhaStatus.smd",
+          { T::Text, T::Box, T::GetDimensions },
+          { "FPS:", "Hz:" } },
 
         // FPSGraph is the only fixture that exercises EMPTY_BOX, DASHED_LINE
         // and GRAPH_LINE_CHART, so it carries the bulk of the visual-

@@ -64,6 +64,47 @@ public:
 	std::string footerBackup;
 	bool isMainMenu = false;
 
+	// Ryazha quick-launch combos: a mode section in config.ini may define
+	// quick_combo=ZL+ZR+DUP — holding it in any menu jumps straight into
+	// that SMD file.
+	struct QuickCombo {
+		uint64_t mask;
+		std::string rel;
+	};
+	std::vector<QuickCombo> quickCombos;
+
+	void collectQuickCombos() {
+		for (const auto& [section, values] : config) {
+			if (section.size() < 4 || section.compare(section.size() - 4, 4, ".smd") != 0)
+				continue;
+			auto it = values.find("quick_combo");
+			if (it == values.end() || it->second.empty())
+				continue;
+			std::string combo = it->second;
+			removeSpaces(combo);
+			convertToUpper(combo);
+			uint64_t mask = MapButtons(combo);
+			if (mask != 0)
+				quickCombos.push_back({mask, section});
+		}
+	}
+
+	bool handleQuickCombos(uint64_t keysDown, uint64_t keysHeld) {
+		for (const auto& qc : quickCombos) {
+			if ((keysHeld & qc.mask) != qc.mask || !(keysDown & qc.mask))
+				continue;
+			struct stat st;
+			std::string full_path = root_path + qc.rel;
+			if (stat(full_path.c_str(), &st) != 0)
+				continue;
+			std::string args = "--file " + qc.rel + " --submenu";
+			tsl::setNextOverlay(filepath, args);
+			tsl::Overlay::get()->close();
+			return true;
+		}
+		return false;
+	}
+
 	bool FindConfigs(const char* data, size_t size) {
 		size_t lineStart = 0;
 		for (size_t i = 0; i < size; ++i) {
@@ -166,6 +207,7 @@ public:
             standard_path = rel_path;
         }
         find_smd_files(standard_path, filesChecked);
+		collectQuickCombos();
 		if (folderName.length() != 0) {
 			m_folderName = folderName;
 			defaultButtonView = locale["Footer"];
@@ -316,6 +358,8 @@ public:
 	virtual void update() override {}
 
 	virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
+		if (handleQuickCombos(keysDown, keysHeld))
+			return true;
 		if (keysDown & KEY_B) {
 			tsl::hlp::requestForeground(true);
 			tsl::goBack();
@@ -355,12 +399,17 @@ public:
 			smseLoadFolder("sdmc:/config/status-monitor-deux/extensions/");
 			smseExecuteAll();
 		});
+		// Ryazha sound feedback (no-op when sound_effects=false or the
+		// Ryazhahand sound pack is absent).
+		ryz::RyazhaSound::start();
 		Hinted = envIsSyscallHinted(0x6F);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_ProController], 1, HidNpadIdType_No1,      HidNpadStyleTag_NpadFullKey);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_JoyConL], 2, HidNpadIdType_No1,      HidNpadStyleTag_NpadJoyDual);
 	}
 
 	virtual void exitServices() override {
+		ryz::RyazhaSound::stop();
+
 		for (auto& se : serviceExt) {
 			serviceClose(&se.service);
 		}
@@ -403,12 +452,33 @@ public:
     }
 };
 
+// Apply the Ryazha theme to menu screens. Element/frame colors are read
+// through ryazhaThemeValue() at element construction; the menu background
+// is global state, so it is themed once here at startup.
+static void ApplyRyazhaTheme() {
+	std::string bgStr = ryazhaThemeValue("bg_color");
+	if (bgStr.empty())
+		return;
+	tsl::gfx::Color bg = tsl::gfx::RGB888(bgStr, "#000000");
+	unsigned long alpha = 13;
+	std::string alphaStr = ryazhaThemeValue("bg_alpha");
+	if (!alphaStr.empty()) {
+		alpha = strtoul(alphaStr.c_str(), nullptr, 10);
+		if (alpha > 15)
+			alpha = 13;
+	}
+	bg.a = alpha;
+	menuBackgroundColor = bg.rgba;
+	backgroundColor = menuBackgroundColor;
+}
+
 int main(int argc, char **argv) {
 	#if !defined(__SWITCH__) && !defined(__OUNCE__)
 		systemtickfrequency = armGetSystemTickFreq();
 	#endif
 
 	ParseIniFile();
+	ApplyRyazhaTheme();
     
 	if (argc > 0) {
 		filename = argv[0];

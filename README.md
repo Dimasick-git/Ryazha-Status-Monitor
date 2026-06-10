@@ -65,10 +65,23 @@
 > кроме `.ovl` он содержит папку `config` с SMD-режимами и SMSE-расширениями.
 > Без них меню оверлея будет пустым.
 
+## Интеграция с Ryazhahand
+- **Темы**: оверлей читает `/config/ryazhahand/theme.ini` (ключи `text_color`, `clock_color`, `battery_color`, `highlight_color_1`, `highlight_color_2`, `bg_color`, `bg_alpha`); если файла нет — фолбэк на `/config/ultrahand/theme.ini`. Тема Ryazhahand применяется к меню оверлея автоматически.
+- **Звуки**: портирован звуковой движок libryazhahand — звуки навигации/входа/выхода играются из общего пака `/config/ryazhahand/.loaded_sounds/` (его распаковывает меню Ryazhahand). Управление в `/config/ryazhahand/config.ini`, секция `[ryazhahand]`: `sound_effects` (мастер-переключатель), `sound_volume` (0–100), `sound_navigation`, `sound_enter`, `sound_exit`.
+- Сигнатура `RYZH` в конце `.ovl` сохранена для загрузчика Ryazhahand.
+
+## Эксклюзивы Ryazha-форка
+- **Режим RyazhaStatus** (`modes/FPS/03.RyazhaStatus.smd`) — перемещаемый счётчик FPS + Гц с **EMA-сглаживанием** и цветовой индикацией (зелёный — полная частота экрана, жёлтый — половина, красный — ниже). Сила сглаживания, цвета и шрифты настраиваются кнопкой Y.
+- **Быстрые комбо запуска режимов**: в `config/status-monitor-deux/config.ini` в секции нужного режима добавьте `quick_combo=ZL+ZR+DUP` (любое сочетание кнопок) — удержание этой комбинации в меню оверлея мгновенно открывает режим. Пример:
+  ```ini
+  [FPS/03.RyazhaStatus.smd]
+  quick_combo=ZL+ZR+DUP
+  ```
+- Полная русская локализация всех режимов и меню.
+
 ## Совместимость с прежними версиями Ryazha-Status-Monitor (≤1.4.3)
 - Legacy-аргументы запуска `-mini`, `-micro`, `-full`, `-fps_graph`, `-fps_counter`, `-game_resolutions`, а также `--microOverlay`/`--microOverlay_` по-прежнему работают: они автоматически открывают соответствующий SMD-файл, так что старые ярлыки и интеграции не сломаются.
 - Новый штатный способ — аргумент `--file <имя файла>.smd`.
-- Сигнатура `RYZH` в конце `.ovl` сохранена для загрузчика Ryazhahand.
 
 # Для разработчиков
 - Синхронизация с upstream: `./sync-upstream.sh` (теперь следит за [masagrator/Status-Monitor-Deux](https://github.com/masagrator/Status-Monitor-Deux), ветка `main`).
