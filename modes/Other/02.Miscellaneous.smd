@@ -39,22 +39,36 @@ Text2: {"NVENC: %u.%u MHz", Misc_NvEncHz_int / 1000000, (Misc_NvEncHz_int / 1000
 Text3: {"NVJPG: %u.%u MHz", Misc_NvJpgHz_int / 1000000, (Misc_NvJpgHz_int / 100000) % 10}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+User_UseTheme = true
+;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode.
+;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для этого режима.
+;;User_UseTheme_Name = Use theme colors
+;;User_UseTheme_Name_RU-RU = Цвета из темы
+;;User_UseTheme_DefaultValue = true
+
 Start:
+#if $User_UseTheme
+	VAR{CatColor, Theme_CategoryColor_int}
+	VAR{TxtColor, Theme_TextColor_int}
+#else
+	VAR{CatColor, color(0xCCCF)}
+	VAR{TxtColor, color(0xFFFF)}
+#endif
 VAR{Text, Text1 + "\n" + Text2 + "\n" + Text3}
-TEXT{0, 120, 20, 0xFFFF, false, IETF_GET{MultimediaText}}
-TEXT{15, 140, 15, 0xFFFF, false, Text}
-TEXT{0, 215, 20, 0xFFFF, false, IETF_GET{NetworkText}}
+TEXT{0, 120, 20, CatColor, false, IETF_GET{MultimediaText}}
+TEXT{15, 140, 15, TxtColor, false, Text}
+TEXT{0, 215, 20, CatColor, false, IETF_GET{NetworkText}}
 #if $Misc_NetworkConnectionType_int == 1
-	TEXT{0, 240, 18, 0xFFFF, false, IETF_GET{WiFiText}}
+	TEXT{0, 240, 18, TxtColor, false, IETF_GET{WiFiText}}
 	#if $Misc_IsWiFiPassphrase
 		#if $System_KeysHeld_int == $System_Key_Y
-			TEXT{0, 265, 15, 0xFFFF, false, Misc_WiFiPassphrase_str}
+			TEXT{0, 265, 15, TxtColor, false, Misc_WiFiPassphrase_str}
 		#else
-			TEXT{0, 265, 15, 0xFFFF, false, IETF_GET{ShowPasswordText}}
+			TEXT{0, 265, 15, TxtColor, false, IETF_GET{ShowPasswordText}}
 		#endif
 	#endif
 #elif $Misc_NetworkConnectionType_int == 2
-	TEXT{0, 240, 18, 0xFFFF, false, IETF_GET{EthernetText}}
+	TEXT{0, 240, 18, TxtColor, false, IETF_GET{EthernetText}}
 #else
-	TEXT{0, 240, 18, 0xFFFF, false, IETF_GET{NotConnectedText}}
+	TEXT{0, 240, 18, TxtColor, false, IETF_GET{NotConnectedText}}
 #endif

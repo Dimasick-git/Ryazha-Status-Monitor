@@ -1,5 +1,5 @@
 [status-monitor]
-key_combo=L+DDOWN+RSTICK
+key_combo=L+R+DUP
 battery_avg_iir_filter=false
 battery_time_left_refreshrate=10
 touch_screen=true
@@ -11,3 +11,5 @@ jump_immediately_to_single_smd=true
 override_language=false
 override_language_ietf_code=EN-US
 key_combo_time_delay_ms=200
+[01.Full.smd]
+quick_combo=L+R+DUP

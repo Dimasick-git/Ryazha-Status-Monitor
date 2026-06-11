@@ -15,6 +15,12 @@ User_RefreshRate = 30
 ;;User_RefreshRate_Name_RU-RU = Частота обновления
 ;;User_RefreshRate_DefaultValue = 30
 ;;User_RefreshRate_Range = {int, 1, 60}
+User_UseTheme = false
+;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode.
+;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для этого режима.
+;;User_UseTheme_Name = Use theme colors
+;;User_UseTheme_Name_RU-RU = Цвета из темы
+;;User_UseTheme_DefaultValue = false
 User_FpsCounterColor = COLOR{0x4444}
 ;;User_FpsCounterColor_Description = It's behind graph when game runs.
 ;;User_FpsCounterColor_Description_PL-PL = Wyświetla się za grafem gdy gra jest uruchomiona.
@@ -144,6 +150,15 @@ gameWasActive: false
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Start:
+#if $User_UseTheme
+	VAR{CounterColor, Theme_AccentColor_int}
+	VAR{BorderColor, Theme_CategoryColor_int}
+	VAR{BoxColor, Theme_BoxColor_int}
+#else
+	VAR{CounterColor, User_FpsCounterColor}
+	VAR{BorderColor, BorderColor}
+	VAR{BoxColor, BoxColor}
+#endif
 GET_DIMENSIONS{MaxSize, 10, true, FPSmax}
 #if $User_AdjustToRefreshRate
 	VAR{GraphHeight, System_DisplayRefreshRate_int}
@@ -154,16 +169,16 @@ GET_DIMENSIONS{MaxSize, 10, true, FPSmax}
 	VAR{GraphHeight, User_GraphHeight}
 #endif
 VAR{BoxWidth, User_GraphWidth + MaxSize.x + 10}
-BOX{0, 0, BoxWidth, GraphHeight  + 12, User_BoxColor}
+BOX{0, 0, BoxWidth, GraphHeight  + 12, BoxColor}
 VAR{FPSavg, User_OldFpsAverage ? Game_FpsAvgOld_float : Game_FpsAvg_float}
 VAR{TextBaseOffset, MaxSize.x + 2}
 #if $FPSavg < 254 and $FPSavg >= 0
 	#if $GraphHeight < $User_GraphWidth
 		GET_DIMENSIONS{dimensions, GraphHeight + 4, true, FPStext}
-		TEXT{TextBaseOffset + (((User_GraphWidth + 2) - dimensions.x) / 2), GraphHeight + 4, GraphHeight + 4, User_FpsCounterColor, true, FPStext}
+		TEXT{TextBaseOffset + (((User_GraphWidth + 2) - dimensions.x) / 2), GraphHeight + 4, GraphHeight + 4, CounterColor, true, FPStext}
 	#endif
 #endif
-EMPTY_BOX{TextBaseOffset, 5, User_GraphWidth + 2, GraphHeight  + 2, User_BorderColor}
+EMPTY_BOX{TextBaseOffset, 5, User_GraphWidth + 2, GraphHeight  + 2, BorderColor}
 DASHED_LINE{TextBaseOffset + 1, 6 + (GraphHeight  / 2), (User_GraphWidth + 1) + TextBaseOffset + 1, 6 + (GraphHeight  / 2), 6, 3, User_DashedLineColor}
 TEXT{0, 13, 10, User_MaxValueColor, true, FPSmax}
 TEXT{TextBaseOffset - 9, GraphHeight  + 7, 10, User_MinValueColor, true, "0"}

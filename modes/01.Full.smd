@@ -27,6 +27,12 @@ User_ShowRealFrequencies = true
 ;;User_ShowRealFrequencies_Name_RU-RU = Показывать реальные частоты
 
 ;;User_ShowRealFrequencies_DefaultValue = true
+User_ShowClock = true
+;;User_ShowClock_Description = Show current time and battery charge in the top right corner.
+;;User_ShowClock_Description_RU-RU = Показывать текущее время и заряд батареи в правом верхнем углу.
+;;User_ShowClock_Name = Show clock and battery
+;;User_ShowClock_Name_RU-RU = Часы и батарея
+;;User_ShowClock_DefaultValue = true
 User_UseTheme = true
 ;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode's text.
 ;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для текста этого режима.
@@ -230,6 +236,8 @@ EnableBenchmark = false
 ;FrameTimeAverage = HISTORY{int, 10}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ClockBatteryFormat: {"%02d:%02d   %.0f%%", System_ClockHour_int, System_ClockMinute_int, Board_BatteryChargePercentage_float}
+
 Start:
 ; Ryazha theming: colors follow /config/ryazhahand/theme.ini when enabled.
 #if $User_UseTheme
@@ -238,6 +246,11 @@ Start:
 #else
 	VAR{CatColor, color(0xCCCF)}
 	VAR{TxtColor, color(0xFFFF)}
+#endif
+#if $User_ShowClock
+	VAR{ClockText, ClockBatteryFormat}
+	GET_DIMENSIONS{ClockDims, 18, false, ClockText}
+	TEXT{LayerWidth - ClockDims.x - 20, 120, 18, CatColor, false, ClockText}
 #endif
 #if $EnableBenchmark
 	HISTORY_UPDATE{FrameTimeAverage, System_OverlayRenderingFrameTimeInNs_int}

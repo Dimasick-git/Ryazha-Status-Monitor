@@ -15,6 +15,12 @@ User_RefreshRate = 10
 ;;User_RefreshRate_Name_DE-DE = Aktualisierungsrate
 ;;User_RefreshRate_Name_RU-RU = Частота обновления
 ;;User_RefreshRate_Range = {int, 1, 60}
+User_ColorByFps = false
+;;User_ColorByFps_Description = Color the FPS value by performance: green at full display refresh rate, yellow at half, red below.
+;;User_ColorByFps_Description_RU-RU = Красить значение FPS по производительности: зелёный — полная частота экрана, жёлтый — половина, красный — ниже.
+;;User_ColorByFps_Name = Color by FPS
+;;User_ColorByFps_Name_RU-RU = Цвет по FPS
+;;User_ColorByFps_DefaultValue = false
 User_TextColor = COLOR{0xFFFF}
 ;;User_TextColor_Name = FPS value color
 ;;User_TextColor_Name_PL-PL = Kolor liczby FPS
@@ -85,6 +91,7 @@ Start:
 	VAR{fontsize, User_HandheldFontSize}
 #endif
 VAR{margin, fontsize / 8}
+VAR{TxtColor, User_TextColor}
 #if $EnableGame
 	#if $Game_IsGameRunning
 		VAR{FpsAvg, User_OldFpsAverage ? Game_FpsAvgOld_float : Game_FpsAvg_float}
@@ -92,6 +99,16 @@ VAR{margin, fontsize / 8}
 			VAR{Text, FPSnoDataText}
 		#else
 			VAR{Text, FPStext}
+			#if $User_ColorByFps
+				VAR{rrc, System_DisplayRefreshRate_int}
+				#if FpsAvg >= rrc - 0.5
+					VAR{TxtColor, color(0x9FBF)}
+				#elif FpsAvg >= (rrc / 2) - 0.5
+					VAR{TxtColor, color(0xFE8F)}
+				#else
+					VAR{TxtColor, color(0xF77F)}
+				#endif
+			#endif
 		#endif
 	#else
 		VAR{Text, FPSnoDataText}
@@ -99,4 +116,4 @@ VAR{margin, fontsize / 8}
 #endif
 GET_DIMENSIONS{Dimensions, fontsize, true, Text}
 BOX{0, 0, Dimensions.x + margin, fontsize + (margin / 2), User_BoxColor}
-TEXT{0, fontsize - margin, fontsize, User_TextColor, true, Text}
+TEXT{0, fontsize - margin, fontsize, TxtColor, true, Text}

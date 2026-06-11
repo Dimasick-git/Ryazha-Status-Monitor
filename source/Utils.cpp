@@ -18,7 +18,7 @@ uint64_t systemtickfrequency = 0;
 #endif
 
 //System
-std::string keyCombo = "L+DDOWN+RSTICK"; // default Tesla Menu combo
+std::string keyCombo = "L+R+DUP"; // Ryazha default: classic Status-Monitor exit combo
 LEvent threadexit = {0};
 uint32_t threadexit2 = 0;
 PwmChannelSession g_ICon;
@@ -904,7 +904,7 @@ uint64_t MapButtons(const std::string& buttonCombo) {
 void createDefaultFile(std::string filepath) {
 	mkdir("sdmc:/config/", 69);
 	mkdir("sdmc:/config/status-monitor/", 420);
-	setIniFile(filepath, "status-monitor", ";key_combo", "L+DDOWN+RSTICK", "");
+	setIniFile(filepath, "status-monitor", "key_combo", "L+R+DUP", "");
 	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "200", "");
 	setIniFile(filepath, "status-monitor", "battery_avg_iir_filter", "false", "");
 	setIniFile(filepath, "status-monitor", "battery_time_left_refreshrate", "10", "");
@@ -917,6 +917,9 @@ void createDefaultFile(std::string filepath) {
 	setIniFile(filepath, "status-monitor", "save_and_load_movable_overlay_position", "true", "");
 	setIniFile(filepath, "status-monitor", "override_language", "false", "");
 	setIniFile(filepath, "status-monitor", "override_language_ietf_code", "EN-US", "");
+	// Ryazha default: L+R+DUP toggles the Full mode — in the menu it
+	// quick-launches it, inside the mode the same combo exits.
+	setIniFile(filepath, "01.Full.smd", "quick_combo", "L+R+DUP", "");
 }
 
 bool ProcessSmdSettings(std::string filename, uint32_t crc32, uint16_t* x, uint16_t* y) {

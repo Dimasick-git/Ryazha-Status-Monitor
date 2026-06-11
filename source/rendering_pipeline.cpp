@@ -187,16 +187,18 @@ void RenderingPipeline::DryRunCallback(smd::RenderCommand& cmd, void* user) {
 
 // ─── Private non-static method ───────────────────────────────────────────────
 
-bool RenderingPipeline::IsInsideTouchRange(int64_t screen_x, int64_t screen_y) const {
+bool RenderingPipeline::IsInsideTouchRange(int64_t screen_x, int64_t screen_y, int64_t pad) const {
 	if (screen_x < 0 || screen_y < 0) return false;
 
 	int64_t lx = screen_x - (m_layer_pos_x_window * 2 / 3) - m_obj_offset_x_screen;
 	int64_t ly = screen_y - (m_layer_pos_y_window * 2 / 3) - m_obj_offset_y_screen;
-	if (lx < 0 || ly < 0) return false;
+	if (lx < -pad || ly < -pad) return false;
 	if (backgroundColor != 0x0000)
-		return lx < tsl::cfg::FramebufferWidth && ly < tsl::cfg::FramebufferHeight;
+		return lx < tsl::cfg::FramebufferWidth + pad && ly < tsl::cfg::FramebufferHeight + pad;
+	// Inflate every drawn rect by `pad` so small overlays (a thin Micro bar,
+	// a tiny FPS counter) are easy to grab and pinch.
 	for (const auto& r : s_rects)
-		if (lx >= r.x && ly >= r.y && lx < r.x+r.w && ly < r.y+r.h) return true;
+		if (lx >= r.x-pad && ly >= r.y-pad && lx < r.x+r.w+pad && ly < r.y+r.h+pad) return true;
 	return false;
 }
 
@@ -656,8 +658,8 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 				const float dist = sqrtf(dx * dx + dy * dy);
 				if (!m_pinching) {
 					if (dist > 1.0f &&
-					    (IsInsideTouchRange(pinchState.touches[0].x, pinchState.touches[0].y) ||
-					     IsInsideTouchRange(pinchState.touches[1].x, pinchState.touches[1].y))) {
+					    (IsInsideTouchRange(pinchState.touches[0].x, pinchState.touches[0].y, 56) ||
+					     IsInsideTouchRange(pinchState.touches[1].x, pinchState.touches[1].y, 56))) {
 						m_pinching = true;
 						m_pinchStartDist = dist;
 						m_pinchStartScale = tsl::gfx::Renderer::getRenderer().getLayerScale();
@@ -671,12 +673,15 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 					tsl::gfx::Renderer::getRenderer().setLayerScale(m_pinchStartScale * (dist / m_pinchStartDist));
 			}
 			else if (m_pinching) {
-				m_pinching = false;
+				// Keep blocking single-finger drag until every finger lifts,
+				// otherwise the remaining finger of a pinch yanks the overlay.
+				if (pinchState.count == 0)
+					m_pinching = false;
 			}
 
 			if (!m_pinching) {
 			if (!changingPos && *touchInput.delta_time != 0) {
-				if (IsInsideTouchRange(*touchInput.x, *touchInput.y)) {
+				if (IsInsideTouchRange(*touchInput.x, *touchInput.y, 24)) {
 					changingPos = true;
 					m_anchor_offset_x = (int64_t)*touchInput.x - (int64_t)m_base_x;
 					m_anchor_offset_y = (int64_t)*touchInput.y - (int64_t)m_base_y;
@@ -750,7 +755,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 			if (Movable == true) {
 				if (m_touchScreen == true) {
 					HidTouchScreenState state = {0};
-					if (hidGetTouchScreenStates(&state, 1) && state.count && IsInsideTouchRange(state.touches[0].x, state.touches[0].y)) {
+					if (hidGetTouchScreenStates(&state, 1) && state.count && IsInsideTouchRange(state.touches[0].x, state.touches[0].y, 24)) {
 						break;
 					}
 				}

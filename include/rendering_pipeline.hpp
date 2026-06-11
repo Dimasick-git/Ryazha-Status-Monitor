@@ -73,7 +73,7 @@ private:
 	static void DryRunCallback(smd::RenderCommand& cmd, void* user);
 	size_t getFreeHeapMemory() const;
 
-	bool IsInsideTouchRange(int64_t screen_x, int64_t screen_y) const;
+	bool IsInsideTouchRange(int64_t screen_x, int64_t screen_y, int64_t pad = 0) const;
 
 public:
 	RenderingPipeline(std::string filepath, bool double_back = false);
