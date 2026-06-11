@@ -33,6 +33,12 @@ User_ShowClock = true
 ;;User_ShowClock_Name = Show clock and battery
 ;;User_ShowClock_Name_RU-RU = Часы и батарея
 ;;User_ShowClock_DefaultValue = true
+User_ShowLoadBars = true
+;;User_ShowLoadBars_Description = Draw thin CPU/GPU/RAM load bars under the load values.
+;;User_ShowLoadBars_Description_RU-RU = Рисовать тонкие полосы загрузки CPU/GPU/RAM под значениями.
+;;User_ShowLoadBars_Name = Load bars
+;;User_ShowLoadBars_Name_RU-RU = Полосы загрузки
+;;User_ShowLoadBars_DefaultValue = true
 User_UseTheme = true
 ;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode's text.
 ;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для текста этого режима.
@@ -243,10 +249,13 @@ Start:
 #if $User_UseTheme
 	VAR{CatColor, Theme_CategoryColor_int}
 	VAR{TxtColor, Theme_TextColor_int}
+	VAR{AccColor, Theme_AccentColor_int}
 #else
 	VAR{CatColor, color(0xCCCF)}
 	VAR{TxtColor, color(0xFFFF)}
+	VAR{AccColor, color(0x8DEF)}
 #endif
+VAR{BarTrack, color(0x3334)}
 #if $User_ShowClock
 	VAR{ClockText, ClockBatteryFormat}
 	GET_DIMENSIONS{ClockDims, 18, false, ClockText}
@@ -260,6 +269,7 @@ Start:
 ;CPU
 #if $EnableCPU
 	TEXT{0, 120, 20, CatColor, false, IETF_GET{CpuUsageText}}
+	BOX{0, 128, 205, 1, CatColor}
 	VAR{height_offset, 155}
 
 	#if $User_ShowTargetFrequencies
@@ -285,12 +295,19 @@ Start:
 	#endif
 
 	TEXT{0, 200, 15, TxtColor, false, CPUloadText}
+	; Average CPU load bar
+	#if $User_ShowLoadBars
+		VAR{CpuAvg, (CPU_Core0Load_double + CPU_Core1Load_double + CPU_Core2Load_double + CPU_Core3Load_double) / 4}
+		BOX{0, 264, 200, 4, BarTrack}
+		BOX{0, 264, CpuAvg * 2, 4, AccColor}
+	#endif
 #endif
 
 ;GPU
 #if $EnableGPU
 	VAR{height_offset, 310}
 	TEXT{0, 285, 20, CatColor, false, IETF_GET{GpuUsageText}}
+	BOX{0, 293, 205, 1, CatColor}
 	#if $User_ShowTargetFrequencies
 		TEXT{0, height_offset, 15, TxtColor, false, GPUTargetFreqText}
 		GET_DIMENSIONS{TargetDims, 15, false, GPUTargetFreqText}
@@ -335,6 +352,12 @@ Start:
 	TEXT{0, height_offset, 15, TxtColor, false, GPUloadText}
 	GET_DIMENSIONS{Dims, 15, false, GPUloadText}
 	VAR{height_offset, height_offset + Dims.y}
+	; GPU load bar (GPU_Load_int is in 0.1% units)
+	#if $User_ShowLoadBars
+		BOX{0, height_offset - 9, 200, 4, BarTrack}
+		BOX{0, height_offset - 9, GPU_Load_int / 5, 4, AccColor}
+		VAR{height_offset, height_offset + 2}
+	#endif
 #endif
 
 ;RAM
@@ -345,6 +368,7 @@ Start:
 	#endif
 
 	TEXT{0, height_offset, 20, CatColor, false, IETF_GET{RamUsageText}}
+	BOX{0, height_offset + 8, 205, 1, CatColor}
 
 	VAR{height_offset, 400}
 	#if $User_ShowTargetFrequencies
@@ -389,6 +413,12 @@ Start:
 		TEXT{0, height_offset, 15, TxtColor, false, RAMloadText}
 		GET_DIMENSIONS{dimensions, 15, false, RAMloadText}
 		VAR{height_offset, height_offset + dimensions.y}
+		; RAM load bar (RAM_LoadAll_int is in 0.1% units)
+		#if $User_ShowLoadBars
+			BOX{0, height_offset - 9, 200, 4, BarTrack}
+			BOX{0, height_offset - 9, RAM_LoadAll_int / 5, 4, AccColor}
+			VAR{height_offset, height_offset + 2}
+		#endif
 	#endif
 
 	#if height_offset < 460
@@ -403,6 +433,7 @@ Start:
 ;Board
 #if $EnableBoard
 	TEXT{0, 550, 20, CatColor, false, IETF_GET{BoardUsageText}}
+	BOX{0, 558, 205, 1, CatColor}
 	VAR{height_offset, 570}
 	TEXT{0, height_offset, 15, TxtColor, false, BatteryChargingText}
 	GET_DIMENSIONS{dimensions, 15, false, BatteryChargingText}
@@ -424,6 +455,7 @@ Start:
 		VAR{width_offset, 150}
 		#if $User_ShowFPS or $User_ShowResolution or $User_ShowReadSpeed
 			TEXT{width_offset, 200, 20, CatColor, false, IETF_GET{GameText}}
+			BOX{width_offset, 208, 170, 1, CatColor}
 		#endif
 		VAR{height_offset, 225}
 		#if $User_ShowFPS

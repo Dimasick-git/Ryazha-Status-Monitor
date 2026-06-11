@@ -1,6 +1,8 @@
 Name = Mini
 NAME_LOCALE{"RU-RU", "Мини"}
 VERSION = 1
+LayerWidth = 448
+LayerHeight = 400
 
 User_RefreshRate = 1
 ;;User_RefreshRate_Description = Max refresh rate of rendered overlay. It won't be faster than your current display refresh rate because of vsync.

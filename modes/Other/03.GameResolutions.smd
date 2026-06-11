@@ -3,6 +3,8 @@ NAME_LOCALE{"PL-PL", "Rozdzielczości w grze"}
 NAME_LOCALE{"DE-DE", "Spiel Auflösungen"}
 NAME_LOCALE{"RU-RU", "Разрешения в игре"}
 VERSION = 1
+LayerWidth = 400
+LayerHeight = 260
 
 COMMON_MARGIN = 0
 

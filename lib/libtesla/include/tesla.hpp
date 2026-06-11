@@ -917,6 +917,15 @@ namespace tsl {
                 if (scale < 0.35f) scale = 0.35f;
                 else if (scale > 2.0f) scale = 2.0f;
 
+                // Preserve the aspect ratio: cap the scale so BOTH axes still
+                // fit on screen, instead of clamping one axis and letting the
+                // other keep growing (which stretched overlays only
+                // horizontally or only vertically).
+                const float fitW = (float)cfg::ScreenWidth  / (float)cfg::OrigLayerWidth;
+                const float fitH = (float)cfg::ScreenHeight / (float)cfg::OrigLayerHeight;
+                if (scale > fitW) scale = fitW;
+                if (scale > fitH) scale = fitH;
+
                 u32 w = (u32)(cfg::OrigLayerWidth  * scale);
                 u32 h = (u32)(cfg::OrigLayerHeight * scale);
                 if (w > cfg::ScreenWidth)  w = cfg::ScreenWidth;
