@@ -1940,10 +1940,11 @@ namespace tsl {
 				renderer->drawString(this->m_title.c_str(), false, 20, 50, 30, a(defaultTextColor));
 				renderer->drawString(this->m_subtitle.c_str(), false, 20, 70, 15, a(defaultTextColor));
 
-				if (this->m_contentElement != nullptr)
-					this->m_contentElement->frame(renderer);
+					if (this->m_contentElement != nullptr)
+						this->m_contentElement->frame(renderer);
 
-					if (FullMode == true) renderer->drawRect(15, 720 - 73, tsl::cfg::FramebufferWidth - 30, 1, a(defaultTextColor));
+					if (FullMode == true)
+						renderer->drawRect(15, 720 - 73, tsl::cfg::FramebufferWidth - 30, 1, a(defaultTextColor));
 					this->drawFooter(renderer);
 			}
 
