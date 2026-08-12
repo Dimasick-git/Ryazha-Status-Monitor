@@ -123,8 +123,8 @@ public:
 		if (m_configs.find("pro_controller_motion_key_combo") == m_configs.end()) m_configs["pro_controller_motion_key_combo"] = "ZR+R+RSTICK";
 		if (m_configs.find("jump_immediately_to_single_smd") == m_configs.end()) m_configs["jump_immediately_to_single_smd"] = "true";
 		if (m_configs.find("save_and_load_movable_overlay_position") == m_configs.end()) m_configs["save_and_load_movable_overlay_position"] = "true";
-		if (m_configs.find("override_language") == m_configs.end()) m_configs["override_language"] = "false";
-		if (m_configs.find("override_language_ietf_code") == m_configs.end()) m_configs["override_language_ietf_code"] = "EN-US";
+			if (m_configs.find("override_language") == m_configs.end()) m_configs["override_language"] = "true";
+			if (m_configs.find("override_language_ietf_code") == m_configs.end()) m_configs["override_language_ietf_code"] = "RU-RU";
 		if (m_configs.find("key_combo_time_delay_ms") == m_configs.end()) m_configs["key_combo_time_delay_ms"] = "200";
 	}
 
@@ -277,6 +277,19 @@ public:
 				}
 				return false;
 			});		
+			list->addItem(Item);
+		}
+
+		{
+			auto Item = new tsl::elm::ToggleListItem(locale["save_and_load_movable_overlay_position"], m_configs["save_and_load_movable_overlay_position"] != "false");
+			Item->setClickListener([this, Item](uint64_t keys) {
+				if (keys & KEY_A) {
+					saveAndLoadMovableOverlayPosition = Item->getState();
+					m_configs["save_and_load_movable_overlay_position"] = Item->getState() ? "true" : "false";
+					return true;
+				}
+				return false;
+			});
 			list->addItem(Item);
 		}
 

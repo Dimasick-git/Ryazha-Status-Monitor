@@ -913,8 +913,8 @@ void createDefaultFile(std::string filepath) {
 	setIniFile(filepath, "status-monitor", "pro_controller_motion_key_combo", "ZR+R+RSTICK", "");
 	setIniFile(filepath, "status-monitor", "jump_immediately_to_single_smd", "true", "");
 	setIniFile(filepath, "status-monitor", "save_and_load_movable_overlay_position", "true", "");
-	setIniFile(filepath, "status-monitor", "override_language", "false", "");
-	setIniFile(filepath, "status-monitor", "override_language_ietf_code", "EN-US", "");
+	setIniFile(filepath, "status-monitor", "override_language", "true", "");
+	setIniFile(filepath, "status-monitor", "override_language_ietf_code", "RU-RU", "");
 	// Ryazha default: L+R+DUP toggles the Full mode — in the menu it
 	// quick-launches it, inside the mode the same combo exits.
 	setIniFile(filepath, "01.Full.smd", "quick_combo", "L+R+DUP", "");
@@ -1084,7 +1084,7 @@ void ParseIniFile() {
 			else if (key.compare("switch_2_style") == 0 and value.length() > 0) {
 					std::string temp = value;
 					convertToUpper(temp);
-					ult::useSwitch2Style = temp.compare("FALSE");
+					ult::useSwitch2Style = temp != "FALSE";
 				}
 				else if (key.compare("touch_screen") == 0 and value.length() > 0) {
 				std::string temp = value;
@@ -1149,7 +1149,12 @@ void ParseIniFile() {
 			}
 		}
 	}
-	else createDefaultFile(configIniPath);
+	else {
+		createDefaultFile(configIniPath);
+		config = getParsedDataFromIniFile(configIniPath.c_str());
+		override_check = true;
+		temp_overrideLanguage = "RU-RU";
+	}
 
 	if (readExternalCombo) {
 		FILE* ultrahandConfigFileIn = fopen(ultrahandConfigIniPath.c_str(), "r");
@@ -1194,7 +1199,7 @@ void ParseIniFile() {
 	}
 
 	std::unordered_map<std::string, std::unordered_map<std::string, std::string>> defaultIni = parseIni(std::string((const char*)impl_defaultLocale, sizeof(impl_defaultLocale)));
-	std::unordered_map<std::string, std::string> m_defaultLocale = defaultIni["EN-US"];
+	std::unordered_map<std::string, std::string> m_defaultLocale = defaultIni["RU-RU"];
 	std::map<std::string, std::map<std::string, std::string>> temp = getParsedDataFromIniFile(localeIniPath.c_str());
 
 	if (override_check == true && temp_overrideLanguage.length() > 0) {

@@ -19,7 +19,7 @@ public:
 		m_skipSavingConfig = skipSavingConfig;
 		m_locale = getParsedDataFromIniFile("sdmc:/config/status-monitor/locale.ini");
 		std::unordered_map<std::string, std::unordered_map<std::string, std::string>> defaultIni = parseIni(std::string((const char*)impl_defaultLocale, sizeof(impl_defaultLocale)));
-		defaultSection = defaultIni["EN-US"];
+		defaultSection = defaultIni["RU-RU"];
 
 		footerBackup = defaultButtonView;
 		defaultButtonView = locale["Footer"];

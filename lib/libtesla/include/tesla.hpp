@@ -72,6 +72,8 @@ extern "C" {
 #include <list>
 #include <stack>
 #include <map>
+#include <utility>
+#include <vector>
 
 
 #include "ini_funcs.hpp"
@@ -1724,12 +1726,23 @@ namespace tsl {
                     }
                 }
 
-				renderer->drawRect(this->m_x, this->m_y, this->m_width, this->m_height, a(0xF000));
+					if (ult::useSwitch2Style) {
+						const gfx::Color shadow(ult::switch2::FocusShadow);
+						const gfx::Color accent(ult::switch2::FocusAccent);
+						const gfx::Color backdrop(ult::switch2::FocusBackdrop);
+						// Three layered rounded rectangles form the Switch 2 cursor: shadow,
+						// bright outline, then a dark inset. The item draws its content above it.
+						renderer->drawRoundRect(this->m_x + x - 6, this->m_y + y - 5, this->m_width + 12, this->m_height + 10, 1.0f, 1.0f, 1.0f, 1.0f, a(shadow));
+						renderer->drawRoundRect(this->m_x + x - 4, this->m_y + y - 3, this->m_width + 8, this->m_height + 6, 1.0f, 1.0f, 1.0f, 1.0f, a(accent));
+						renderer->drawRoundRect(this->m_x + x - 1, this->m_y + y, this->m_width + 2, this->m_height, 1.0f, 1.0f, 1.0f, 1.0f, a(backdrop));
+						return;
+					}
 
-				renderer->drawRect(this->m_x + x - 4, this->m_y + y - 4, this->m_width + 8, 4, a(highlightColor));
-				renderer->drawRect(this->m_x + x - 4, this->m_y + y + this->m_height, this->m_width + 8, 4, a(highlightColor));
-				renderer->drawRect(this->m_x + x - 4, this->m_y + y, 4, this->m_height, a(highlightColor));
-				renderer->drawRect(this->m_x + x + this->m_width, this->m_y + y, 4, this->m_height, a(highlightColor));
+					renderer->drawRect(this->m_x, this->m_y, this->m_width, this->m_height, a(0xF000));
+					renderer->drawRect(this->m_x + x - 4, this->m_y + y - 4, this->m_width + 8, 4, a(highlightColor));
+					renderer->drawRect(this->m_x + x - 4, this->m_y + y + this->m_height, this->m_width + 8, 4, a(highlightColor));
+					renderer->drawRect(this->m_x + x - 4, this->m_y + y, 4, this->m_height, a(highlightColor));
+					renderer->drawRect(this->m_x + x + this->m_width, this->m_y + y, 4, this->m_height, a(highlightColor));
 			}
 
 			/**
@@ -1851,6 +1864,56 @@ namespace tsl {
 		 * 
 		 */
 		class OverlayFrame : public Element {
+		private:
+			static std::vector<std::pair<std::string, std::string>> parseFooterPrompts(const std::string& footer) {
+				std::vector<std::pair<std::string, std::string>> prompts;
+				size_t scan = 0;
+				while (scan + 2 < footer.size()) {
+					const size_t glyphStart = footer.find("\xEE", scan);
+					if (glyphStart == std::string::npos || glyphStart + 2 >= footer.size()) break;
+					const size_t labelStart = [&]() {
+						size_t p = glyphStart + 3;
+						while (p < footer.size() && footer[p] == ' ') ++p;
+						return p;
+					}();
+					const size_t nextGlyph = footer.find("\xEE", labelStart);
+					size_t labelEnd = nextGlyph == std::string::npos ? footer.size() : nextGlyph;
+					while (labelEnd > labelStart && footer[labelEnd - 1] == ' ') --labelEnd;
+					prompts.emplace_back(footer.substr(glyphStart, 3), footer.substr(labelStart, labelEnd - labelStart));
+					scan = nextGlyph == std::string::npos ? footer.size() : nextGlyph;
+				}
+				return prompts;
+			}
+
+			void drawFooter(gfx::Renderer* renderer) {
+				if (deactivateOriginalFooter) return;
+				if (!ult::useSwitch2Style) {
+					renderer->drawString(defaultButtonView.c_str(), false, 30, 693, 23, a(defaultTextColor));
+					return;
+				}
+
+				const auto prompts = parseFooterPrompts(defaultButtonView);
+				bool hasLabel = false;
+				for (const auto& prompt : prompts) hasLabel = hasLabel || !prompt.second.empty();
+				if (prompts.empty() || prompts.size() > 5 || !hasLabel) {
+					renderer->drawRoundRect(22, 680, 404, 31, 1.0f, 1.0f, 1.0f, 1.0f, a(gfx::Color(ult::switch2::FooterBorder)));
+					renderer->drawRoundRect(24, 682, 400, 27, 1.0f, 1.0f, 1.0f, 1.0f, a(gfx::Color(ult::switch2::FooterFill)));
+					renderer->drawString(defaultButtonView.c_str(), false, 32, 703, 20, a(defaultTextColor));
+					return;
+				}
+
+				s16 x = 24;
+				for (const auto& prompt : prompts) {
+					const std::string text = prompt.first + "  " + prompt.second;
+					auto [textWidth, unusedHeight] = renderer->drawString(text.c_str(), false, 0, 0, 20, tsl::style::color::ColorTransparent);
+					const s16 chipWidth = static_cast<s16>(textWidth + 24);
+					renderer->drawRoundRect(x, 680, chipWidth, 31, 1.0f, 1.0f, 1.0f, 1.0f, a(gfx::Color(ult::switch2::FooterBorder)));
+					renderer->drawRoundRect(x + 2, 682, chipWidth - 4, 27, 1.0f, 1.0f, 1.0f, 1.0f, a(gfx::Color(ult::switch2::FooterFill)));
+					renderer->drawString(text.c_str(), false, x + 12, 703, 20, a(defaultTextColor));
+					x += chipWidth + 10;
+				}
+			}
+
 		public:
             std::string defaultTextColorStr = ryazhaThemeValue("text_color");
             tsl::gfx::Color defaultTextColor = tsl::gfx::RGB888(defaultTextColorStr);
@@ -1880,8 +1943,8 @@ namespace tsl {
 				if (this->m_contentElement != nullptr)
 					this->m_contentElement->frame(renderer);
 
-				if (FullMode == true) renderer->drawRect(15, 720 - 73, tsl::cfg::FramebufferWidth - 30, 1, a(defaultTextColor));
-				if (!deactivateOriginalFooter) renderer->drawString(defaultButtonView.c_str(), false, 30, 693, 23, a(defaultTextColor));
+					if (FullMode == true) renderer->drawRect(15, 720 - 73, tsl::cfg::FramebufferWidth - 30, 1, a(defaultTextColor));
+					this->drawFooter(renderer);
 			}
 
 			virtual void layout(u16 parentX, u16 parentY, u16 parentWidth, u16 parentHeight) override {
@@ -2102,26 +2165,30 @@ namespace tsl {
 				this->setState(this->m_state);
 			}
 
-						virtual ~ToggleListItem() {}
+			virtual ~ToggleListItem() {}
 
 			virtual void draw(gfx::Renderer *renderer) override {
+				// ListItem uses the right-hand value to reserve label width. In Switch 2
+				// mode reserve an invisible fixed slot instead of drawing legacy glyphs.
+				const bool switch2 = ult::useSwitch2Style;
+				if (switch2 != m_switch2Layout) {
+					m_switch2Layout = switch2;
+					this->setValue(switch2 ? "            " : (this->m_state ? this->m_onValue : this->m_offValue), !this->m_state);
+				}
 				ListItem::draw(renderer);
-				if (!ult::useSwitch2Style)
+				if (!switch2)
 					return;
 
-				// Switch 2 style: replace the classic glyph with a compact pill switch.
-				const s16 trackWidth = 44;
-				const s16 trackHeight = 22;
+				const s16 trackWidth = ult::switch2::ToggleWidth;
+				const s16 trackHeight = ult::switch2::ToggleHeight;
 				const s16 radius = trackHeight / 2;
 				const s16 x = this->getRightBound() - trackWidth - 18;
 				const s16 y = this->getY() + (this->getHeight() - trackHeight) / 2;
-				const gfx::Color track = this->m_state ? gfx::Color{0x5, 0xC, 0xA, 0xF} : gfx::Color{0x4, 0x4, 0x4, 0xF};
-				const gfx::Color knob = this->m_state ? gfx::Color{0xF, 0xF, 0xF, 0xF} : gfx::Color{0xA, 0xA, 0xA, 0xF};
+				const gfx::Color track(this->m_state ? ult::switch2::ToggleOn : ult::switch2::ToggleOff);
+				const gfx::Color knob(ult::switch2::ToggleKnob);
 
-				renderer->drawRect(x + radius, y, trackWidth - 2 * radius, trackHeight, a(track));
-				renderer->drawCircle(x + radius, y + radius, radius, true, a(track));
-				renderer->drawCircle(x + trackWidth - radius, y + radius, radius, true, a(track));
-				renderer->drawCircle(x + (this->m_state ? trackWidth - radius : radius), y + radius, radius - 4, true, a(knob));
+				renderer->drawRoundRect(x, y, trackWidth, trackHeight, 1.0f, 1.0f, 1.0f, 1.0f, a(track));
+				renderer->drawCircle(x + (this->m_state ? trackWidth - radius : radius), y + radius, radius - 3, true, a(knob));
 			}
 
 			virtual bool onClick(u64 keys) {
@@ -2151,11 +2218,8 @@ namespace tsl {
 			 */
 			virtual void setState(bool state) {
 				this->m_state = state;
-
-				if (state)
-					this->setValue(this->m_onValue, false);
-				else
-					this->setValue(this->m_offValue, true);
+				this->m_switch2Layout = ult::useSwitch2Style;
+				this->setValue(this->m_switch2Layout ? "            " : (state ? this->m_onValue : this->m_offValue), !state);
 			}
 
 			/**
@@ -2169,9 +2233,9 @@ namespace tsl {
 
 		protected:
 			bool m_state = true;
-			std::string m_onValue, m_offValue;
-
-			std::function<void(bool)> m_stateChangedListener = [](bool){};
+							std::string m_onValue, m_offValue;
+				bool m_switch2Layout = ult::useSwitch2Style;
+				std::function<void(bool)> m_stateChangedListener = [](bool){};
 		};
 
 
