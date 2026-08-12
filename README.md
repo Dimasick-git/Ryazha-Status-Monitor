@@ -4,10 +4,10 @@
 
 | Topic | English summary |
 | --- | --- |
-| Current release | **1.4.8** |
+| Current release | **1.4.9** |
 | Runtime | Atmosphère CFW with Ryazhahand, Ultrahand, or Tesla Menu |
 | Installation | Extract `Ryazha-Status-Monitor.zip` to the SD-card root; do not install only the `.ovl` file |
-| Documentation | [Build guide](docs/BUILDING.md), [Security](docs/SECURITY.md), [SMD format](docs/SMD_FORMAT.md), [parser internals](docs/SMD_PARSER_INTERNALS.md) |
+| Documentation | [Security](docs/SECURITY.md), [1.4.9 notes](docs/RELEASE_NOTES_1.4.9.md), [Build guide](docs/BUILDING.md), [SMD format](docs/SMD_FORMAT.md), [parser internals](docs/SMD_PARSER_INTERNALS.md) |
 
 ---
 
