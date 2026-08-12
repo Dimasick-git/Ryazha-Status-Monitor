@@ -8,7 +8,7 @@
 #include <cctype>
 #include <dirent.h>
 #include "Utils.hpp"
-#include <ini_funcs.hpp>
+#include "../lib/libtesla/include/ini_funcs.hpp"
 #include <tsl_utils.hpp>
 
 namespace tsl::hlp::ini {

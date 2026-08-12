@@ -21,7 +21,7 @@
 #include <vector>
 #include <map>
 #include <unordered_map>
-#include <get_funcs.hpp>
+#include "get_funcs.hpp"
 
 // Internal helper – not exposed outside ini_funcs.cpp
 std::vector<std::string> split(const std::string& str, char delim = ' ');

@@ -19,7 +19,7 @@
 #pragma once
 #include <string>
 #include <vector>
-#include <string_funcs.hpp>
+#include "string_funcs.hpp"
 
 std::string getFileContents(const std::string& filePath);
 std::string getDestinationPath(const std::string& destinationDir, const std::string& fileName);
