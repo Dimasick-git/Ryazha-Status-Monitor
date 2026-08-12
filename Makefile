@@ -184,6 +184,10 @@ all: $(BUILD)
 
 
 $(BUILD):
+	@# CI and fresh clones check out the library from its canonical submodule path.
+	@if [ ! -f "$(CURDIR)/lib/libryazhahand/libryazha/include/tsl_utils.hpp" ]; then \
+		git submodule update --init --recursive; \
+	fi
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 	@rm -rf out/
