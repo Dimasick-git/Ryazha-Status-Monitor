@@ -38,11 +38,13 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	Ryazha-Status-Monitor
-APP_VERSION	:=	1.4.9
+APP_VERSION	:=	1.5.0
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
-SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/libtesla/source lib/slre
-INCLUDES	:=	include lib/libtesla/include lib/tinyexpr include/Extensions lib/slre
+SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/libryazhahand/common lib/libryazhahand/libryazha/source lib/libryazhahand/libtesla/source lib/slre
+# Keep target-specific Ryazha helpers while taking the UI implementation from libryazhahand.
+SOURCES		+=	lib/libtesla/source/get_funcs.cpp lib/libtesla/source/ini_funcs.cpp lib/libtesla/source/ryazha_audio.cpp lib/libtesla/source/string_funcs.cpp
+INCLUDES	:=	include lib/libryazhahand/libtesla/include lib/libryazhahand/libryazha/include lib/libtesla/include lib/tinyexpr include/Extensions lib/slre
 NO_ICON		:=	1
 #ROMFS		:=	romfs
 

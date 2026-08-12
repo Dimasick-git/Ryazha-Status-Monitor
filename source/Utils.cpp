@@ -905,6 +905,7 @@ void createDefaultFile(std::string filepath) {
 	setIniFile(filepath, "status-monitor", "battery_avg_iir_filter", "false", "");
 	setIniFile(filepath, "status-monitor", "battery_time_left_refreshrate", "10", "");
 	setIniFile(filepath, "status-monitor", "touch_screen", "true", "");
+	setIniFile(filepath, "status-monitor", "switch_2_style", "true", "");
 	setIniFile(filepath, "status-monitor", "motion_control", "true", "");
 	setIniFile(filepath, "status-monitor", "left_joycon_motion_key_combo", "ZL+L+LSTICK", "");
 	setIniFile(filepath, "status-monitor", "right_joycon_motion_key_combo", "ZR+R+RSTICK", "");
@@ -1040,6 +1041,8 @@ void ParseIniFile() {
 	}
 	
 	bool readExternalCombo = true;
+	// Match RyazhaTune/Ryazhahand-Overlay: Switch 2 UI is enabled unless explicitly disabled.
+	ult::useSwitch2Style = true;
 
 	// Open the INI file
 	config = getParsedDataFromIniFile(configIniPath.c_str());
@@ -1077,7 +1080,12 @@ void ParseIniFile() {
 					batteryTimeLeftRefreshRate = rate;
 				}
 			}
-			else if (key.compare("touch_screen") == 0 and value.length() > 0) {
+			else if (key.compare("switch_2_style") == 0 and value.length() > 0) {
+					std::string temp = value;
+					convertToUpper(temp);
+					ult::useSwitch2Style = temp.compare("FALSE");
+				}
+				else if (key.compare("touch_screen") == 0 and value.length() > 0) {
 				std::string temp = value;
 				convertToUpper(temp);
 				touchScreen = temp.compare("FALSE");

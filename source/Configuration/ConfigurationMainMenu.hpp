@@ -114,6 +114,7 @@ public:
 
 		if (m_configs.find("battery_avg_iir_filter") == m_configs.end()) m_configs["battery_avg_iir_filter"] = "false";
 		if (m_configs.find("battery_time_left_refreshrate") == m_configs.end()) m_configs["battery_time_left_refreshrate"] = "10";
+		if (m_configs.find("switch_2_style") == m_configs.end()) m_configs["switch_2_style"] = "true";
 		if (m_configs.find("touch_screen") == m_configs.end()) m_configs["touch_screen"] = "true";
 		if (m_configs.find("motion_control") == m_configs.end()) m_configs["motion_control"] = "true";
 		if (m_configs.find("left_joycon_motion_key_combo") == m_configs.end()) m_configs["left_joycon_motion_key_combo"] = "ZL+L+LSTICK";
@@ -183,6 +184,19 @@ public:
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
 					tsl::changeTo<EditConfigInt>("battery_time_left_refreshrate", m_configs["battery_time_left_refreshrate"], "1", "60", "10", Item, locale["battery_time_left_refreshrate"], "int", &batteryTimeLeftRefreshRate, &m_configs);
+					return true;
+				}
+				return false;
+			});
+			list->addItem(Item);
+		}
+
+		{
+			auto Item = new tsl::elm::ToggleListItem(locale["switch_2_style"], m_configs["switch_2_style"] != "false");
+			Item->setClickListener([this, Item](uint64_t keys) {
+				if (keys & KEY_A) {
+					ult::useSwitch2Style = Item->getState();
+					m_configs["switch_2_style"] = Item->getState() ? "true" : "false";
 					return true;
 				}
 				return false;

@@ -2,6 +2,7 @@
 key_combo=L+R+DUP
 battery_avg_iir_filter=false
 battery_time_left_refreshrate=10
+switch_2_style=true
 touch_screen=true
 motion_control=true
 left_joycon_motion_key_combo=ZL+L+LSTICK
