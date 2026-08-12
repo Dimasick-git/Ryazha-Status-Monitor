@@ -4,7 +4,7 @@
  * Description: Implementation of string utility functions.
  ********************************************************************************/
 
-#include "../include/string_funcs.hpp"
+#include "string_funcs.hpp"
 #include <cctype>    // std::isspace, std::isxdigit
 #include <sstream>   // std::istringstream (used by stringToList)
 

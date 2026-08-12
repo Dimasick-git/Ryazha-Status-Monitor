@@ -76,6 +76,7 @@ extern "C" {
 
 #include "ini_funcs.hpp"
 #include "ryazha_audio.hpp"
+#include <switch2_style.hpp>
 
 
 inline bool isValid888HexColor(const std::string& hexColor) {
@@ -2101,7 +2102,27 @@ namespace tsl {
 				this->setState(this->m_state);
 			}
 
-			virtual ~ToggleListItem() {}
+						virtual ~ToggleListItem() {}
+
+			virtual void draw(gfx::Renderer *renderer) override {
+				ListItem::draw(renderer);
+				if (!ult::useSwitch2Style)
+					return;
+
+				// Switch 2 style: replace the classic glyph with a compact pill switch.
+				const s16 trackWidth = 44;
+				const s16 trackHeight = 22;
+				const s16 radius = trackHeight / 2;
+				const s16 x = this->getRightBound() - trackWidth - 18;
+				const s16 y = this->getY() + (this->getHeight() - trackHeight) / 2;
+				const gfx::Color track = this->m_state ? gfx::Color{0x5, 0xC, 0xA, 0xF} : gfx::Color{0x4, 0x4, 0x4, 0xF};
+				const gfx::Color knob = this->m_state ? gfx::Color{0xF, 0xF, 0xF, 0xF} : gfx::Color{0xA, 0xA, 0xA, 0xF};
+
+				renderer->drawRect(x + radius, y, trackWidth - 2 * radius, trackHeight, a(track));
+				renderer->drawCircle(x + radius, y + radius, radius, true, a(track));
+				renderer->drawCircle(x + trackWidth - radius, y + radius, radius, true, a(track));
+				renderer->drawCircle(x + (this->m_state ? trackWidth - radius : radius), y + radius, radius - 4, true, a(knob));
+			}
 
 			virtual bool onClick(u64 keys) {
 				if (keys & KEY_A) {

@@ -8,8 +8,8 @@
 #include <cctype>
 #include <dirent.h>
 #include "Utils.hpp"
-#include "../lib/libtesla/include/ini_funcs.hpp"
-#include <tsl_utils.hpp>
+#include <ini_funcs.hpp>
+#include <switch2_style.hpp>
 
 namespace tsl::hlp::ini {
     using IniData = std::map<std::string, std::map<std::string, std::string>>;

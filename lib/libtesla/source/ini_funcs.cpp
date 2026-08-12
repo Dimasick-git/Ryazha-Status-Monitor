@@ -4,7 +4,7 @@
  * Description: Implementation of INI file utility functions.
  ********************************************************************************/
 
-#include "../include/ini_funcs.hpp"
+#include "ini_funcs.hpp"
 #include <cstring>   // strlen, strncmp
 #include <algorithm> // std::remove_if
 #include <cctype>    // ::isspace

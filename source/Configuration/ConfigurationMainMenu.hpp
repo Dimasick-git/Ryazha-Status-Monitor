@@ -1,5 +1,5 @@
 #pragma once
-#include <tsl_utils.hpp>
+#include <switch2_style.hpp>
 #include "EditConfigLanguage.hpp"
 #include "EditConfigKeyCombo.hpp"
 #include "ConfigurationServiceCheck.hpp"

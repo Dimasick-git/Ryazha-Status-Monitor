@@ -14,7 +14,7 @@
  ********************************************************************************/
 
 #include "ryazha_audio.hpp"
-#include "../include/ini_funcs.hpp"
+#include "ini_funcs.hpp"
 #include <strings.h>
 
 namespace ryz {

@@ -4,7 +4,7 @@
  * Description: Implementation of file system utility functions.
  ********************************************************************************/
 
-#include "../include/get_funcs.hpp"
+#include "get_funcs.hpp"
 #include <cstdio>    // FILE*, fopen, fclose, fread
 #include <algorithm> // std::remove
 #include <sys/stat.h>
