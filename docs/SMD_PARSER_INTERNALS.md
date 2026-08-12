@@ -1,6 +1,6 @@
 # `smd_parser` — Internal Documentation
 
-A C++23 parser for `.smd` (Status Monitor Design) overlay files used by SaltyNX/Tesla Switch overlays. This document is written for a future Claude instance who needs to maintain, extend, or debug the parser. It assumes C++ fluency and skips Switch/Tesla background where irrelevant.
+A C++23 parser for `.smd` (Status Monitor Design) overlay files used by SaltyNX/Tesla Switch overlays. This document is written for future maintainers who need to maintain, extend, or debug the parser. It assumes C++ fluency and skips Switch/Tesla background where irrelevant.
 
 The parser is a single translation unit (`smd_parser.cpp`) plus a public header (`smd_parser.hpp`). It depends on a vendored, modified copy of `tinyexpr` for arithmetic-only expressions. The host uses it like this:
 
