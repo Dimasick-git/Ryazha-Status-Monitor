@@ -9,6 +9,7 @@
 #include <dirent.h>
 #include "Utils.hpp"
 #include <ini_funcs.hpp>
+#include <tsl_utils.hpp>
 
 namespace tsl::hlp::ini {
     using IniData = std::map<std::string, std::map<std::string, std::string>>;

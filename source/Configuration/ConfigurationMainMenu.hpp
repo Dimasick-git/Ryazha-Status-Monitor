@@ -1,4 +1,5 @@
 #pragma once
+#include <tsl_utils.hpp>
 #include "EditConfigLanguage.hpp"
 #include "EditConfigKeyCombo.hpp"
 #include "ConfigurationServiceCheck.hpp"
