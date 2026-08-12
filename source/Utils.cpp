@@ -5,6 +5,7 @@
 #include <cstring>
 #include <algorithm>
 #include <charconv>
+#include <cctype>
 #include <dirent.h>
 #include "Utils.hpp"
 #include <ini_funcs.hpp>
@@ -727,70 +728,60 @@ void removeSpaces(std::string& str) {
 }
 
 void convertToUpper(std::string& str) {
-	std::transform(str.begin(), str.end(), str.begin(), ::toupper);
-}
+		std::transform(str.begin(), str.end(), str.begin(), [](unsigned char ch) {
+			return static_cast<char>(std::toupper(ch));
+		});
+	}
 
-void convertToLower(std::string& str) {
-	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
-}
+	void convertToLower(std::string& str) {
+		std::transform(str.begin(), str.end(), str.begin(), [](unsigned char ch) {
+			return static_cast<char>(std::tolower(ch));
+		});
+	}
 
 void convertHidnpadKeyToButtonCombination (u64 bitfield, std::string& buttonCombinationToShow, std::string& buttonCombinationToConfig) {
-	buttonCombinationToShow = "";
-	buttonCombinationToConfig = "";
-	std::unordered_map<HidNpadButton, std::string> replacesEmoji{
-		{HidNpadButton_L, "\uE0E4"},
-		{HidNpadButton_R, "\uE0E5"},
-		{HidNpadButton_ZL, "\uE0E6"},
-		{HidNpadButton_ZR, "\uE0E7"},
-		{HidNpadButton_A, "\uE0E0"},
-		{HidNpadButton_B, "\uE0E1"},
-		{HidNpadButton_X, "\uE0E2"},
-		{HidNpadButton_Y, "\uE0E3"},
-		{HidNpadButton_Up, "\uE0EB"},
-		{HidNpadButton_Down, "\uE0EC"},
-		{HidNpadButton_Left, "\uE0ED"},
-		{HidNpadButton_Right, "\uE0EE"},
-		{HidNpadButton_Plus, "\uE0EF"},
-		{HidNpadButton_Minus, "\uE0F0"},
-		{HidNpadButton_StickL, "\uE104"},
-		{HidNpadButton_StickR, "\uE105"}
-	};
+		struct ButtonGlyph {
+			HidNpadButton key;
+			const char* configName;
+			const char* glyph;
+		};
+		// Ordered to make saved combinations and their visual preview stable.
+		// Glyphs mirror libryazhahand's Switch 2 Style button map.
+		static constexpr std::array<ButtonGlyph, 18> buttonGlyphs{{
+			{HidNpadButton_L,     "L",      "\uE0E4"},
+			{HidNpadButton_R,     "R",      "\uE0E5"},
+			{HidNpadButton_ZL,    "ZL",     "\uE0E6"},
+			{HidNpadButton_ZR,    "ZR",     "\uE0E7"},
+			{HidNpadButton_AnySL, "SL",     "\uE0E8"},
+			{HidNpadButton_AnySR, "SR",     "\uE0E9"},
+			{HidNpadButton_Left,  "DLEFT", "\uE0ED"},
+			{HidNpadButton_Up,    "DUP",   "\uE0EB"},
+			{HidNpadButton_Right, "DRIGHT","\uE0EE"},
+			{HidNpadButton_Down,  "DDOWN", "\uE0EC"},
+			{HidNpadButton_A,     "A",      "\uE0E0"},
+			{HidNpadButton_B,     "B",      "\uE0E1"},
+			{HidNpadButton_X,     "X",      "\uE0E2"},
+			{HidNpadButton_Y,     "Y",      "\uE0E3"},
+			{HidNpadButton_StickL,"LSTICK", "\uE08A"},
+			{HidNpadButton_StickR,"RSTICK", "\uE08B"},
+			{HidNpadButton_Minus, "MINUS",  "\uE0B6"},
+			{HidNpadButton_Plus,  "PLUS",   "\uE0B5"}
+		}};
 
-	std::unordered_map<HidNpadButton, std::string> replaces{
-		{HidNpadButton_L, "L"},
-		{HidNpadButton_R, "R"},
-		{HidNpadButton_ZL, "ZL"},
-		{HidNpadButton_ZR, "ZR"},
-		{HidNpadButton_A, "A"},
-		{HidNpadButton_B, "B"},
-		{HidNpadButton_X, "X"},
-		{HidNpadButton_Y, "Y"},
-		{HidNpadButton_Up, "DUP"},
-		{HidNpadButton_Down, "DDOWN"},
-		{HidNpadButton_Left, "DLEFT"},
-		{HidNpadButton_Right, "DRIGHT"},
-		{HidNpadButton_Plus, "PLUS"},
-		{HidNpadButton_Minus, "MINUS"},
-		{HidNpadButton_StickL, "LSTICK"},
-		{HidNpadButton_StickR, "RSTICK"}
-	};
-
-	size_t count = 0;
-
-	for (const auto& [key, value] : replaces) {
-		if (bitfield & key) {
-			bool addPlus = buttonCombinationToShow.length() > 0;
-			if (addPlus == true) {
+		buttonCombinationToShow.clear();
+		buttonCombinationToConfig.clear();
+		size_t count = 0;
+		for (const auto& button : buttonGlyphs) {
+			if (!(bitfield & button.key)) continue;
+			if (!buttonCombinationToShow.empty()) {
 				buttonCombinationToShow += " + ";
 				buttonCombinationToConfig += "+";
 			}
-			buttonCombinationToShow += replacesEmoji[key];
-			buttonCombinationToConfig += value;
-			count++;
-			if (count >= 4) break;
+			buttonCombinationToShow += button.glyph;
+			buttonCombinationToConfig += button.configName;
+			if (++count >= 4) break;
 		}
 	}
-}
 
 void formatButtonCombination(std::string& line) {
 	std::map<std::string, std::string> replaces{
@@ -806,12 +797,14 @@ void formatButtonCombination(std::string& line) {
 		{"DDOWN", "\uE0EC"},
 		{"DLEFT", "\uE0ED"},
 		{"DRIGHT", "\uE0EE"},
-		{"PLUS", "\uE0EF"},
-		{"MINUS", "\uE0F0"},
-		{"LSTICK", "\uE104"},
-		{"RSTICK", "\uE105"},
-		{"RS", "\uE105"},
-		{"LS", "\uE104"}
+			{"SL", "\uE0E8"},
+			{"SR", "\uE0E9"},
+			{"PLUS", "\uE0B5"},
+			{"MINUS", "\uE0B6"},
+			{"LSTICK", "\uE08A"},
+			{"RSTICK", "\uE08B"},
+			{"RS", "\uE08B"},
+			{"LS", "\uE08A"}
 	};
 	// Remove all spaces from the line
 	line.erase(std::remove(line.begin(), line.end(), ' '), line.end());
@@ -824,8 +817,9 @@ void formatButtonCombination(std::string& line) {
 			line = line.substr(0, pos);
 			return;
 		}
-		if (pos > 0 && pos < line.size() - 1) {
-			if (std::isalnum(line[pos - 1]) && std::isalnum(line[pos + 1])) {
+			if (pos > 0 && pos < line.size() - 1) {
+				if (std::isalnum(static_cast<unsigned char>(line[pos - 1])) &&
+					std::isalnum(static_cast<unsigned char>(line[pos + 1]))) {
 				line.replace(pos, 1, " + ");
 				pos += 3;
 			}
@@ -861,8 +855,10 @@ uint64_t MapButtons(const std::string& buttonCombo) {
 		{"L", HidNpadButton_L},
 		{"R", HidNpadButton_R},
 		{"ZL", HidNpadButton_ZL},
-		{"ZR", HidNpadButton_ZR},
-		{"PLUS", HidNpadButton_Plus},
+			{"ZR", HidNpadButton_ZR},
+			{"SL", HidNpadButton_AnySL},
+			{"SR", HidNpadButton_AnySR},
+			{"PLUS", HidNpadButton_Plus},
 		{"MINUS", HidNpadButton_Minus},
 		{"DUP", HidNpadButton_Up},
 		{"DDOWN", HidNpadButton_Down},

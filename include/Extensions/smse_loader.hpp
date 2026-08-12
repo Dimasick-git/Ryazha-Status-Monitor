@@ -9,6 +9,7 @@
 #include <span>
 #include "slre.h"
 #include <filesystem>
+#include <algorithm>
 #include <cstring>
 
 
@@ -295,6 +296,49 @@ public:
                         rt.execOrder.push_back(ec);
             }
 
+            // Reject struct fields that would read outside the output buffer.
+            // The layout is defined by user-provided SMSE files, so never rely
+            // on a service response being large enough for an unchecked offset.
+            std::unordered_set<std::string> rejectedCommands;
+            for (auto it = rt.cmds.begin(); it != rt.cmds.end(); ) {
+                const SmseCommandDesc& cmd = it->second;
+                bool validLayout = true;
+                if ((cmd.isBuffer || cmd.isInlineStruct) && !cmd.bufIsChar) {
+                    const auto structIt = rt.structs.find(cmd.bufStructName);
+                    if (structIt == rt.structs.end()) {
+                        validLayout = false;
+                    } else {
+                        for (const auto& field : structIt->second.fields) {
+                            const size_t fieldSize = valueTypeSize(field.type);
+                            if (fieldSize == 0 || field.offset > cmd.bufSize ||
+                                fieldSize > cmd.bufSize - field.offset) {
+                                validLayout = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (!validLayout) {
+                    auto e = SmseError::make(SmseErrorCode::ParseMalformedLine,
+                        svcName, fmt("Command '%s' has a field outside its %zu-byte buffer",
+                                     cmd.name.c_str(), cmd.bufSize));
+                    sentry.initErrors.push_back(e);
+                    errors.push_back(e);
+                    rejectedCommands.insert(cmd.name);
+                    it = rt.cmds.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            if (!rejectedCommands.empty()) {
+                rt.execOrder.erase(std::remove_if(rt.execOrder.begin(), rt.execOrder.end(),
+                    [&rejectedCommands](const std::string& name) {
+                        return rejectedCommands.contains(name);
+                    }), rt.execOrder.end());
+                for (const auto& name : rejectedCommands)
+                    rt.execSeen.erase(name);
+            }
+
             // --- Allocate output slots (pointers stable from here on) ---
             for (auto& [cmdId, cmd] : rt.cmds) {
                 if (cmd.isBuffer || cmd.isInlineStruct) {
@@ -520,9 +564,21 @@ inline SmseLoader g_smse;
 inline std::vector<SmseError> smseLoadFolder(const char* folderPath) {
     std::vector<SmseError> all;
     std::error_code ec;
+    size_t loadedFiles = 0;
     for (auto& entry : std::filesystem::directory_iterator(folderPath, ec)) {
-        if (!entry.is_regular_file()) continue;
+        std::error_code typeEc;
+        if (!entry.is_regular_file(typeEc)) {
+            if (typeEc)
+                all.push_back(SmseError::make(SmseErrorCode::ParseMalformedLine,
+                    entry.path().string(), fmt("Cannot inspect entry: %s", typeEc.message().c_str())));
+            continue;
+        }
         if (entry.path().extension() != ".smse") continue;
+        if (loadedFiles++ >= SMSE_MAX_FILES) {
+            all.push_back(SmseError::make(SmseErrorCode::ParseMalformedLine,
+                folderPath, "Extension folder exceeds the 64-file limit"));
+            break;
+        }
         auto result = smse::parseFile(entry.path().string());
         if (auto* err = std::get_if<SmseError>(&result)) {
             all.push_back(std::move(*err)); continue;

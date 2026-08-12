@@ -2,6 +2,7 @@
 #include "smd_parser.hpp"
 #include <cstdio>
 #include <cstring>
+#include <string>
 
 static void NoOpCb(smd::RenderCommand&, void*) {}
 
@@ -86,6 +87,20 @@ int main() {
         "#if $System_KeysHeld_int == System_Key_A or $System_KeysHeld_int == System_Key_B\n"
         "TEXT{0,0,18,0xFFFF,true,\"a-or-b\"}\n"
         "#endif\n");
+
+    // Host callers and SD-card files must not be able to allocate arbitrary
+    // parser input buffers.
+    std::string oversized(512 * 1024 + 1, 'x');
+    smd::Document oversizedDoc;
+    if (oversizedDoc.LoadFromMemory(oversized.data(), oversized.size())) {
+        std::printf("oversized SMD input was accepted\n");
+        return 1;
+    }
+    smd::Document nullDoc;
+    if (nullDoc.LoadFromMemory(nullptr, 1)) {
+        std::printf("null SMD input was accepted\n");
+        return 1;
+    }
 
     return 0;
 }

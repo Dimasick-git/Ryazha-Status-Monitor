@@ -2320,21 +2320,32 @@ static void RewriteLiteralColors(std::string& line) {
 	line.swap(out);
 }
 
+static constexpr size_t kMaxSmdFileSize = 512 * 1024;
+
 bool Document::LoadFromFile(const char* path) {
 	FILE* fp = std::fopen(path, "rb");
 	if (!fp) { m_impl->lastError = "cannot open file"; return false; }
-	std::fseek(fp, 0, SEEK_END);
-	long sz = std::ftell(fp);
-	std::fseek(fp, 0, SEEK_SET);
-	std::string buf;
-	buf.resize(sz > 0 ? (size_t)sz : 0);
-	if (sz > 0) {
-		size_t got = std::fread(&buf[0], 1, (size_t)sz, fp);
-		if (got != (size_t)sz) {
-			std::fclose(fp);
-			m_impl->lastError = "short read on file";
-			return false;
-		}
+	if (std::fseek(fp, 0, SEEK_END) != 0) {
+		std::fclose(fp);
+		m_impl->lastError = "cannot seek file";
+		return false;
+	}
+	const long sz = std::ftell(fp);
+	if (sz < 0 || static_cast<size_t>(sz) > kMaxSmdFileSize) {
+		std::fclose(fp);
+		m_impl->lastError = "SMD file is unreadable or exceeds the 512 KiB limit";
+		return false;
+	}
+	if (std::fseek(fp, 0, SEEK_SET) != 0) {
+		std::fclose(fp);
+		m_impl->lastError = "cannot rewind file";
+		return false;
+	}
+	std::string buf(static_cast<size_t>(sz), '\0');
+	if (!buf.empty() && std::fread(buf.data(), 1, buf.size(), fp) != buf.size()) {
+		std::fclose(fp);
+		m_impl->lastError = "short read on file";
+		return false;
 	}
 	std::fclose(fp);
 	return LoadFromMemory(buf.data(), buf.size());
@@ -2342,6 +2353,10 @@ bool Document::LoadFromFile(const char* path) {
 
 bool Document::LoadFromMemory(const char* data, size_t size) {
 	Free();
+	if ((data == nullptr && size != 0) || size > kMaxSmdFileSize) {
+		m_impl->lastError = "SMD input is null or exceeds the 512 KiB limit";
+		return false;
+	}
 	// Tokenise into lines, strip comments + trim each.
 	std::vector<std::string> rawLines, lines;
 	{
@@ -4557,11 +4572,33 @@ static bool EvalCondition(CondCache& cc, const std::vector<std::string>& toks,
 // only one of the two is meaningful at each position depending on whether
 // the spec is numeric or %s.
 
+static constexpr size_t kMaxFormatFieldSize = 4096;
+static constexpr size_t kMaxFormatOutputSize = 1024 * 1024;
+
 static std::string FormatPrintf(const std::string& fmt,
-								const std::vector<double>& vals,
-								const std::vector<std::string>& strs) {
+									const std::vector<double>& vals,
+									const std::vector<std::string>& strs) {
 	std::string out;
 	out.reserve(fmt.size() + 32);
+	auto appendLimitMarker = [&out]() {
+		constexpr std::string_view marker = "<format limit>";
+		if (out.size() >= kMaxFormatOutputSize) return;
+		out.append(marker.data(), std::min(marker.size(), kMaxFormatOutputSize - out.size()));
+	};
+	auto appendFormatted = [&out, &appendLimitMarker](const char* spec, auto value) {
+		const int n = std::snprintf(nullptr, 0, spec, value);
+		if (n <= 0) return;
+		if (out.size() >= kMaxFormatOutputSize ||
+			static_cast<size_t>(n) > kMaxFormatFieldSize ||
+			static_cast<size_t>(n) > kMaxFormatOutputSize - out.size()) {
+			appendLimitMarker();
+			return;
+		}
+		std::vector<char> buffer(static_cast<size_t>(n) + 1);
+		const int written = std::snprintf(buffer.data(), buffer.size(), spec, value);
+		if (written == n)
+			out.append(buffer.data(), static_cast<size_t>(n));
+	};
 	size_t ai = 0;
 	for (size_t i = 0; i < fmt.size(); ) {
 		char c = fmt[i];
@@ -4580,16 +4617,28 @@ static std::string FormatPrintf(const std::string& fmt,
 			&& (fmt[i]=='-'||fmt[i]=='+'||fmt[i]==' '
 				||fmt[i]=='#'||fmt[i]=='0'))
 			{ if (sp+1<sizeof(spec)) spec[sp++]=fmt[i]; ++i; }
-		// width
-		while (i < fmt.size() && std::isdigit((unsigned char)fmt[i]))
-			{ if (sp+1<sizeof(spec)) spec[sp++]=fmt[i]; ++i; }
-		// precision
-		if (i < fmt.size() && fmt[i] == '.') {
-			if (sp+1<sizeof(spec)) spec[sp++]='.';
-			++i;
-			while (i < fmt.size() && std::isdigit((unsigned char)fmt[i]))
-				{ if (sp+1<sizeof(spec)) spec[sp++]=fmt[i]; ++i; }
-		}
+			// width and precision are user-controlled. Keep them small enough for
+			// a responsive overlay and preserve an oversized spec verbatim below.
+			size_t width = 0, precision = 0;
+			bool fieldLimitExceeded = false;
+			while (i < fmt.size() && std::isdigit(static_cast<unsigned char>(fmt[i]))) {
+				const size_t digit = static_cast<size_t>(fmt[i] - '0');
+				if (width > (kMaxFormatFieldSize - digit) / 10) fieldLimitExceeded = true;
+				else width = width * 10 + digit;
+				if (sp + 1 < sizeof(spec)) spec[sp++] = fmt[i];
+				++i;
+			}
+			if (i < fmt.size() && fmt[i] == '.') {
+				if (sp + 1 < sizeof(spec)) spec[sp++] = '.';
+				++i;
+				while (i < fmt.size() && std::isdigit(static_cast<unsigned char>(fmt[i]))) {
+					const size_t digit = static_cast<size_t>(fmt[i] - '0');
+					if (precision > (kMaxFormatFieldSize - digit) / 10) fieldLimitExceeded = true;
+					else precision = precision * 10 + digit;
+					if (sp + 1 < sizeof(spec)) spec[sp++] = fmt[i];
+					++i;
+				}
+			}
 		// length (h, hh, l, ll, z, j, t, L) -- we'll override these below.
 		while (i < fmt.size()
 			&& (fmt[i]=='h'||fmt[i]=='l'||fmt[i]=='z'
@@ -4598,65 +4647,54 @@ static std::string FormatPrintf(const std::string& fmt,
 		if (i >= fmt.size()) { out.append(spec, sp); break; }
 		char conv = fmt[i++];
 
+		// Keep the local printf specifier bounded. Oversized user input is
+		// preserved verbatim instead of ever reaching snprintf without a terminator.
+		if (fieldLimitExceeded || sp + 4 >= sizeof(spec)) {
+			appendLimitMarker();
+			continue;
+		}
+
 		// Append correct length modifier and the conversion.
 		// For %s we need a heap buffer because the formatted result can
 		// exceed any small stack buffer (long strings + width modifiers).
 		switch (conv) {
 			case 'd': case 'i': {
-				char buf[128];
-				if (sp + 4 < sizeof(spec)) {
-					spec[sp++] = 'l'; spec[sp++] = 'l'; spec[sp++] = conv; spec[sp] = 0;
-				}
+				spec[sp++] = 'l'; spec[sp++] = 'l'; spec[sp++] = conv; spec[sp] = 0;
 				long long v = (ai < vals.size()) ? (long long)vals[ai] : 0;
 				++ai;
-				int n = std::snprintf(buf, sizeof(buf), spec, v);
-				if (n > 0) out.append(buf, (size_t)n);
+				appendFormatted(spec, v);
 				break;
 			}
 			case 'u': case 'o': case 'x': case 'X': {
-				char buf[128];
-				if (sp + 4 < sizeof(spec)) {
-					spec[sp++] = 'l'; spec[sp++] = 'l'; spec[sp++] = conv; spec[sp] = 0;
-				}
+				spec[sp++] = 'l'; spec[sp++] = 'l'; spec[sp++] = conv; spec[sp] = 0;
 				unsigned long long v = (ai < vals.size())
 									   ? (unsigned long long)(long long)vals[ai]
 									   : 0ULL;
 				++ai;
-				int n = std::snprintf(buf, sizeof(buf), spec, v);
-				if (n > 0) out.append(buf, (size_t)n);
+				appendFormatted(spec, v);
 				break;
 			}
 			case 'f': case 'F': case 'e': case 'E':
 			case 'g': case 'G': case 'a': case 'A': {
-				char buf[128];
-				if (sp + 1 < sizeof(spec)) { spec[sp++] = conv; spec[sp] = 0; }
+				spec[sp++] = conv; spec[sp] = 0;
 				double v = (ai < vals.size()) ? vals[ai] : 0.0;
 				++ai;
-				int n = std::snprintf(buf, sizeof(buf), spec, v);
-				if (n > 0) out.append(buf, (size_t)n);
+				appendFormatted(spec, v);
 				break;
 			}
 			case 'c': {
-				char buf[128];
-				if (sp + 1 < sizeof(spec)) { spec[sp++] = conv; spec[sp] = 0; }
+				spec[sp++] = conv; spec[sp] = 0;
 				int v = (ai < vals.size()) ? (int)vals[ai] : 0;
 				++ai;
-				int n = std::snprintf(buf, sizeof(buf), spec, v);
-				if (n > 0) out.append(buf, (size_t)n);
+				appendFormatted(spec, v);
 				break;
 			}
 			case 's': case 'S': {
-				if (sp + 1 < sizeof(spec)) { spec[sp++] = 's'; spec[sp] = 0; }
-				const std::string& v = (ai < strs.size()) ? strs[ai] : std::string();
+				spec[sp++] = 's'; spec[sp] = 0;
+				static const std::string empty;
+				const std::string& v = (ai < strs.size()) ? strs[ai] : empty;
 				++ai;
-				// Two-step snprintf to size the output exactly.
-				int n = std::snprintf(nullptr, 0, spec, v.c_str());
-				if (n > 0) {
-					size_t base = out.size();
-					out.resize(base + (size_t)n + 1);
-					std::snprintf(&out[base], (size_t)n + 1, spec, v.c_str());
-					out.resize(base + (size_t)n);
-				}
+				appendFormatted(spec, v.c_str());
 				break;
 			}
 			default: {

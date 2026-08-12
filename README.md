@@ -7,7 +7,7 @@
 | Current release | **1.4.8** |
 | Runtime | Atmosphère CFW with Ryazhahand, Ultrahand, or Tesla Menu |
 | Installation | Extract `Ryazha-Status-Monitor.zip` to the SD-card root; do not install only the `.ovl` file |
-| Documentation | [Build guide](docs/BUILDING.md), [SMD format](docs/SMD_FORMAT.md), [parser internals](docs/SMD_PARSER_INTERNALS.md) |
+| Documentation | [Build guide](docs/BUILDING.md), [Security](docs/SECURITY.md), [SMD format](docs/SMD_FORMAT.md), [parser internals](docs/SMD_PARSER_INTERNALS.md) |
 
 ---
 
@@ -54,7 +54,7 @@
 
 ## Сборка и проверка
 
-Для разработчиков доступна краткая инструкция в [docs/BUILDING.md](docs/BUILDING.md). Локальная проверка парсера запускается командой `./scripts/test.sh`. Сборка полного пакета выполняется командой `./scripts/build.sh` в среде devkitPro; результатом будут `.ovl` и архив `Ryazha-Status-Monitor.zip`.
+Для разработчиков доступна краткая инструкция в [docs/BUILDING.md](docs/BUILDING.md); границы доверия и ограничения входных файлов описаны в [docs/SECURITY.md](docs/SECURITY.md). Локальная проверка парсера запускается командой `./scripts/test.sh`. Сборка полного пакета выполняется командой `./scripts/build.sh` в среде devkitPro; результатом будут `.ovl` и архив `Ryazha-Status-Monitor.zip`.
 
 ## Устранение неполадок
 

@@ -5,6 +5,8 @@
 #include <set>
 #include "Extensions/smse.hpp"
 #include <cstdlib>
+#include <cctype>
+#include <string_view>
 
 std::list<ServiceExtensions> serviceExt;
 
@@ -472,6 +474,26 @@ static void ApplyRyazhaTheme() {
 	backgroundColor = menuBackgroundColor;
 }
 
+static bool isSafeModePath(std::string_view name) {
+	if (name.empty() || name.size() > 128 || !name.ends_with(".smd"))
+		return false;
+
+	size_t segmentStart = 0;
+	for (size_t i = 0; i < name.size(); ++i) {
+		const unsigned char ch = static_cast<unsigned char>(name[i]);
+		if (name[i] == '/') {
+			const std::string_view segment = name.substr(segmentStart, i - segmentStart);
+			if (segment.empty() || segment == "." || segment == "..") return false;
+			segmentStart = i + 1;
+			continue;
+		}
+		if (!std::isalnum(ch) && name[i] != '_' && name[i] != '-' && name[i] != '.')
+			return false;
+	}
+	const std::string_view finalSegment = name.substr(segmentStart);
+	return !finalSegment.empty() && finalSegment != "." && finalSegment != "..";
+}
+
 int main(int argc, char **argv) {
 	#if !defined(__SWITCH__) && !defined(__OUNCE__)
 		systemtickfrequency = armGetSystemTickFreq();
@@ -484,25 +506,31 @@ int main(int argc, char **argv) {
 		filename = argv[0];
 		filepath = folderpath + filename;
 	}
-	auto loadSmdFile = [](const char* smd_filename) {
-		std::string path = "sdmc:/config/status-monitor/modes/";
-		path += smd_filename;
+	auto loadSmdFile = [](const char* smdFilename) {
+			if (smdFilename == nullptr || !isSafeModePath(smdFilename))
+				return;
 
-		struct stat filedata;
-		if (stat(path.c_str(), &filedata) == 0) {
+			std::string path = "sdmc:/config/status-monitor/modes/";
+			path += smdFilename;
+
+			struct stat filedata {};
+			if (stat(path.c_str(), &filedata) != 0 || !S_ISREG(filedata.st_mode))
+				return;
+
 			smd::Document doc;
-			if (doc.LoadFromFile(path.c_str()) == true) {
-				doc.Free();
-				smd::Document::PeekInfo peek;
-				smd::Document::Peek(path.c_str(), peek);
-				if (peek.layerWidth != 0 && peek.layerHeight != 0) {
-					framebufferWidth = peek.layerWidth;
-					framebufferHeight = peek.layerHeight;
-				}
+			if (!doc.LoadFromFile(path.c_str()))
+				return;
+			doc.Free();
+
+			smd::Document::PeekInfo peek;
+			if (!smd::Document::Peek(path.c_str(), peek))
+				return;
+			if (peek.layerWidth != 0 && peek.layerHeight != 0) {
+				framebufferWidth = peek.layerWidth;
+				framebufferHeight = peek.layerHeight;
 			}
 			file_to_load = path;
-		}
-	};
+		};
 
 	// Legacy Ryazha/Status-Monitor-Overlay mode arguments are mapped to the
 	// bundled SMD files so pre-Deux shortcuts keep working after the update.

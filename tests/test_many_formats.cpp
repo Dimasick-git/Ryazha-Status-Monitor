@@ -4,6 +4,11 @@
 
 static void NoOpCb(smd::RenderCommand&, void*) {}
 
+static void CaptureText(smd::RenderCommand& cmd, void* user) {
+    if (cmd.type == smd::RenderCmdType::Text)
+        *static_cast<std::string*>(user) = cmd.text;
+}
+
 int main() {
     // Generate a file with 50 string VARs each having a nested fmt
     std::string smd = "Name = T\nEnableGame: true\nStart:\n";
@@ -31,6 +36,46 @@ int main() {
             }
         }
     }
-    std::printf("OK: 30 reps of 50-format script\n");
+    // A user-controlled field width may legitimately exceed a small stack
+    // buffer. The formatter must produce the full value without reading past
+    // its temporary storage.
+    const std::string wideSmd =
+        "Name = WideFormat\n"
+        "Wide: {\"%1000d\", 7}\n"
+        "Start:\n"
+        "TEXT{0,0,18,0xFFFF,true,Wide}\n";
+    smd::Document wideDoc;
+    if (!wideDoc.LoadFromMemory(wideSmd.data(), wideSmd.size()) || !wideDoc.Compile()) {
+        std::printf("Wide format setup failed: %s\n", wideDoc.LastError());
+        return 1;
+    }
+    std::string rendered;
+    if (!wideDoc.Evaluate(CaptureText, &rendered)) {
+        std::printf("Wide format evaluation failed: %s\n", wideDoc.LastError());
+        return 1;
+    }
+    if (rendered.size() != 1000 || rendered.back() != '7') {
+        std::printf("Wide numeric format result is invalid: size=%zu\n", rendered.size());
+        return 1;
+    }
+
+    const std::string wideStringSmd =
+        "Name = WideStringFormat\n"
+        "Wide: {\"%1000s\", \"ok\"}\n"
+        "Start:\n"
+        "TEXT{0,0,18,0xFFFF,true,Wide}\n";
+    smd::Document wideStringDoc;
+    if (!wideStringDoc.LoadFromMemory(wideStringSmd.data(), wideStringSmd.size()) || !wideStringDoc.Compile()) {
+        std::printf("Wide string format setup failed: %s\n", wideStringDoc.LastError());
+        return 1;
+    }
+    rendered.clear();
+    if (!wideStringDoc.Evaluate(CaptureText, &rendered) || rendered.size() != 1000 ||
+        rendered.substr(rendered.size() - 2) != "ok") {
+        std::printf("Wide string format result is invalid: size=%zu\n", rendered.size());
+        return 1;
+    }
+
+    std::printf("OK: 30 reps of 50-format script and wide formatting\n");
     return 0;
 }
