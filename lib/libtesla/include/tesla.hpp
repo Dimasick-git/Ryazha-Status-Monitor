@@ -154,7 +154,7 @@ inline uint16_t framebufferHeight = 720;
 inline bool deactivateOriginalFooter = false;
 inline bool fontCache = true;
 inline bool isChineseTraditionalOverride = false;
-inline std::string defaultButtonView = "\uE0E1  Back     \uE0E0  OK";
+inline std::string defaultButtonView = "\uE0E1  Назад     \uE0E0  Выбрать";
 inline bool isDocked = false;
 inline uint64_t frameTimeInNS = 0;
 
@@ -673,11 +673,21 @@ namespace tsl {
 							this->setPixelBlendDst(x1, y1, color);
 					}
 				}
-			}
+				}
 
+				/**
+				 * @brief Draws the two-layer rounded panel used by Switch 2 controls.
+				 */
+				inline void drawSwitch2Panel(s16 x, s16 y, s16 w, s16 h, Color border, Color fill, s16 inset = 2) {
+					if (w <= 0 || h <= 0) return;
+					inset = std::max<s16>(1, std::min<s16>(inset, std::min<s16>(w / 2, h / 2)));
+					this->drawRoundRect(x, y, w, h, 1.0f, 1.0f, 1.0f, 1.0f, a(border));
+					if (w > inset * 2 && h > inset * 2)
+						this->drawRoundRect(x + inset, y + inset, w - inset * 2, h - inset * 2, 1.0f, 1.0f, 1.0f, 1.0f, a(fill));
+				}
 
-			/**
-			 * @brief Draws a rectangle of given sizes with empty filling
+				/**
+				 * @brief Draws a rectangle of given sizes with empty filling
 			 * 
 			 * @param x X pos 
 			 * @param y Y pos
@@ -1865,6 +1875,9 @@ namespace tsl {
 		 */
 		class OverlayFrame : public Element {
 		private:
+			std::string m_cachedFooterText;
+			std::vector<std::pair<std::string, std::string>> m_cachedFooterPrompts;
+
 			static std::vector<std::pair<std::string, std::string>> parseFooterPrompts(const std::string& footer) {
 				std::vector<std::pair<std::string, std::string>> prompts;
 				size_t scan = 0;
@@ -1885,6 +1898,14 @@ namespace tsl {
 				return prompts;
 			}
 
+			const std::vector<std::pair<std::string, std::string>>& cachedFooterPrompts() {
+				if (m_cachedFooterText != defaultButtonView) {
+					m_cachedFooterText = defaultButtonView;
+					m_cachedFooterPrompts = parseFooterPrompts(m_cachedFooterText);
+				}
+				return m_cachedFooterPrompts;
+			}
+
 			void drawFooter(gfx::Renderer* renderer) {
 				if (deactivateOriginalFooter) return;
 				if (!ult::useSwitch2Style) {
@@ -1892,12 +1913,11 @@ namespace tsl {
 					return;
 				}
 
-				const auto prompts = parseFooterPrompts(defaultButtonView);
+				const auto& prompts = cachedFooterPrompts();
 				bool hasLabel = false;
 				for (const auto& prompt : prompts) hasLabel = hasLabel || !prompt.second.empty();
 				if (prompts.empty() || prompts.size() > 5 || !hasLabel) {
-					renderer->drawRoundRect(22, 680, 404, 31, 1.0f, 1.0f, 1.0f, 1.0f, a(gfx::Color(ult::switch2::FooterBorder)));
-					renderer->drawRoundRect(24, 682, 400, 27, 1.0f, 1.0f, 1.0f, 1.0f, a(gfx::Color(ult::switch2::FooterFill)));
+						renderer->drawSwitch2Panel(22, 680, 404, 31, gfx::Color(ult::switch2::FooterBorder), gfx::Color(ult::switch2::FooterFill));
 					renderer->drawString(defaultButtonView.c_str(), false, 32, 703, 20, a(defaultTextColor));
 					return;
 				}
@@ -1907,8 +1927,7 @@ namespace tsl {
 					const std::string text = prompt.first + "  " + prompt.second;
 					auto [textWidth, unusedHeight] = renderer->drawString(text.c_str(), false, 0, 0, 20, tsl::style::color::ColorTransparent);
 					const s16 chipWidth = static_cast<s16>(textWidth + 24);
-					renderer->drawRoundRect(x, 680, chipWidth, 31, 1.0f, 1.0f, 1.0f, 1.0f, a(gfx::Color(ult::switch2::FooterBorder)));
-					renderer->drawRoundRect(x + 2, 682, chipWidth - 4, 27, 1.0f, 1.0f, 1.0f, 1.0f, a(gfx::Color(ult::switch2::FooterFill)));
+						renderer->drawSwitch2Panel(x, 680, chipWidth, 31, gfx::Color(ult::switch2::FooterBorder), gfx::Color(ult::switch2::FooterFill));
 					renderer->drawString(text.c_str(), false, x + 12, 703, 20, a(defaultTextColor));
 					x += chipWidth + 10;
 				}

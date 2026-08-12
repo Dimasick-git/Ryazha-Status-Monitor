@@ -349,7 +349,7 @@ public:
         }
         else {
             auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
-                renderer->drawString("No folders or .smd files found!", false, 20, 20, 20, renderer->a(0xFFFF));
+                renderer->drawString(locale["no_files_found"].c_str(), false, 20, 20, 20, renderer->a(0xFFFF));
             });
             rootFrame->setContent(Status);
         }
