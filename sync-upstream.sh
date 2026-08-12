@@ -19,22 +19,20 @@ DRY_RUN=false
 # ─── Protected files ───────────────────────────────────────────────────────
 # These are never overwritten from upstream (our custom code lives here).
 # Everything else (source/, include/, lib/, modes/, extensions/, config/)
-# is merged 3-way, so our RU-RU locale additions in modes/*.smd and
-# config/status-monitor-deux/locale.ini survive upstream updates.
+# is merged 3-way, so our localized SMD modes and
+# config/status-monitor/locale.ini survive upstream updates.
 PROTECTED=(
     # Build & CI (branding: APP_TITLE/TARGET/APP_VERSION + RYZH signature)
     "Makefile"
     ".github"
     # Docs
     "README.md"
-    "docs/DOCKER_SETUP.md"
     # Scripts
     "sync-upstream.sh"
     "scripts"
     ".upstream-sync"
-    # Docker setup
+    # Container build definition
     "Dockerfile"
-    "docker-compose.yml"
 )
 
 # ─── Patches always re-applied after merge ─────────────────────────────────

@@ -29,20 +29,32 @@ User_ShowRealFrequencies = true
 ;;User_ShowRealFrequencies_DefaultValue = true
 User_ShowClock = true
 ;;User_ShowClock_Description = Show current time and battery charge in the top right corner.
+;;User_ShowClock_Description_PL-PL = Pokazuj czas i poziom baterii w prawym górnym rogu.
+;;User_ShowClock_Description_DE-DE = Uhrzeit und Akkustand oben rechts anzeigen.
 ;;User_ShowClock_Description_RU-RU = Показывать текущее время и заряд батареи в правом верхнем углу.
 ;;User_ShowClock_Name = Show clock and battery
+;;User_ShowClock_Name_PL-PL = Zegar i bateria
+;;User_ShowClock_Name_DE-DE = Uhr und Akku
 ;;User_ShowClock_Name_RU-RU = Часы и батарея
 ;;User_ShowClock_DefaultValue = true
 User_ShowLoadBars = true
 ;;User_ShowLoadBars_Description = Draw thin CPU/GPU/RAM load bars under the load values.
+;;User_ShowLoadBars_Description_PL-PL = Pokaż paski użycia CPU, GPU i RAM pod wartościami.
+;;User_ShowLoadBars_Description_DE-DE = CPU-, GPU- und RAM-Auslastungsbalken unter den Werten anzeigen.
 ;;User_ShowLoadBars_Description_RU-RU = Рисовать тонкие полосы загрузки CPU/GPU/RAM под значениями.
 ;;User_ShowLoadBars_Name = Load bars
+;;User_ShowLoadBars_Name_PL-PL = Paski użycia
+;;User_ShowLoadBars_Name_DE-DE = Auslastungsbalken
 ;;User_ShowLoadBars_Name_RU-RU = Полосы загрузки
 ;;User_ShowLoadBars_DefaultValue = true
 User_UseTheme = true
 ;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode's text.
+;;User_UseTheme_Description_PL-PL = Użyj kolorów motywu Ryazhahand (theme.ini) dla tekstu tego trybu.
+;;User_UseTheme_Description_DE-DE = Ryazhahand-Designfarben (theme.ini) für den Text dieses Modus verwenden.
 ;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для текста этого режима.
 ;;User_UseTheme_Name = Use theme colors
+;;User_UseTheme_Name_PL-PL = Kolory motywu
+;;User_UseTheme_Name_DE-DE = Designfarben
 ;;User_UseTheme_Name_RU-RU = Цвета из темы
 ;;User_UseTheme_DefaultValue = true
 User_ShowTargetFrequencies = true
@@ -270,9 +282,12 @@ VAR{BarTrack, color(0x3334)}
 #if $EnableCPU
 	TEXT{0, 120, 20, CatColor, false, IETF_GET{CpuUsageText}}
 	BOX{0, 128, 205, 1, CatColor}
-	VAR{height_offset, 155}
+		VAR{height_offset, 155}
+		; Keep dimensions defined when either frequency line is disabled.
+		GET_DIMENSIONS{TargetDims, 15, false, ""}
+		GET_DIMENSIONS{RealDims, 15, false, ""}
 
-	#if $User_ShowTargetFrequencies
+		#if $User_ShowTargetFrequencies
 		TEXT{0, height_offset, 15, TxtColor, false, CPUTargetFreqText}
 		GET_DIMENSIONS{TargetDims, 15, false, CPUTargetFreqText}
 	#endif
@@ -305,8 +320,11 @@ VAR{BarTrack, color(0x3334)}
 
 ;GPU
 #if $EnableGPU
-	VAR{height_offset, 310}
-	TEXT{0, 285, 20, CatColor, false, IETF_GET{GpuUsageText}}
+		VAR{height_offset, 310}
+		; Keep dimensions defined when either frequency line is disabled.
+		GET_DIMENSIONS{TargetDims, 15, false, ""}
+		GET_DIMENSIONS{RealDims, 15, false, ""}
+		TEXT{0, 285, 20, CatColor, false, IETF_GET{GpuUsageText}}
 	BOX{0, 293, 205, 1, CatColor}
 	#if $User_ShowTargetFrequencies
 		TEXT{0, height_offset, 15, TxtColor, false, GPUTargetFreqText}
@@ -370,8 +388,11 @@ VAR{BarTrack, color(0x3334)}
 	TEXT{0, height_offset, 20, CatColor, false, IETF_GET{RamUsageText}}
 	BOX{0, height_offset + 8, 205, 1, CatColor}
 
-	VAR{height_offset, 400}
-	#if $User_ShowTargetFrequencies
+		VAR{height_offset, 400}
+		; Keep dimensions defined when either frequency line is disabled.
+		GET_DIMENSIONS{TargetDims, 15, false, ""}
+		GET_DIMENSIONS{RealDims, 15, false, ""}
+		#if $User_ShowTargetFrequencies
 		TEXT{0, height_offset, 15, TxtColor, false, RAMTargetFreqText}
 		GET_DIMENSIONS{TargetDims, 15, false, RAMTargetFreqText}
 	#endif

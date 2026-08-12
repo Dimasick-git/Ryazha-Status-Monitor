@@ -1,53 +1,29 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# Build the Nintendo Switch overlay and the complete installable package.
 
-# Ryazha-Status-Monitor Build Script
-# Автоматическая сборка для Nintendo Switch
+set -euo pipefail
 
-set -e
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 
-echo "🚀 Starting Ryazha-Status-Monitor build..."
-
-# Check if devkitPro is installed
-if ! command -v dkp-pacman &> /dev/null; then
-    echo "❌ devkitPro not found. Please install devkitPro first."
+if [[ -z "${DEVKITPRO:-}" || ! -f "${DEVKITPRO}/libnx/switch_rules" ]]; then
+    printf 'DEVKITPRO with libnx is required. See docs/BUILDING.md.\n' >&2
     exit 1
 fi
 
-# Check if required packages are installed
-echo "📦 Checking dependencies..."
-required_packages=("switch-devkitA64" "switch-tools" "switch-libnx" "switch-mesa" "switch-glad")
+make clean
+make -j"$(nproc)" dist
 
-for package in "${required_packages[@]}"; do
-    if ! dkp-pacman -Qi "$package" &> /dev/null; then
-        echo "📦 Installing $package..."
-        sudo dkp-pacman -S "$package"
-    else
-        echo "✅ $package is already installed"
+OVL="Ryazha-Status-Monitor.ovl"
+ARCHIVE="Ryazha-Status-Monitor.zip"
+INSTALL_OVL="out/switch/.overlays/${OVL}"
+
+for artifact in "$OVL" "$ARCHIVE" "$INSTALL_OVL" "out/config/status-monitor/locale.ini"; do
+    if [[ ! -s "$artifact" ]]; then
+        printf 'Build verification failed: missing or empty %s\n' "$artifact" >&2
+        exit 1
     fi
 done
 
-# Clean previous builds
-echo "🧹 Cleaning previous builds..."
-make clean || true
-
-# Build the project
-echo "🔨 Building Ryazha-Status-Monitor..."
-make -j$(nproc)
-
-# Check if build was successful
-if [ -f "Ryazha-Status-Monitor.ovl" ]; then
-    echo "✅ Build successful!"
-    echo "📁 Output files:"
-    ls -la *.ovl *.elf *.json 2>/dev/null || echo "No output files found"
-else
-    echo "❌ Build failed!"
-    exit 1
-fi
-
-# Create release directory
-echo "📦 Creating release package..."
-mkdir -p releases
-cp *.ovl *.elf *.json README.md LICENSE releases/ 2>/dev/null || true
-
-echo "🎉 Build completed successfully!"
-echo "📂 Release files are in the 'releases' directory"
+printf 'Build completed: %s\n' "$OVL"
+printf 'Distribution package: %s\n' "$ARCHIVE"

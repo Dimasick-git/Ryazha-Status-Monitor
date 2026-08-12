@@ -20,7 +20,8 @@ set(SMD_TESTS
     test_color_swap
     test_reset_refresh
     test_error_wrap
-	test_history_average
+    test_history_average
+    test_full_mode_options
 )
 
 set(FIXTURES_DIR "${CMAKE_SOURCE_DIR}/modes")

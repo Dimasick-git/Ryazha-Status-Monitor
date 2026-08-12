@@ -1,13 +1,12 @@
+# Build directories and packaged release artifacts
 build/
-build-tests/
+build-*/
 out/
+releases/
 
+# Nintendo Switch build outputs
 *.ovl
-
 *.elf
-
 *.nacp
-
 *.nro
-
 *.zip

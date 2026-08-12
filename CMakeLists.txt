@@ -1,4 +1,4 @@
-# This CMAKE is only for local tests of smd_parser, you won't compile homebrew with it
+# CMake is used only for host-side smd_parser tests; homebrew builds use Makefile.
 cmake_minimum_required(VERSION 3.16)
 project(smd_parser CXX C)
 
@@ -18,11 +18,18 @@ option(SMD_BUILD_TESTS "Build the test suite"                        ON)
 # ring buffer is always maintained internally; this flag only controls
 # whether the host receives a callback for each push/clear.
 option(SMD_DEBUG_HISTORY "Define DEBUG so HistoryUpdate/HistoryClean are visible" OFF)
+option(SMD_WARNINGS_AS_ERRORS "Treat compiler warnings as errors" OFF)
 
 if(MSVC)
     add_compile_options(/W3)
+    if(SMD_WARNINGS_AS_ERRORS)
+        add_compile_options(/WX)
+    endif()
 else()
     add_compile_options(-Wall -Wextra)
+    if(SMD_WARNINGS_AS_ERRORS)
+        add_compile_options(-Werror)
+    endif()
 endif()
 
 if(SMD_DEBUG_HISTORY)

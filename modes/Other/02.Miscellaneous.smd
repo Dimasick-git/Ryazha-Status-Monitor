@@ -41,8 +41,12 @@ Text3: {"NVJPG: %u.%u MHz", Misc_NvJpgHz_int / 1000000, (Misc_NvJpgHz_int / 1000
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 User_UseTheme = true
 ;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode.
+;;User_UseTheme_Description_PL-PL = Użyj kolorów motywu Ryazhahand (theme.ini) dla tego trybu.
+;;User_UseTheme_Description_DE-DE = Ryazhahand-Designfarben (theme.ini) für diesen Modus verwenden.
 ;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для этого режима.
 ;;User_UseTheme_Name = Use theme colors
+;;User_UseTheme_Name_PL-PL = Kolory motywu
+;;User_UseTheme_Name_DE-DE = Designfarben
 ;;User_UseTheme_Name_RU-RU = Цвета из темы
 ;;User_UseTheme_DefaultValue = true
 

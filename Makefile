@@ -38,7 +38,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	Ryazha-Status-Monitor
-APP_VERSION	:=	1.4.7
+APP_VERSION	:=	1.4.8
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
 SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/libtesla/source lib/slre
@@ -193,7 +193,7 @@ $(BUILD):
 
 #---------------------------------------------------------------------------------
 clean:
-	@echo "Cleanning ... $(TARGET)"
+	@echo "Cleaning ... $(TARGET)"
 	@rm -fr $(BUILD) $(TARGET).ovl $(TARGET).nro $(TARGET).nacp $(TARGET).elf
 	@rm -rf out/
 	@rm -f $(TARGET).zip
