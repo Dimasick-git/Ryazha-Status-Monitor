@@ -17,12 +17,12 @@ User_RefreshRate = 1
 ;;User_RefreshRate_Name_RU-RU = Частота обновления
 ;;User_RefreshRate_DefaultValue = 1
 ;;User_RefreshRate_Range = {int, 1, 60}
-User_UseTheme = false
+User_UseTheme = true
 ;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) instead of the colors below.
 ;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) вместо цветов ниже.
 ;;User_UseTheme_Name = Use theme colors
 ;;User_UseTheme_Name_RU-RU = Цвета из темы
-;;User_UseTheme_DefaultValue = false
+;;User_UseTheme_DefaultValue = true
 User_CategoryColor = COLOR{0xFCCF}
 ;;User_CategoryColor_Name = Data type color
 ;;User_CategoryColor_Name_PL-PL = Kolor kategorii danych
@@ -214,7 +214,7 @@ Start:
 #else
 	VAR{CatColor, User_CategoryColor}
 	VAR{TxtColor, User_TextColor}
-	VAR{BoxColor, BoxColor}
+	VAR{BoxColor, User_BoxColor}
 #endif
 VAR{Text, ""}
 VAR{DimensionsWholeText, ""}

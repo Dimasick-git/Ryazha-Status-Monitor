@@ -75,6 +75,12 @@ User_BoxColor = COLOR{0x1115}
 ;;User_BoxColor_Name = Background color
 ;;User_BoxColor_Name_RU-RU = Цвет фона
 ;;User_BoxColor_DefaultValue = COLOR{0x1115}
+User_UseTheme = true
+;;User_UseTheme_Description = Use colors from the active Ryazhahand theme.
+;;User_UseTheme_Description_RU-RU = Использовать цвета активной темы Ryazhahand.
+;;User_UseTheme_Name = Use theme colors
+;;User_UseTheme_Name_RU-RU = Цвета из темы
+;;User_UseTheme_DefaultValue = true
 
 EmaFps: -1
 
@@ -103,6 +109,13 @@ Start:
 	VAR{fontsize, User_HandheldFontSize}
 #endif
 VAR{margin, fontsize / 8}
+#if $User_UseTheme
+	VAR{BoxColor, Theme_BoxColor_int}
+	VAR{HzColor, Theme_TextColor_int}
+#else
+	VAR{BoxColor, User_BoxColor}
+	VAR{HzColor, User_HzColor}
+#endif
 VAR{rr, System_DisplayRefreshRate_int}
 VAR{HasFps, 0}
 VAR{FpsColor, User_BadColor}
@@ -142,10 +155,10 @@ GET_DIMENSIONS{FpsDim, fontsize, true, FpsLine}
 		VAR{BoxW, HzDim.x}
 	#endif
 	VAR{BoxW, BoxW + margin}
-	BOX{0, 0, BoxW, fontsize * 2 + (margin / 2), User_BoxColor}
+	BOX{0, 0, BoxW, fontsize * 2 + (margin / 2), BoxColor}
 	TEXT{margin / 2, fontsize - margin, fontsize, FpsColor, true, FpsLine}
-	TEXT{margin / 2, fontsize * 2 - margin, fontsize, User_HzColor, true, HzTextFormat}
+	TEXT{margin / 2, fontsize * 2 - margin, fontsize, HzColor, true, HzTextFormat}
 #else
-	BOX{0, 0, FpsDim.x + margin, fontsize + (margin / 2), User_BoxColor}
+	BOX{0, 0, FpsDim.x + margin, fontsize + (margin / 2), BoxColor}
 	TEXT{margin / 2, fontsize - margin, fontsize, FpsColor, true, FpsLine}
 #endif

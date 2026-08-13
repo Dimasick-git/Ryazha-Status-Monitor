@@ -172,19 +172,27 @@ public:
 					bool isValid = false;
 					u16 color;
 					std::string error;
-					if (data.value.length() == 13) {
-						std::string hexColor = data.value.substr(6);
-						hexColor = hexColor.substr(0, 6);
-						isValid = isValid4444HexColor(hexColor);
+					if (data.value.size() == 13
+						&& data.value.starts_with("COLOR{0x")
+						&& data.value.ends_with("}")) {
+						// COLOR{0xRGBA}: the four nibbles begin after the literal
+						// `COLOR{0x`. The old adapter validated `0xRGBA`, so every
+						// valid color was shown as "invalid color" in the menu.
+						const std::string rgba4444 = data.value.substr(8, 4);
+						isValid = isValid4444HexColor(rgba4444);
 						if (isValid) {
-							std::string r = hexColor.substr(2, 1);
-							std::string g = hexColor.substr(3, 1);
-							std::string b = hexColor.substr(4, 1);
-							std::string a = hexColor.substr(5, 1);
-							color = tsl::gfx::Color((u8)std::stoi(r, nullptr, 16), (u8)std::stoi(g, nullptr, 16), (u8)std::stoi(b, nullptr, 16), (u8)std::stoi(a, nullptr, 16)).rgba;
+							const u8 r = static_cast<u8>(std::stoi(rgba4444.substr(0, 1), nullptr, 16));
+							const u8 g = static_cast<u8>(std::stoi(rgba4444.substr(1, 1), nullptr, 16));
+							const u8 b = static_cast<u8>(std::stoi(rgba4444.substr(2, 1), nullptr, 16));
+							const u8 a = static_cast<u8>(std::stoi(rgba4444.substr(3, 1), nullptr, 16));
+							color = tsl::gfx::Color(r, g, b, a).rgba;
+						} else {
+							error = "invalid color";
 						}
-						else error = "invalid color";
+					} else {
+						error = "invalid color";
 					}
+
 					if (isValid) {
 						auto Item = new tsl::elm::ColorListItem(data.localName.length() > 0 ? data.localName : key, color);
 						Item->setClickListener([this, key, Item, data](uint64_t keys) {

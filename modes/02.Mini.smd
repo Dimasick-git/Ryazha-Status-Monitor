@@ -25,12 +25,12 @@ User_ShowRealFrequencies = true
 ;;User_ShowRealFrequencies_Name_DE-DE = Echte Frequenzen anzeigen
 ;;User_ShowRealFrequencies_Name_RU-RU = Показывать реальные частоты
 ;;User_ShowRealFrequencies_DefaultValue = true
-User_UseTheme = false
+User_UseTheme = true
 ;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) instead of the colors below.
 ;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) вместо цветов ниже.
 ;;User_UseTheme_Name = Use theme colors
 ;;User_UseTheme_Name_RU-RU = Цвета из темы
-;;User_UseTheme_DefaultValue = false
+;;User_UseTheme_DefaultValue = true
 User_CategoryColor = COLOR{0xCCCF}
 ;;User_CategoryColor_Description = Color of categories (left column of text).
 ;;User_CategoryColor_Description_PL-PL = Kolor kategorii (lewa kolumna).
@@ -241,7 +241,7 @@ Start:
 #else
 	VAR{CatColor, User_CategoryColor}
 	VAR{TxtColor, User_TextColor}
-	VAR{BoxColor, BoxColor}
+	VAR{BoxColor, User_BoxColor}
 #endif
 VAR{LeftText, ""}
 VAR{RightText, ""}

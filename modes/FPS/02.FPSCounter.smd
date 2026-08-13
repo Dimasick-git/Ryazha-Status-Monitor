@@ -35,6 +35,12 @@ User_BoxColor = COLOR{0x1115}
 ;;User_BoxColor_Name_DE-DE = Hintergrundfarbe
 ;;User_BoxColor_Name_RU-RU = Цвет фона
 ;;User_BoxColor_DefaultValue = COLOR{0x1115}
+User_UseTheme = true
+;;User_UseTheme_Description = Use colors from the active Ryazhahand theme.
+;;User_UseTheme_Description_RU-RU = Использовать цвета активной темы Ryazhahand.
+;;User_UseTheme_Name = Use theme colors
+;;User_UseTheme_Name_RU-RU = Цвета из темы
+;;User_UseTheme_DefaultValue = true
 User_HandheldFontSize = 40
 ;;User_HandheldFontSize_Description = Size of text in handheld mode.
 ;;User_HandheldFontSize_Description_PL-PL = Rozmiar tekstu w trybie handheld.
@@ -93,7 +99,13 @@ Start:
 	VAR{fontsize, User_HandheldFontSize}
 #endif
 VAR{margin, fontsize / 8}
-VAR{TxtColor, User_TextColor}
+#if $User_UseTheme
+	VAR{TxtColor, Theme_TextColor_int}
+	VAR{BoxColor, Theme_BoxColor_int}
+#else
+	VAR{TxtColor, User_TextColor}
+	VAR{BoxColor, User_BoxColor}
+#endif
 #if $EnableGame
 	#if $Game_IsGameRunning
 		VAR{FpsAvg, User_OldFpsAverage ? Game_FpsAvgOld_float : Game_FpsAvg_float}
@@ -117,5 +129,5 @@ VAR{TxtColor, User_TextColor}
 	#endif
 #endif
 GET_DIMENSIONS{Dimensions, fontsize, true, Text}
-BOX{0, 0, Dimensions.x + margin, fontsize + (margin / 2), User_BoxColor}
+BOX{0, 0, Dimensions.x + margin, fontsize + (margin / 2), BoxColor}
 TEXT{0, fontsize - margin, fontsize, TxtColor, true, Text}

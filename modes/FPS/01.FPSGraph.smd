@@ -15,12 +15,12 @@ User_RefreshRate = 30
 ;;User_RefreshRate_Name_RU-RU = Частота обновления
 ;;User_RefreshRate_DefaultValue = 30
 ;;User_RefreshRate_Range = {int, 1, 60}
-User_UseTheme = false
+User_UseTheme = true
 ;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode.
 ;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для этого режима.
 ;;User_UseTheme_Name = Use theme colors
 ;;User_UseTheme_Name_RU-RU = Цвета из темы
-;;User_UseTheme_DefaultValue = false
+;;User_UseTheme_DefaultValue = true
 User_FpsCounterColor = COLOR{0x4444}
 ;;User_FpsCounterColor_Description = It's behind graph when game runs.
 ;;User_FpsCounterColor_Description_PL-PL = Wyświetla się za grafem gdy gra jest uruchomiona.
@@ -156,8 +156,8 @@ Start:
 	VAR{BoxColor, Theme_BoxColor_int}
 #else
 	VAR{CounterColor, User_FpsCounterColor}
-	VAR{BorderColor, BorderColor}
-	VAR{BoxColor, BoxColor}
+	VAR{BorderColor, User_BorderColor}
+	VAR{BoxColor, User_BoxColor}
 #endif
 GET_DIMENSIONS{MaxSize, 10, true, FPSmax}
 #if $User_AdjustToRefreshRate

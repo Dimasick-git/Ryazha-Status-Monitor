@@ -19,12 +19,12 @@ User_RefreshRate = 10
 ;;User_RefreshRate_Name_DE-DE = Aktualisierungsrate
 ;;User_RefreshRate_Name_RU-RU = Частота обновления
 ;;User_RefreshRate_Range = {int, 1, 60}
-User_UseTheme = false
+User_UseTheme = true
 ;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode.
 ;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для этого режима.
 ;;User_UseTheme_Name = Use theme colors
 ;;User_UseTheme_Name_RU-RU = Цвета из темы
-;;User_UseTheme_DefaultValue = false
+;;User_UseTheme_DefaultValue = true
 User_TextColor = COLOR{0xFFFF}
 ;;User_TextColor_Name = Data color
 ;;User_TextColor_Name_PL-PL = Kolor danych
@@ -106,7 +106,7 @@ Start:
 #else
 	VAR{CatColor, User_CategoryColor}
 	VAR{TxtColor, User_TextColor}
-	VAR{BoxColor, BoxColor}
+	VAR{BoxColor, User_BoxColor}
 #endif
 #if $Game_IsGameRunning and $Game_ResolutionRenderCalls_int[0].calls != 0xFFFF
 	BOX{0, 0, 360, 215, BoxColor}

@@ -391,13 +391,22 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 			}
 		}
 	}
-	auto test = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
-	const uint16_t modeBackground = static_cast<uint16_t>(
-		test == 0xFFFFFF ? doc.GetConfigInt("BackgroundColor", 0xD000) : test
-	);
-	tsl::defaultBackgroundColor = tsl::Color(modeBackground);
-	// Every monitor mode must retain a visible backdrop, independent of an SMD's
-	// historic alpha nibble or the active system theme transparency preference.
+	const bool useCanonicalTheme = doc.GetConfigBool("User_UseTheme", true);
+	if (useCanonicalTheme) {
+		// `m_menuBackgroundColor` was captured before mode setup, after the
+		// canonical [ryazhahand] parser loaded the active theme.ini. Retain that
+		// exact background instead of replacing it with each SMD's historical
+		// transparent BackgroundColor=0x0000.
+		tsl::defaultBackgroundColor = m_menuBackgroundColor;
+	} else {
+		auto customBackground = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
+		const uint16_t modeBackground = static_cast<uint16_t>(
+			customBackground == 0xFFFFFF ? doc.GetConfigInt("BackgroundColor", 0xD000) : customBackground
+		);
+		tsl::defaultBackgroundColor = tsl::Color(modeBackground);
+	}
+	// Every monitor mode must retain a visible backdrop, independent of the
+	// active theme's transparency preference.
 	tsl::defaultBackgroundColor.a = 0xF;
 	ClampToLayerRight  = doc.GetConfigBool("ClampToLayerRight",  false);
 	ClampToLayerBottom = doc.GetConfigBool("ClampToLayerBottom", false);
@@ -830,29 +839,23 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 			}
 		}
 	}
-	if (!changingPos) {
-		// Never wait inside handleInput: it stalls canonical navigation, footer
-		// processing and the exit hold timer. Mode refresh rate is handled by the
-		// data threads; input must be processed on every framework callback.
-		if (keysDown & KEY_B) {
-			triggerExitFeedback();
-			tsl::goBack();
-			if (m_double_back == true) tsl::goBack();
-			return true;
-		}
+        if (!changingPos) {
+            // Never wait inside handleInput: it stalls canonical navigation, footer
+            // processing and the exit hold timer. Mode refresh rate is handled by the
+            // data threads; input must be processed on every framework callback.
 
-		if (isExitComboHeld(
-			keysHeld, mappedButtons,
-			UseCustomExitCombo ? static_cast<uint64_t>(keyComboTimeDelay) : 100'000'000
-		)) [[unlikely]] {
-			triggerExitFeedback();
-			tsl::goBack();
-			if (m_double_back == true) tsl::goBack();
-			return true;
-		}
+            if (isExitComboHeld(
+                keysHeld, mappedButtons,
+                UseCustomExitCombo ? static_cast<uint64_t>(keyComboTimeDelay) : 100'000'000
+            )) [[unlikely]] {
+                triggerExitFeedback();
+                tsl::goBack();
+                if (m_double_back == true) tsl::goBack();
+                return true;
+            }
 
-		m_last_time = armTicksToNs(svcGetSystemTick());
-	}
+            m_last_time = armTicksToNs(svcGetSystemTick());
+        }
 	SystemData.KeysHeld_int = keysHeld;
 	SystemData.KeysDown_int = keysDown;
 	return false;
