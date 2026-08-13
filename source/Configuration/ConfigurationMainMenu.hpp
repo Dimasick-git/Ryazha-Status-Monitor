@@ -125,7 +125,7 @@ public:
 		if (m_configs.find("save_and_load_movable_overlay_position") == m_configs.end()) m_configs["save_and_load_movable_overlay_position"] = "true";
 			if (m_configs.find("override_language") == m_configs.end()) m_configs["override_language"] = "true";
 			if (m_configs.find("override_language_ietf_code") == m_configs.end()) m_configs["override_language_ietf_code"] = "RU-RU";
-		if (m_configs.find("key_combo_time_delay_ms") == m_configs.end()) m_configs["key_combo_time_delay_ms"] = "200";
+		if (m_configs.find("key_combo_time_delay_ms") == m_configs.end()) m_configs["key_combo_time_delay_ms"] = "100";
 	}
 
 	~ConfigurationMainMenu() {
@@ -159,7 +159,7 @@ public:
 			auto Item = new tsl::elm::ListItem(locale["key_combo_time_delay"], m_configs["key_combo_time_delay_ms"]);
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
-					tsl::changeTo<EditConfigInt>("key_combo_time_delay_ms", m_configs["key_combo_time_delay_ms"], "20", "1000", "200", Item, locale["key_combo_time_delay"], "int", &keyComboTimeDelay, &m_configs, 10);
+					tsl::changeTo<EditConfigInt>("key_combo_time_delay_ms", m_configs["key_combo_time_delay_ms"], "20", "1000", "100", Item, locale["key_combo_time_delay"], "int", &keyComboTimeDelay, &m_configs, 10);
 					return true;
 				}
 				return false;

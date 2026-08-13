@@ -299,8 +299,9 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 	}
 	HeaderText = doc.GetConfigBool("HeaderText", true);
 	FooterText = doc.GetConfigBool("FooterText", true);
-	bool focus = doc.GetConfigBool("EnableControls", true);
-	tsl::hlp::requestForeground(focus);
+	// A status mode may suppress menu widgets, but it must never surrender
+	// controller input: otherwise no custom exit combo can be observed.
+	tsl::hlp::requestForeground(true);
 	UseCustomExitCombo = doc.GetConfigBool("UseCustomExitCombo", false);
 	if (FooterText == false) {
 		deactivateOriginalFooter = true;
@@ -309,6 +310,7 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 	if (UseCustomExitCombo == true) {
 		deactivateOriginalFooter = true;
 		mappedButtons = MapButtons(keyCombo);
+		if (mappedButtons == 0) mappedButtons = KEY_B;
 		if (doc.FormatConfigString("ComboButtonFooter", ComboButtonFooter) == false) {
 			ComboButtonFooter = "Hold ";
 			ComboButtonFooter += keyCombo + " to Exit+";
@@ -349,7 +351,7 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 		}
 	}
 	auto test = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
-	if (test == 0xFFFFFF) backgroundColor = (uint16_t)doc.GetConfigInt("BackgroundColor", 0xD000);
+	if (test == 0xFFFFFF) backgroundColor = (uint16_t)doc.GetConfigInt("BackgroundColor", 0x000D);
 	else backgroundColor = (uint16_t)test;
 	ClampToLayerRight  = doc.GetConfigBool("ClampToLayerRight",  false);
 	ClampToLayerBottom = doc.GetConfigBool("ClampToLayerBottom", false);
@@ -551,14 +553,31 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 		m_last_layer_h = tsl::cfg::LayerHeight;
 	}
 
-	if (error.length() != 0) {
-		if (isKeyComboPressed(keysHeld, keysDown, mappedButtons, 20'000'000)) [[unlikely]] {
-			tsl::goBack();
-			if (m_double_back == true) tsl::goBack();
-			return true;
+	// Native Tesla invokes handleInput every frame. Keep exit detection here,
+	// without a secondary PadState polling loop, so handheld, Joy-Con and Pro
+	// controller input all use the same frame input path.
+	const auto shouldExit = [&]() {
+		const bool comboHeld = mappedButtons != 0 && (keysHeld & mappedButtons) == mappedButtons;
+		if (!comboHeld) {
+			m_exitComboStartNs = 0;
+			return false;
 		}
-		return false;
+		const uint64_t now = armTicksToNs(svcGetSystemTick());
+		if (m_exitComboStartNs == 0) {
+			m_exitComboStartNs = now;
+			return false;
+		}
+		const uint64_t delay = UseCustomExitCombo ? static_cast<uint64_t>(keyComboTimeDelay) : 100'000'000ULL;
+		return now - m_exitComboStartNs >= delay;
+	};
+
+	if (shouldExit()) [[unlikely]] {
+		tsl::goBack();
+		if (m_double_back) tsl::goBack();
+		return true;
 	}
+
+	if (error.length() != 0) return false;
 
 	int64_t mnx = 0, mny = 0;
 	bool haveBounds = !s_rects.empty();
@@ -750,46 +769,6 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 				}
 			}
 		}
-	}
-	if (!changingPos) {
-		uint64_t new_time = armTicksToNs(svcGetSystemTick());
-		do {
-			if (Movable == true) {
-				if (m_touchScreen == true) {
-					HidTouchScreenState state = {0};
-					if (hidGetTouchScreenStates(&state, 1) && state.count && IsInsideTouchRange(state.touches[0].x, state.touches[0].y, 24)) {
-						break;
-					}
-				}
-				if (m_motionControl == true) {
-					u64 style_set = padGetStyleSet(&pad);
-					if (style_set & HidNpadStyleTag_NpadJoyDual) {
-						if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) break;
-						else if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) break;
-					}
-					else if (style_set & HidNpadStyleTag_NpadJoyLeft) {
-						if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) break;
-					}
-					else if (style_set & HidNpadStyleTag_NpadJoyRight) {
-						if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) break;
-					}
-					else if (style_set & HidNpadStyleTag_NpadFullKey) {
-						if ((keysHeld & proControllerMotionMappedButtons) == proControllerMotionMappedButtons) break;
-					}
-				}
-			}
-			if (isKeyComboPressed(keysHeld, keysDown, mappedButtons, UseCustomExitCombo ? keyComboTimeDelay : 20'000'000)) [[unlikely]] {
-				tsl::goBack();
-				if (m_double_back == true) tsl::goBack();
-				return true;
-			}
-			padUpdate(&pad);
-			keysHeld = padGetButtons(&pad);
-			keysDown = padGetButtonsDown(&pad);
-			svcSleepThread(1000000);
-			new_time = armTicksToNs(svcGetSystemTick());
-		} while (new_time - m_last_time < timeout);
-		m_last_time = new_time;
 	}
 	SystemData.KeysHeld_int = keysHeld;
 	SystemData.KeysDown_int = keysDown;

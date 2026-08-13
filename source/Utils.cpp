@@ -53,7 +53,7 @@ LocalTimeType LocalTime;
 std::unordered_map<std::string, std::string> locale;
 bool teslaCombo = false;
 bool ultrahandCombo = false;
-int64_t keyComboTimeDelay = 200'000'000;
+int64_t keyComboTimeDelay = 100'000'000;
 
 std::array<unsigned char, sizeof(impl_defaultLocale)> defaultLocale = std::to_array(impl_defaultLocale);
 
@@ -910,7 +910,7 @@ void createDefaultFile(std::string filepath) {
 	mkdir("sdmc:/config/", 69);
 	mkdir("sdmc:/config/status-monitor/", 420);
 	setIniFile(filepath, "status-monitor", "key_combo", "L+R+DUP", "");
-	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "200", "");
+	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "100", "");
 	setIniFile(filepath, "status-monitor", "battery_avg_iir_filter", "false", "");
 	setIniFile(filepath, "status-monitor", "battery_time_left_refreshrate", "10", "");
 	setIniFile(filepath, "status-monitor", "touch_screen", "true", "");

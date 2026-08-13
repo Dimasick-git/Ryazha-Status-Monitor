@@ -3,6 +3,7 @@ NAME_LOCALE{"PL-PL", "Ładowarka/Bateria"}
 NAME_LOCALE{"DE-DE", "Akku/Ladegerät"}
 NAME_LOCALE{"RU-RU", "Батарея/Зарядка"}
 VERSION = 1
+BackgroundColor = COLOR{0x000D}
 
 Text01Format = IETF{"Battery Actual Capacity: %.0f mAh\n"}
 Text02Format = IETF{"Battery Designed Capacity: %.0f mAh\n"}

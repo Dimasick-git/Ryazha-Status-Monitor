@@ -3,6 +3,7 @@ NAME_LOCALE{"PL-PL", "Różności"}
 NAME_LOCALE{"DE-DE", "Verschiedenes"}
 NAME_LOCALE{"RU-RU", "Разное"}
 VERSION = 1
+BackgroundColor = COLOR{0x000D}
 
 MultimediaText   = IETF{"Multimedia clock rates:"}
 NetworkText      = IETF{"Network:"}

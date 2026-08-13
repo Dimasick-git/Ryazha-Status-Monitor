@@ -57,7 +57,9 @@ ARCH		:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -flto=auto
 CFLAGS	:=	-g -Wall -Werror -Os -ffunction-sections -fdata-sections -ffast-math -fno-asynchronous-unwind-tables -fno-unwind-tables \
 			$(ARCH) $(DEFINES)
 
-CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DIS_STATUS_MONITOR_DIRECTIVE=1 -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\""
+# Use libryazhahand's standard runtime UI catalog. Its native parser loads
+# /config/ryazhahand/theme.ini after startup and applies all Switch 2 colors.
+CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DIS_STATUS_MONITOR_DIRECTIVE=1 -DUI_OVERRIDE_PATH="\"/config/ryazhahand/\"" -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\""
 
 CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++26
 
