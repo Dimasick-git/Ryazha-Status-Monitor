@@ -169,7 +169,7 @@ IETF_LOCALE{NoDataText, "PL-PL", "b/d"}
 IETF_LOCALE{NoDataText, "RU-RU", "н/д"}
 
 COMMON_MARGIN = 0
-BackgroundColor = COLOR{0x0000}
+BackgroundColor = COLOR{0x000D}
 HeaderText = false
 FooterText = false
 Movable = true

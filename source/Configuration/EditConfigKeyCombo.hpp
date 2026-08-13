@@ -51,45 +51,28 @@ public:
 
 	virtual tsl::elm::Element* createUI() override {
 		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, m_localName);
-			auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
-				constexpr s16 valueFontSize = 40;
-				constexpr s16 footerFontSize = 30;
-				const s16 valueBaseline = (360 + valueFontSize) - (valueFontSize / 2);
-				auto [valueWidth, valueHeight] = renderer->drawString(m_valueToShow.c_str(), false, 0, valueFontSize, valueFontSize, renderer->a(0x0000), true);
-				const s16 valueX = static_cast<s16>((tsl::cfg::FramebufferWidth - valueWidth) / 2);
-
-				if (ult::useSwitch2Style) {
-					const s16 panelX = std::max<s16>(20, valueX - 18);
-					const s16 panelWidth = std::min<s16>(tsl::cfg::FramebufferWidth - 40, static_cast<s16>(valueWidth + 36));
-					renderer->drawSwitch2Panel(panelX, valueBaseline - valueFontSize - 14, panelWidth, valueFontSize + 28, tsl::gfx::Color(ult::switch2::FooterBorder), tsl::gfx::Color(ult::switch2::FooterFill));
+		auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
+			if (changingCombo == false) {
+				const size_t fontsize2 = 40;
+				const size_t m_height = (360+fontsize2) - (fontsize2 / 2);
+				auto [width, height] = renderer->drawString(m_valueToShow.c_str(), false, 0, fontsize2, fontsize2, renderer->a(0x0000), true);
+				renderer->drawString(m_valueToShow.c_str(), false, (tsl::cfg::FramebufferWidth - width) / 2, m_height, fontsize2, renderer->a(0xFFFF), true);
+				if (m_mainCombo == true && (m_footerValue.length() > 0)) {
+					const size_t fontsize1 = 30;
+					auto [width2, height2] = renderer->drawString(m_footerValue.c_str(), false, 0, fontsize1, fontsize1, renderer->a(0x0000), true);
+					if (m_footerValue.length() > 0) renderer->drawString(m_footerValue.c_str(), false, (tsl::cfg::FramebufferWidth - width2) / 2, m_height+fontsize2, fontsize1, renderer->a(0xFFFF), true);
 				}
-				renderer->drawString(m_valueToShow.c_str(), false, valueX, valueBaseline, valueFontSize, renderer->a(0xFFFF), true);
-
-				if (!changingCombo) {
-					if (m_mainCombo && !m_footerValue.empty()) {
-						auto [footerWidth, footerHeight] = renderer->drawString(m_footerValue.c_str(), false, 0, footerFontSize, footerFontSize, renderer->a(0x0000), true);
-						renderer->drawString(m_footerValue.c_str(), false, (tsl::cfg::FramebufferWidth - footerWidth) / 2, valueBaseline + valueFontSize, footerFontSize, renderer->a(0xFFFF), true);
-					}
-					return;
-				}
-
-				const s16 progressX = 20;
-				const s16 progressY = valueBaseline + valueFontSize;
-				const s16 progressWidth = 408;
-				const s16 progressHeight = 40;
-				const float progress = std::min(1.0f, static_cast<float>(timer) / static_cast<float>(maxTimer));
-				if (ult::useSwitch2Style) {
-					renderer->drawSwitch2Panel(progressX, progressY, progressWidth, progressHeight, tsl::gfx::Color(ult::switch2::FooterBorder), tsl::gfx::Color(ult::switch2::FooterFill), 3);
-					const s16 fillWidth = static_cast<s16>((progressWidth - 6) * progress);
-					if (fillWidth > 0)
-						renderer->drawRoundRect(progressX + 3, progressY + 3, fillWidth, progressHeight - 6, 1.0f, 1.0f, 1.0f, 1.0f, renderer->a(tsl::gfx::Color(ult::switch2::FocusAccent)));
-				} else {
-					renderer->drawEmptyRect(progressX, progressY, progressWidth, progressHeight, 0xFFFF);
-					const s16 fillWidth = static_cast<s16>((progressWidth - 4) * progress);
-					if (fillWidth > 0)
-						renderer->drawRect(progressX + 2, progressY + 2, fillWidth, progressHeight - 3, 0xFFFF);
-				}
-	        });
+			}
+			else {
+				const size_t fontsize2 = 40;
+				const size_t m_height = (360+fontsize2) - (fontsize2 / 2);
+				auto [width, height] = renderer->drawString(m_valueToShow.c_str(), false, 0, fontsize2, fontsize2, renderer->a(0x0000), true);
+				renderer->drawString(m_valueToShow.c_str(), false, (tsl::cfg::FramebufferWidth - width) / 2, m_height, fontsize2, renderer->a(0xFFFF), true);
+				renderer->drawEmptyRect(20, m_height+fontsize2, 408, 40, 0xFFFF);
+				size_t recWidth = (size_t)((float)timer / (float)maxTimer * 404);
+				renderer->drawRect(22, m_height+fontsize2+2, recWidth, 37, 0xFFFF);
+			}
+        });
 		rootFrame->setContent(Status);
 		return rootFrame;
 	}

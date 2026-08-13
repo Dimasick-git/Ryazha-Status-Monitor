@@ -59,18 +59,12 @@ public:
 
 	virtual tsl::elm::Element* createUI() override {
 		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, m_localName);
-			auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
-				const size_t fontsize2 = 60;
-				const size_t m_height = (360+fontsize2) - (fontsize2 / 2);
-				std::string current = std::to_string(current_value);
-				auto [width2, height2] = renderer->drawString(current.c_str(), false, 0, fontsize2, fontsize2, renderer->a(0x0000));
-				const s16 currentX = static_cast<s16>((tsl::cfg::FramebufferWidth - width2) / 2);
-				if (ult::useSwitch2Style) {
-					const s16 panelX = std::max<s16>(20, currentX - 22);
-					const s16 panelWidth = std::min<s16>(tsl::cfg::FramebufferWidth - 40, static_cast<s16>(width2 + 44));
-					renderer->drawSwitch2Panel(panelX, m_height - fontsize2 - 16, panelWidth, fontsize2 + 32, tsl::gfx::Color(ult::switch2::FooterBorder), tsl::gfx::Color(ult::switch2::FooterFill));
-				}
-				renderer->drawString(current.c_str(), false, currentX, m_height, fontsize2, renderer->a(0xFFFF));
+		auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
+			const size_t fontsize2 = 60;
+			const size_t m_height = (360+fontsize2) - (fontsize2 / 2);
+			std::string current = std::to_string(current_value);
+			auto [width2, height2] = renderer->drawString(current.c_str(), false, 0, fontsize2, fontsize2, renderer->a(0x0000));
+			renderer->drawString(current.c_str(), false, (tsl::cfg::FramebufferWidth - width2) / 2, m_height, fontsize2, renderer->a(0xFFFF));
 
 			const size_t fontsize = 30;
 			if (buttonsSize.first == 0) {
@@ -89,11 +83,6 @@ public:
 				if (m_offset_r < 0) m_offset_r = 0;
 				resetSize = renderer->drawString(reset_str.c_str(), false, 0, fontsize, fontsize, renderer->a(0x0000));
 			}
-			if (ult::useSwitch2Style) {
-				const s16 buttonsX = static_cast<s16>((tsl::cfg::FramebufferWidth - buttonsSize.first) / 2 - 14);
-				const s16 buttonsWidth = static_cast<s16>(buttonsSize.first + 28);
-				renderer->drawSwitch2Panel(buttonsX, m_height + 60 - fontsize - 12, buttonsWidth, fontsize + 24, tsl::gfx::Color(ult::switch2::FooterBorder), tsl::gfx::Color(ult::switch2::FooterFill));
-			}
 			renderer->drawString(buttons.c_str(), false, (tsl::cfg::FramebufferWidth - buttonsSize.first) / 2, m_height+60, fontsize, renderer->a(0xFFFF));
 
 			renderer->drawString("\uE023", false, (tsl::cfg::FramebufferWidth - separatorSize.first) / 2 - 2, m_height+60, fontsize, renderer->a(0xFFFF));
@@ -105,11 +94,6 @@ public:
 			renderer->drawString(max_str.c_str(), false, right_offset + 20, m_height+60, fontsize, renderer->a(0xFFFF));
 			renderer->drawString("\uE0A5", false, right_offset + 20 + m_offset_r, m_height+60+fontsize, fontsize, renderer->a(0xFFFF));
 
-			if (ult::useSwitch2Style) {
-				const s16 resetX = static_cast<s16>((tsl::cfg::FramebufferWidth - resetSize.first) / 2 - 14);
-				const s16 resetWidth = static_cast<s16>(resetSize.first + 28);
-				renderer->drawSwitch2Panel(resetX, m_height + 120 - fontsize - 12, resetWidth, fontsize + 24, tsl::gfx::Color(ult::switch2::FooterBorder), tsl::gfx::Color(ult::switch2::FooterFill));
-			}
 			renderer->drawString(reset_str.c_str(), false, (tsl::cfg::FramebufferWidth - resetSize.first) / 2, m_height+120, fontsize, renderer->a(0xFFFF));
 			if (isFont) {
 				auto [width8, height8] = renderer->drawString("67", false, 0, current_value, current_value, renderer->a(0x0000));

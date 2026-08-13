@@ -8,6 +8,7 @@
 #include <numeric>
 #include <sys/stat.h>
 #include "smd_parser.hpp"
+#include "status_monitor_ini_compat.hpp"
 #include <array>
 
 #define NVGPU_GPU_IOCTL_PMU_GET_GPU_LOAD 0x80044715

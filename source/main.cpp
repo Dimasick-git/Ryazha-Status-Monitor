@@ -1,5 +1,6 @@
 #define TESLA_INIT_IMPL
 #include <tesla.hpp>
+#include "status_monitor_tesla_compat.hpp"
 #include "Utils.hpp"
 #include <malloc.h>
 #include <set>
@@ -272,7 +273,7 @@ public:
 							return true;							
 						}
 						#endif
-						else if (isMainMenu && (keys & KEY_DLEFT)) {
+						else if (isMainMenu && (keys & KEY_PLUS)) {
 							tsl::changeTo<ConfigurationMainMenu>();
 							return true;
 						}

@@ -41,10 +41,11 @@ APP_TITLE	:=	Ryazha-Status-Monitor
 APP_VERSION	:=	1.5.0
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
-SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/libtesla/source lib/slre
-# Use the lightweight Switch 2 style API from libryazhahand without replacing the
-# target's API-compatible libtesla implementation.
-INCLUDES	:=	include lib/libtesla/include lib/libryazhahand/libryazha/include lib/tinyexpr include/Extensions lib/slre
+# Use the same complete RyazhaTune renderer and support modules for Switch 2 Style.
+SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/slre \
+			lib/libryazhahand/common lib/libryazhahand/libryazha/source lib/libtesla/source
+INCLUDES	:=	include lib/libryazhahand/common lib/libryazhahand/libryazha/include \
+			lib/libtesla/include lib/tinyexpr include/Extensions lib/slre
 NO_ICON		:=	1
 #ROMFS		:=	romfs
 
@@ -56,9 +57,9 @@ ARCH		:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -flto=auto
 CFLAGS	:=	-g -Wall -Werror -Os -ffunction-sections -fdata-sections -ffast-math -fno-asynchronous-unwind-tables -fno-unwind-tables \
 			$(ARCH) $(DEFINES)
 
-CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\""
+CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DIS_STATUS_MONITOR_DIRECTIVE=1 -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\""
 
-CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++23
+CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++26
 
 ifdef DEBUG
     CXXFLAGS += -DDEBUG
@@ -81,7 +82,8 @@ LDFLAGS     += -Wl,--wrap,__cxa_pure_virtual \
 			-Wl,--wrap,_ZSt20__throw_length_errorPKc \
 			-Wl,--wrap,_ZNSt11logic_errorC2EPKc
 
-LIBS		:=	-lnx
+# Keep the full RyazhaTune renderer dependency order: libpng precedes zlib.
+LIBS		:=	-lcurl -lpng -lz -lmbedtls -lmbedx509 -lmbedcrypto -lnx
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -100,15 +102,18 @@ ifneq ($(BUILD),$(notdir $(CURDIR)))
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
 export TOPDIR	:=	$(CURDIR)
 
-export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-			$(CURDIR)/lib/libryazhahand/libryazha/source \
-			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+# Give full libryazhahand implementations priority over retired legacy helpers.
+export VPATH	:=	$(CURDIR)/lib/libryazhahand/libryazha/source \
+				$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
+				$(foreach dir,$(DATA),$(CURDIR)/$(dir))
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
 CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp))) \
-			switch2_style.cpp
+# The target keeps libtesla/source only for the exact RyazhaTune tesla.cpp.
+# Legacy INI/audio helpers are superseded by libryazhahand and must not collide
+# with its identically named translation units.
+CPPFILES	:=	$(foreach dir,$(filter-out lib/libtesla/source,$(SOURCES)),$(notdir $(wildcard $(dir)/*.cpp))) tesla.cpp
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 
