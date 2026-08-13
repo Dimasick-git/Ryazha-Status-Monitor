@@ -195,10 +195,10 @@ endif
 # Every native build validates every bundled SMD document first. This runs the
 # same strict parser/evaluation suite used in CI and prevents packaging a broken
 # mode even when `make` is invoked outside GitHub Actions.
+all: validate-smd $(BUILD)
+
 validate-smd:
 	@./scripts/test.sh
-
-all: validate-smd $(BUILD)
 
 
 $(BUILD):
