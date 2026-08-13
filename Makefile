@@ -41,15 +41,8 @@ APP_TITLE	:=	Ryazha-Status-Monitor
 APP_VERSION	:=	1.4.7
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
-SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/slre
-INCLUDES	:=	include lib/tinyexpr include/Extensions lib/slre
-
-RYAZHAHAND_DIR ?= $(TOPDIR)/lib/libryazhahand
-RYAZHAHAND_MK  := $(RYAZHAHAND_DIR)/ryazhahand.mk
-ifeq ($(wildcard $(RYAZHAHAND_MK)),)
-$(error Missing $(RYAZHAHAND_MK). Initialise libryazhahand submodule first.)
-endif
-include $(RYAZHAHAND_MK)
+SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/libtesla/source lib/slre
+INCLUDES	:=	include lib/libtesla/include lib/tinyexpr include/Extensions lib/slre
 NO_ICON		:=	1
 #ROMFS		:=	romfs
 
@@ -61,10 +54,9 @@ ARCH		:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -flto=auto
 CFLAGS	:=	-g -Wall -Werror -Os -ffunction-sections -fdata-sections -ffast-math -fno-asynchronous-unwind-tables -fno-unwind-tables \
 			$(ARCH) $(DEFINES)
 
-CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\"" \
-			-DIS_STATUS_MONITOR_DIRECTIVE=1
+CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\""
 
-CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++26
+CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++23
 
 ifdef DEBUG
     CXXFLAGS += -DDEBUG
@@ -87,7 +79,7 @@ LDFLAGS     += -Wl,--wrap,__cxa_pure_virtual \
 			-Wl,--wrap,_ZSt20__throw_length_errorPKc \
 			-Wl,--wrap,_ZNSt11logic_errorC2EPKc
 
-LIBS		:=	-lcurl -lpng -lz -lmbedtls -lmbedx509 -lmbedcrypto -lnx
+LIBS		:=	-lnx
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
