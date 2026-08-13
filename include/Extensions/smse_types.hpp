@@ -1,6 +1,5 @@
 #pragma once
 #include <switch.h>
-#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <string>
@@ -10,18 +9,6 @@
 #include <variant>
 #include <span>
 #include <optional>
-
-// ---------------------------------------------------------------------------
-// Resource limits for user-provided SMSE extensions. These files are read from
-// the SD card, so every allocation driven by their contents must be bounded.
-// ---------------------------------------------------------------------------
-
-inline constexpr std::size_t SMSE_MAX_FILE_SIZE = 256 * 1024;
-inline constexpr std::size_t SMSE_MAX_BUFFER_SIZE = 64 * 1024;
-inline constexpr std::size_t SMSE_MAX_FILES = 64;
-inline constexpr std::size_t SMSE_MAX_COMMANDS_PER_FILE = 128;
-inline constexpr std::size_t SMSE_MAX_FIELDS_PER_STRUCT = 128;
-inline constexpr std::size_t SMSE_MAX_REGEX_SIZE = 512;
 
 // ---------------------------------------------------------------------------
 // Error context

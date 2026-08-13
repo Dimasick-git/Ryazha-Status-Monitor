@@ -1,5 +1,4 @@
 #pragma once
-#include <switch2_style.hpp>
 #include "EditConfigLanguage.hpp"
 #include "EditConfigKeyCombo.hpp"
 #include "ConfigurationServiceCheck.hpp"
@@ -115,7 +114,6 @@ public:
 
 		if (m_configs.find("battery_avg_iir_filter") == m_configs.end()) m_configs["battery_avg_iir_filter"] = "false";
 		if (m_configs.find("battery_time_left_refreshrate") == m_configs.end()) m_configs["battery_time_left_refreshrate"] = "10";
-		if (m_configs.find("switch_2_style") == m_configs.end()) m_configs["switch_2_style"] = "true";
 		if (m_configs.find("touch_screen") == m_configs.end()) m_configs["touch_screen"] = "true";
 		if (m_configs.find("motion_control") == m_configs.end()) m_configs["motion_control"] = "true";
 		if (m_configs.find("left_joycon_motion_key_combo") == m_configs.end()) m_configs["left_joycon_motion_key_combo"] = "ZL+L+LSTICK";
@@ -123,9 +121,9 @@ public:
 		if (m_configs.find("pro_controller_motion_key_combo") == m_configs.end()) m_configs["pro_controller_motion_key_combo"] = "ZR+R+RSTICK";
 		if (m_configs.find("jump_immediately_to_single_smd") == m_configs.end()) m_configs["jump_immediately_to_single_smd"] = "true";
 		if (m_configs.find("save_and_load_movable_overlay_position") == m_configs.end()) m_configs["save_and_load_movable_overlay_position"] = "true";
-			if (m_configs.find("override_language") == m_configs.end()) m_configs["override_language"] = "true";
-			if (m_configs.find("override_language_ietf_code") == m_configs.end()) m_configs["override_language_ietf_code"] = "RU-RU";
-		if (m_configs.find("key_combo_time_delay_ms") == m_configs.end()) m_configs["key_combo_time_delay_ms"] = "100";
+		if (m_configs.find("override_language") == m_configs.end()) m_configs["override_language"] = "false";
+		if (m_configs.find("override_language_ietf_code") == m_configs.end()) m_configs["override_language_ietf_code"] = "EN-US";
+		if (m_configs.find("key_combo_time_delay_ms") == m_configs.end()) m_configs["key_combo_time_delay_ms"] = "200";
 	}
 
 	~ConfigurationMainMenu() {
@@ -159,7 +157,7 @@ public:
 			auto Item = new tsl::elm::ListItem(locale["key_combo_time_delay"], m_configs["key_combo_time_delay_ms"]);
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
-					tsl::changeTo<EditConfigInt>("key_combo_time_delay_ms", m_configs["key_combo_time_delay_ms"], "20", "1000", "100", Item, locale["key_combo_time_delay"], "int", &keyComboTimeDelay, &m_configs, 10);
+					tsl::changeTo<EditConfigInt>("key_combo_time_delay_ms", m_configs["key_combo_time_delay_ms"], "20", "1000", "200", Item, locale["key_combo_time_delay"], "int", &keyComboTimeDelay, &m_configs, 10);
 					return true;
 				}
 				return false;
@@ -185,19 +183,6 @@ public:
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
 					tsl::changeTo<EditConfigInt>("battery_time_left_refreshrate", m_configs["battery_time_left_refreshrate"], "1", "60", "10", Item, locale["battery_time_left_refreshrate"], "int", &batteryTimeLeftRefreshRate, &m_configs);
-					return true;
-				}
-				return false;
-			});
-			list->addItem(Item);
-		}
-
-		{
-			auto Item = new tsl::elm::ToggleListItem(locale["switch_2_style"], m_configs["switch_2_style"] != "false");
-			Item->setClickListener([this, Item](uint64_t keys) {
-				if (keys & KEY_A) {
-					ult::useSwitch2Style = Item->getState();
-					m_configs["switch_2_style"] = Item->getState() ? "true" : "false";
 					return true;
 				}
 				return false;
@@ -277,19 +262,6 @@ public:
 				}
 				return false;
 			});		
-			list->addItem(Item);
-		}
-
-		{
-			auto Item = new tsl::elm::ToggleListItem(locale["save_and_load_movable_overlay_position"], m_configs["save_and_load_movable_overlay_position"] != "false");
-			Item->setClickListener([this, Item](uint64_t keys) {
-				if (keys & KEY_A) {
-					saveAndLoadMovableOverlayPosition = Item->getState();
-					m_configs["save_and_load_movable_overlay_position"] = Item->getState() ? "true" : "false";
-					return true;
-				}
-				return false;
-			});
 			list->addItem(Item);
 		}
 

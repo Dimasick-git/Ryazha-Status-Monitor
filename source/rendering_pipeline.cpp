@@ -115,8 +115,7 @@ void RenderingPipeline::RecordCallback(smd::RenderCommand& cmd, void* user) {
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
 		case smd::RenderCmdType::RoundedBox:
-			m_renderer->drawRoundedRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height,
-					std::max<s32>(0, static_cast<s32>(cmd.roundnessTl)), m_renderer->a(cmd.color));
+			m_renderer->drawRoundRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height, cmd.roundnessTl, cmd.roundnessTr, cmd.roundnessBl, cmd.roundnessBr, m_renderer->a(cmd.color));
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
 		case smd::RenderCmdType::EmptyBox:
@@ -124,8 +123,7 @@ void RenderingPipeline::RecordCallback(smd::RenderCommand& cmd, void* user) {
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
 		case smd::RenderCmdType::DashedLine: {
-			m_renderer->drawDashedLine(COMMON_MARGIN + cmd.x, cmd.y, cmd.x2, cmd.y2,
-					std::max<s32>(1, static_cast<s32>(cmd.dashOn)), m_renderer->a(cmd.color));
+			m_renderer->drawDashedLine(COMMON_MARGIN + cmd.x, cmd.y, cmd.x2, cmd.y2, cmd.dashOn, cmd.dashOff, m_renderer->a(cmd.color));
 
 			int64_t a = COMMON_MARGIN + orig_x, b = orig_x2;
 			int64_t c = orig_y,                 d = orig_y2;
@@ -218,17 +216,10 @@ size_t RenderingPipeline::getFreeHeapMemory() const {
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
 
-RenderingPipeline::RenderingPipeline(std::string filepath, bool closeOverlayOnExit) {
-	// Poll both supported controllers ourselves. Passive overlays intentionally
-	// relinquish Tesla focus, therefore callback input is not a reliable source.
-	const HidNpadIdType inputIds[2] = {HidNpadIdType_No1, HidNpadIdType_Handheld};
-	hidSetSupportedNpadIdType(inputIds, 2);
-	padConfigureInput(2, HidNpadStyleSet_NpadStandard | HidNpadStyleTag_NpadSystemExt | HidNpadStyleTag_NpadGc);
-	padInitialize(&padPlayerOne, HidNpadIdType_No1);
-	padInitialize(&padHandheld, HidNpadIdType_Handheld);
+RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 	footerBackup = defaultButtonView;
 	defaultButtonView = locale["Footer"];
-	m_closeOverlayOnExit = closeOverlayOnExit;
+	m_double_back = double_back;
 	leftJoyconMotionMappedButtons   = MapButtons(leftJoyconMotionKeyCombo);
 	rightJoyconMotionMappedButtons  = MapButtons(rightJoyconMotionKeyCombo);
 	proControllerMotionMappedButtons = MapButtons(proControllerMotionKeyCombo);
@@ -236,7 +227,7 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool closeOverlayOnEx
 	m_layer_pos_y_window  = 0;
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
-	tsl::gfx::Renderer::get().setLayerPos(0, 0);
+	tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
 	if (SaltySD) {
 		uintptr_t base = (uintptr_t)shmemGetAddr(&_sharedmemory);
 		if (base) displayRefreshRate = (uint8_t*)(base + 1);
@@ -270,10 +261,6 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool closeOverlayOnEx
 	}
 	Movable = doc.GetConfigBool("Movable", false);
 	rel_filepath = filepath.substr(strlen("sdmc:/config/status-monitor/modes/"));
-	// libryazhahand gates passive input and combo behaviour on lastMode. The
-	// old pipeline never assigned it, leaving every SMD indistinguishable from
-	// a normal menu. Set it for both in-menu and --file launches.
-	lastMode = std::string(StatusMonitorModeId(rel_filepath));
 	if (Movable && saveAndLoadMovableOverlayPosition) {
 		smd_hash = doc.GetFileHash();
 		uint16_t saved_x_pos;
@@ -309,9 +296,7 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool closeOverlayOnEx
 	}
 	HeaderText = doc.GetConfigBool("HeaderText", true);
 	FooterText = doc.GetConfigBool("FooterText", true);
-	// Match Status-monitor-deux: compact passive overlays may not claim focus,
-	// while the independent PadState polling below still guarantees exit input.
-	const bool focus = doc.GetConfigBool("EnableControls", true);
+	bool focus = doc.GetConfigBool("EnableControls", true);
 	tsl::hlp::requestForeground(focus);
 	UseCustomExitCombo = doc.GetConfigBool("UseCustomExitCombo", false);
 	if (FooterText == false) {
@@ -321,7 +306,6 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool closeOverlayOnEx
 	if (UseCustomExitCombo == true) {
 		deactivateOriginalFooter = true;
 		mappedButtons = MapButtons(keyCombo);
-		if (mappedButtons == 0) mappedButtons = KEY_B;
 		if (doc.FormatConfigString("ComboButtonFooter", ComboButtonFooter) == false) {
 			ComboButtonFooter = "Hold ";
 			ComboButtonFooter += keyCombo + " to Exit+";
@@ -362,16 +346,8 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool closeOverlayOnEx
 		}
 	}
 	auto test = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
-	if (test == 0xFFFFFF) backgroundColor = (uint16_t)doc.GetConfigInt("BackgroundColor", 0x000D);
+	if (test == 0xFFFFFF) backgroundColor = (uint16_t)doc.GetConfigInt("BackgroundColor", 0xD000);
 	else backgroundColor = (uint16_t)test;
-
-	// Status-monitor-deux sets the framework's background before the frame is
-	// drawn. Do the equivalent in libryazhahand instead of filling from inside
-	// CustomDrawer: this preserves the exact SMD-sized layer and prevents stale
-	// or stretched fills when a mode is opened or closed.
-	m_menuBackgroundBeforeMode = tsl::defaultBackgroundColor;
-	tsl::defaultBackgroundColor = tsl::Color(backgroundColor);
-	m_modeBackgroundApplied = true;
 	ClampToLayerRight  = doc.GetConfigBool("ClampToLayerRight",  false);
 	ClampToLayerBottom = doc.GetConfigBool("ClampToLayerBottom", false);
 	if (Movable && motionControl) {
@@ -429,29 +405,28 @@ RenderingPipeline::~RenderingPipeline() {
 		}
 		// Ryazha pinch-to-resize: persist the layer scale (percent).
 		{
-			uint32_t pct = 100;
+			uint32_t pct = (uint32_t)(tsl::gfx::Renderer::getRenderer().getLayerScale() * 100.0f + 0.5f);
+			if (pct < 35) pct = 35;
+			if (pct > 200) pct = 200;
 			char buffer4[10] = {0};
 			auto [ptr4, ec4] = std::to_chars(&buffer4[0], &buffer4[sizeof(buffer4)], pct, 10);
 			if (ec4 == std::errc{})
 				setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "scale", std::string(buffer4), "");
 		}
 	}
-	// The renderer is created at the mode dimensions before Tesla starts.
-	// Do not recreate its framebuffer while this pipeline is being destroyed.
+	// Restore the unscaled layer for the menus.
+	tsl::gfx::Renderer::getRenderer().setLayerScale(1.0f);
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
-	tsl::gfx::Renderer::get().setLayerPos(0, 0);
+	tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
 	if (Movable & motionControl) {
 		hidStopSixAxisSensor(sixaxisHandles[Controller_ProController]);
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConL]);
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConR]);
 	}
 	backgroundColor = menuBackgroundColor;
-	if (m_modeBackgroundApplied)
-		tsl::defaultBackgroundColor = m_menuBackgroundBeforeMode;
 	deactivateOriginalFooter = false;
 	FullMode = true;
-	lastMode.clear();
 	tsl::hlp::requestForeground(true);
 	for (size_t i = 0; i < threads_count; i++) {
 		threadWaitForExit(&threads[i]);
@@ -510,7 +485,7 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 						m_obj_offset_y_screen = std::clamp(raw_obj_y, obj_min_y, obj_max_y >= obj_min_y ? obj_max_y : obj_min_y);
 						reachedMaxX = (m_obj_offset_x_screen + mxx >= layer_w);
 						reachedMaxY = (m_obj_offset_y_screen + mxy >= layer_h);
-						tsl::gfx::Renderer::get().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
+						tsl::gfx::Renderer::getRenderer().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
 						touch_pos_x = -1;
 						touch_pos_y = -1;
 						m_saved_base_x = -1;
@@ -526,7 +501,7 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 				error = doc.LastError();
 			}
 		}
-		if (deactivateOriginalFooter == true && FullMode == true) renderer->drawString(ComboButtonFooter.c_str(), false, 30, 693, 23, a(tsl::defaultTextColor));
+		if (deactivateOriginalFooter == true && FullMode == true) renderer->drawString(ComboButtonFooter.c_str(), false, 30, 693, 23, a(rootFrame->defaultTextColor));
 	});
 
 	rootFrame->setContent(Status);
@@ -566,50 +541,21 @@ void RenderingPipeline::update() {
 // ─── handleInput ─────────────────────────────────────────────────────────────
 
 bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) {
-	// ppkantorski's passive modes poll HID directly. Do this before every exit
-	// decision and merge both P1 and handheld state with Tesla's callback state.
-	padUpdate(&padPlayerOne);
-	padUpdate(&padHandheld);
-	keysHeld |= padGetButtons(&padPlayerOne) | padGetButtons(&padHandheld);
-	keysDown |= padGetButtonsDown(&padPlayerOne) | padGetButtonsDown(&padHandheld);
+	if (tsl::cfg::LayerWidth != m_last_layer_w || tsl::cfg::LayerHeight != m_last_layer_h) {
+		m_layer_pos_x_window = tsl::cfg::LayerPosX;
+		m_layer_pos_y_window = tsl::cfg::LayerPosY;
+		m_last_layer_w = tsl::cfg::LayerWidth;
+		m_last_layer_h = tsl::cfg::LayerHeight;
+	}
 
-	// A direct --file launch has no previous GUI to pop. ppkantorski closes its
-	// entry overlay in that case; menu-started modes still go back to the menu.
-	auto exitMode = [this]() {
-		if (m_closeOverlayOnExit) {
-			tsl::Overlay::get()->close();
-		} else {
+	if (error.length() != 0) {
+		if (isKeyComboPressed(keysHeld, keysDown, mappedButtons, 20'000'000)) [[unlikely]] {
 			tsl::goBack();
+			if (m_double_back == true) tsl::goBack();
+			return true;
 		}
-	};
-
-	// B is always a reliable escape hatch, including SMDs that hide controls.
-	if (keysDown & KEY_B) {
-		exitMode();
-		return true;
+		return false;
 	}
-
-	const auto shouldExit = [&]() {
-		const bool comboHeld = mappedButtons != 0 && (keysHeld & mappedButtons) == mappedButtons;
-		if (!comboHeld) {
-			m_exitComboStartNs = 0;
-			return false;
-		}
-		const uint64_t now = armTicksToNs(svcGetSystemTick());
-		if (m_exitComboStartNs == 0) {
-			m_exitComboStartNs = now;
-			return false;
-		}
-		const uint64_t delay = UseCustomExitCombo ? static_cast<uint64_t>(keyComboTimeDelay) : 100'000'000ULL;
-		return now - m_exitComboStartNs >= delay;
-	};
-
-	if (shouldExit()) [[unlikely]] {
-		exitMode();
-		return true;
-	}
-
-	if (error.length() != 0) return false;
 
 	int64_t mnx = 0, mny = 0;
 	bool haveBounds = !s_rects.empty();
@@ -665,7 +611,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 
 		reachedMaxX = (m_obj_offset_x_screen + mxx >= layer_w);
 		reachedMaxY = (m_obj_offset_y_screen + mxy >= layer_h);
-		tsl::gfx::Renderer::get().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
+		tsl::gfx::Renderer::getRenderer().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
 	};
 
 	bool m_touchScreen = touchScreen;
@@ -700,7 +646,8 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 		// Ryazha pinch-to-resize: apply the saved scale once the layer is live.
 		if (!m_savedScaleApplied) {
 			m_savedScaleApplied = true;
-
+			if (m_saved_scale_pct != 100)
+				tsl::gfx::Renderer::getRenderer().setLayerScale(m_saved_scale_pct / 100.0f);
 		}
 		if (m_touchScreen && sixaxisChangingPos == false) [[unlikely]] {
 			// Two fingers: pinch resizes the overlay instead of dragging it.
@@ -715,15 +662,15 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 					     IsInsideTouchRange(pinchState.touches[1].x, pinchState.touches[1].y, 56))) {
 						m_pinching = true;
 						m_pinchStartDist = dist;
-						m_pinchStartScale = 1.0f;
+						m_pinchStartScale = tsl::gfx::Renderer::getRenderer().getLayerScale();
 						// Cancel any in-progress drag.
 						changingPos = false;
 						touch_pos_x = -1;
 						touch_pos_y = -1;
 					}
 				}
-					// The reference RyazhaTune renderer owns native layer dimensions;
-					// pinch still suppresses accidental dragging but does not rescale it.
+				if (m_pinching && dist > 1.0f && m_pinchStartDist > 1.0f)
+					tsl::gfx::Renderer::getRenderer().setLayerScale(m_pinchStartScale * (dist / m_pinchStartDist));
 			}
 			else if (m_pinching) {
 				// Keep blocking single-finger drag until every finger lifts,
@@ -755,8 +702,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 		if (m_motionControl == true && (changingPos == false || sixaxisChangingPos == true)) [[unlikely]] {
 			HidSixAxisSensorState sixaxis = {0};
 			s32 id = -1;
-							u64 style_set = padGetStyleSet(&padPlayerOne);
-
+			u64 style_set = padGetStyleSet(&pad);
 			if (style_set & HidNpadStyleTag_NpadJoyDual) {
 				if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) id = Controller_JoyConL;
 				else if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) id = Controller_JoyConR;
@@ -802,6 +748,46 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 				}
 			}
 		}
+	}
+	if (!changingPos) {
+		uint64_t new_time = armTicksToNs(svcGetSystemTick());
+		do {
+			if (Movable == true) {
+				if (m_touchScreen == true) {
+					HidTouchScreenState state = {0};
+					if (hidGetTouchScreenStates(&state, 1) && state.count && IsInsideTouchRange(state.touches[0].x, state.touches[0].y, 24)) {
+						break;
+					}
+				}
+				if (m_motionControl == true) {
+					u64 style_set = padGetStyleSet(&pad);
+					if (style_set & HidNpadStyleTag_NpadJoyDual) {
+						if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) break;
+						else if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) break;
+					}
+					else if (style_set & HidNpadStyleTag_NpadJoyLeft) {
+						if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) break;
+					}
+					else if (style_set & HidNpadStyleTag_NpadJoyRight) {
+						if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) break;
+					}
+					else if (style_set & HidNpadStyleTag_NpadFullKey) {
+						if ((keysHeld & proControllerMotionMappedButtons) == proControllerMotionMappedButtons) break;
+					}
+				}
+			}
+			if (isKeyComboPressed(keysHeld, keysDown, mappedButtons, UseCustomExitCombo ? keyComboTimeDelay : 20'000'000)) [[unlikely]] {
+				tsl::goBack();
+				if (m_double_back == true) tsl::goBack();
+				return true;
+			}
+			padUpdate(&pad);
+			keysHeld = padGetButtons(&pad);
+			keysDown = padGetButtonsDown(&pad);
+			svcSleepThread(1000000);
+			new_time = armTicksToNs(svcGetSystemTick());
+		} while (new_time - m_last_time < timeout);
+		m_last_time = new_time;
 	}
 	SystemData.KeysHeld_int = keysHeld;
 	SystemData.KeysDown_int = keysDown;

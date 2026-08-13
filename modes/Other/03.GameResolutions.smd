@@ -64,7 +64,7 @@ IETF_LOCALE{WarningText, "DE-DE", "Das Spiel läuft nicht oder ist inkompatibel.
 
 IETF_LOCALE{WarningText, "RU-RU", "Игра не запущена или несовместима."}
 
-BackgroundColor = COLOR{0x000D}
+BackgroundColor = COLOR{0x0000}
 HeaderText = false
 FooterText = false
 Movable = true

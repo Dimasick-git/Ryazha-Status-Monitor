@@ -3,7 +3,6 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
-#include <limits>
 #include <cctype>
 #include <charconv>
 
@@ -47,27 +46,16 @@ inline std::vector<std::string_view> split(std::string_view s, char delim) {
 // Parse hex (0x...) or decimal into size_t
 inline std::optional<size_t> parseNum(std::string_view s) noexcept {
     s = trim(s);
-    if (s.empty()) return std::nullopt;
     if (s.starts_with("0x") || s.starts_with("0X")) {
         size_t v = 0;
-        const char* const end = s.data() + s.size();
-        auto [ptr, ec] = std::from_chars(s.data() + 2, end, v, 16);
-        if (ec != std::errc{} || ptr != end) return std::nullopt;
+        auto [ptr, ec] = std::from_chars(s.data() + 2, s.data() + s.size(), v, 16);
+        if (ec != std::errc{}) return std::nullopt;
         return v;
     }
     size_t v = 0;
-    const char* const end = s.data() + s.size();
-    auto [ptr, ec] = std::from_chars(s.data(), end, v, 10);
-    if (ec != std::errc{} || ptr != end) return std::nullopt;
+    auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v, 10);
+    if (ec != std::errc{}) return std::nullopt;
     return v;
-}
-
-inline bool validServiceName(std::string_view name) noexcept {
-    if (name.empty() || name.size() > 8) return false;
-    for (const unsigned char c : name) {
-        if (!std::isalnum(c) && c != ':' && c != '-' && c != '_') return false;
-    }
-    return true;
 }
 
 enum class Section { None, Structs, Cmds, Asserts, Execution };
@@ -91,7 +79,6 @@ using detail::trim;
 using detail::stripQuotes;
 using detail::split;
 using detail::parseNum;
-using detail::validServiceName;
 using detail::blankLine;
 using detail::Section;
 
@@ -111,32 +98,13 @@ static ParseResult parseFile(const std::string& path) {
         return SmseError::make(SmseErrorCode::ParseMalformedLine, path,
                                "Cannot open file");
 
-    if (std::fseek(f, 0, SEEK_END) != 0) {
-        std::fclose(f);
-        return SmseError::make(SmseErrorCode::ParseMalformedLine, path,
-                               "Cannot seek file");
-    }
-    const long fileSize = std::ftell(f);
-    if (fileSize < 0 || static_cast<size_t>(fileSize) > SMSE_MAX_FILE_SIZE) {
-        std::fclose(f);
-        return SmseError::make(SmseErrorCode::ParseMalformedLine, path,
-                               "File is empty, unreadable, or exceeds the 256 KiB limit");
-    }
-    if (std::fseek(f, 0, SEEK_SET) != 0) {
-        std::fclose(f);
-        return SmseError::make(SmseErrorCode::ParseMalformedLine, path,
-                               "Cannot rewind file");
-    }
+    std::fseek(f, 0, SEEK_END);
+    long fileSize = std::ftell(f);
+    std::fseek(f, 0, SEEK_SET);
 
     std::string fileContents(static_cast<size_t>(fileSize), '\0');
-    const size_t bytesRead = fileContents.empty()
-        ? 0
-        : std::fread(fileContents.data(), 1, fileContents.size(), f);
-    const bool readFailed = std::ferror(f) != 0 || bytesRead != fileContents.size();
+    std::fread(fileContents.data(), 1, static_cast<size_t>(fileSize), f);
     std::fclose(f);
-    if (readFailed)
-        return SmseError::make(SmseErrorCode::ParseMalformedLine, path,
-                               "Cannot read the complete file");
 
     SmseParsedFile out;
     out.sourceFile = path;
@@ -184,11 +152,7 @@ static ParseResult parseFile(const std::string& path) {
 
         // ---- service: <name> ----
         if (line.starts_with("service:")) {
-            const std::string_view serviceName = trim(line.substr(8));
-            if (!validServiceName(serviceName))
-                return SmseError::make(SmseErrorCode::ParseMalformedLine, path,
-                                       "Service name must be 1–8 ASCII letters, digits, ':', '-' or '_'");
-            out.serviceName = std::string(serviceName);
+            out.serviceName = std::string(trim(line.substr(8)));
             continue;
         }
 
@@ -218,9 +182,6 @@ static ParseResult parseFile(const std::string& path) {
                 if (!vt)
                     return SmseError::make(SmseErrorCode::ParseUnknownType,
                                            path, fmt("Unknown type: %s", std::string(parts[1]).c_str()));
-                if (curStructFields.size() >= SMSE_MAX_FIELDS_PER_STRUCT)
-                    return SmseError::make(SmseErrorCode::ParseMalformedLine, path,
-                                           "A struct may contain at most 128 fields");
                 curStructFields.push_back({
                     *offset, *vt,
                     std::string(stripQuotes(parts[2]))
@@ -251,9 +212,6 @@ static ParseResult parseFile(const std::string& path) {
                 if (!id)
                     return SmseError::make(SmseErrorCode::ParseMalformedLine,
                                            path, fmt("Bad cmd id: %s", std::string(parts[1]).c_str()));
-                if (*id > std::numeric_limits<u32>::max())
-                    return SmseError::make(SmseErrorCode::ParseMalformedLine,
-                                           path, "Command id exceeds u32");
                 cmd.cmdId = static_cast<u32>(*id);
             }
 
@@ -269,9 +227,6 @@ static ParseResult parseFile(const std::string& path) {
                 if (!bsz)
                     return SmseError::make(SmseErrorCode::ParseMalformedLine,
                                            path, fmt("Bad size: %s", std::string(parts[3]).c_str()));
-                if (*bsz == 0 || *bsz > SMSE_MAX_BUFFER_SIZE)
-                    return SmseError::make(SmseErrorCode::ParseMalformedLine,
-                                           path, "Buffer size must be between 1 and 65536 bytes");
                 cmd.bufSize = *bsz;
 
                 std::string_view bufType = trim(parts[4]);
@@ -309,9 +264,6 @@ static ParseResult parseFile(const std::string& path) {
             }
 
             // Deduplicate by cmdId per service (handled later at load time; store all here)
-            if (out.cmds.size() >= SMSE_MAX_COMMANDS_PER_FILE)
-                return SmseError::make(SmseErrorCode::ParseMalformedLine,
-                                       path, "An extension may contain at most 128 commands");
             out.cmds.push_back(std::move(cmd));
             break;
         }
@@ -355,9 +307,6 @@ static ParseResult parseFile(const std::string& path) {
                                            path, fmt("Invalid string assert op (expected == or !=): %s", std::string(line).c_str()));
                 }
                 ad.regex = std::string(stripQuotes(sv));
-                if (ad.regex.size() > SMSE_MAX_REGEX_SIZE)
-                    return SmseError::make(SmseErrorCode::ParseMalformedLine,
-                                           path, "A regex assertion may not exceed 512 bytes");
             } else {
                 // -- Numeric Assertions --
                 size_t opLen = 0;
@@ -407,9 +356,6 @@ static ParseResult parseFile(const std::string& path) {
     }
 
     flushStruct();
-    if (out.serviceName.empty())
-        return SmseError::make(SmseErrorCode::ParseMalformedLine, path,
-                               "Missing service declaration");
     return out;
 }
 

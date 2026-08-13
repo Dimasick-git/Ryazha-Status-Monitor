@@ -1,13 +1,10 @@
 #define TESLA_INIT_IMPL
 #include <tesla.hpp>
-#include "status_monitor_tesla_compat.hpp"
 #include "Utils.hpp"
 #include <malloc.h>
 #include <set>
 #include "Extensions/smse.hpp"
 #include <cstdlib>
-#include <cctype>
-#include <string_view>
 
 std::list<ServiceExtensions> serviceExt;
 
@@ -21,6 +18,7 @@ HidSixAxisSensorHandle sixaxisHandles[Controller_Max];
 #include "Configuration/EditConfigInt.hpp"
 #include "Configuration/ConfigurationMainMenu.hpp"
 #include "Configuration/Configuration.hpp"
+#include "RenderingPipelineDummy.hpp"
 #ifdef DEBUG
 #include "MemoryDebug.hpp"
 #endif
@@ -236,8 +234,7 @@ public:
 					std::string args = "--file " + filesChecked[0].name;
 					tsl::setNextOverlay(filepath, args);
 					tsl::Overlay::get()->close();
-											backgroundColor = 0x000D;
-
+					backgroundColor = 0x0000;
 					rootFrame = new tsl::elm::OverlayFrame("", "");
 					return rootFrame;
 				}
@@ -273,7 +270,7 @@ public:
 							return true;							
 						}
 						#endif
-						else if (isMainMenu && (keys & KEY_PLUS)) {
+						else if (isMainMenu && (keys & KEY_DLEFT)) {
 							tsl::changeTo<ConfigurationMainMenu>();
 							return true;
 						}
@@ -336,7 +333,7 @@ public:
 								tsl::changeTo<Configuration>(full_path, info.name);
 								return true;
 							}
-							else if (isMainMenu && (keys & KEY_PLUS)) {
+							else if (isMainMenu && (keys & KEY_DLEFT)) {
 								tsl::changeTo<ConfigurationMainMenu>();
 								return true;
 							}
@@ -350,7 +347,7 @@ public:
         }
         else {
             auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
-                renderer->drawString(locale["no_files_found"].c_str(), false, 20, 20, 20, renderer->a(0xFFFF));
+                renderer->drawString("No folders or .smd files found!", false, 20, 20, 20, renderer->a(0xFFFF));
             });
             rootFrame->setContent(Status);
         }
@@ -393,22 +390,26 @@ public:
 			psmCheck = psmInitialize();
 			i2cCheck = i2cInitialize();
 
+			SaltySD = CheckPort();
+
+			if (SaltySD) {
+				LoadSharedMemoryAndRefreshRate();
+			}
+
 			smseLoadFolder("sdmc:/config/status-monitor/extensions/");
 			smseExecuteAll();
 		});
-
-		// Match ppkantorski's working ordering: the SaltyNX named port and its
-		// shared memory are opened after the SM service session is released.
-		SaltySD = CheckPort();
-		if (SaltySD) {
-			LoadSharedMemoryAndRefreshRate();
-		}
+		// Ryazha sound feedback (no-op when sound_effects=false or the
+		// Ryazhahand sound pack is absent).
+		ryz::RyazhaSound::start();
 		Hinted = envIsSyscallHinted(0x6F);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_ProController], 1, HidNpadIdType_No1,      HidNpadStyleTag_NpadFullKey);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_JoyConL], 2, HidNpadIdType_No1,      HidNpadStyleTag_NpadJoyDual);
 	}
 
 	virtual void exitServices() override {
+		ryz::RyazhaSound::stop();
+
 		for (auto& se : serviceExt) {
 			serviceClose(&se.service);
 		}
@@ -426,12 +427,7 @@ public:
 		i2cExit();
 	}
 
-    virtual void onShow() override {
-		// Direct mode launches are passive overlays. RenderingPipeline performs
-		// the final per-SMD foreground decision after it is constructed.
-		if (!file_to_load.empty())
-			tsl::hlp::requestForeground(false);
-	}
+    virtual void onShow() override {}
     virtual void onHide() override {}
 
     virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
@@ -451,31 +447,29 @@ public:
 		if (file_to_load.length() == 0)
         	return initially<MainMenu>("");
 		else {
-			// ppkantorski uses a dedicated entry overlay whose first GUI is the
-			// actual mode. Do the same instead of waiting for a dummy input event.
-			return initially<RenderingPipeline>(file_to_load, true);
+			return initially<RenderingPipelineDummy>(file_to_load);
 		}
     }
 };
 
-static bool isSafeModePath(std::string_view name) {
-	if (name.empty() || name.size() > 128 || !name.ends_with(".smd"))
-		return false;
-
-	size_t segmentStart = 0;
-	for (size_t i = 0; i < name.size(); ++i) {
-		const unsigned char ch = static_cast<unsigned char>(name[i]);
-		if (name[i] == '/') {
-			const std::string_view segment = name.substr(segmentStart, i - segmentStart);
-			if (segment.empty() || segment == "." || segment == "..") return false;
-			segmentStart = i + 1;
-			continue;
-		}
-		if (!std::isalnum(ch) && name[i] != '_' && name[i] != '-' && name[i] != '.')
-			return false;
+// Apply the Ryazha theme to menu screens. Element/frame colors are read
+// through ryazhaThemeValue() at element construction; the menu background
+// is global state, so it is themed once here at startup.
+static void ApplyRyazhaTheme() {
+	std::string bgStr = ryazhaThemeValue("bg_color");
+	if (bgStr.empty())
+		return;
+	tsl::gfx::Color bg = tsl::gfx::RGB888(bgStr, "#000000");
+	unsigned long alpha = 13;
+	std::string alphaStr = ryazhaThemeValue("bg_alpha");
+	if (!alphaStr.empty()) {
+		alpha = strtoul(alphaStr.c_str(), nullptr, 10);
+		if (alpha > 15)
+			alpha = 13;
 	}
-	const std::string_view finalSegment = name.substr(segmentStart);
-	return !finalSegment.empty() && finalSegment != "." && finalSegment != "..";
+	bg.a = alpha;
+	menuBackgroundColor = bg.rgba;
+	backgroundColor = menuBackgroundColor;
 }
 
 int main(int argc, char **argv) {
@@ -484,43 +478,31 @@ int main(int argc, char **argv) {
 	#endif
 
 	ParseIniFile();
+	ApplyRyazhaTheme();
     
 	if (argc > 0) {
 		filename = argv[0];
 		filepath = folderpath + filename;
 	}
-	auto loadSmdFile = [](const char* smdFilename) {
-			if (smdFilename == nullptr || !isSafeModePath(smdFilename))
-				return;
+	auto loadSmdFile = [](const char* smd_filename) {
+		std::string path = "sdmc:/config/status-monitor/modes/";
+		path += smd_filename;
 
-			std::string path = "sdmc:/config/status-monitor/modes/";
-			path += smdFilename;
-
-			struct stat filedata {};
-			if (stat(path.c_str(), &filedata) != 0 || !S_ISREG(filedata.st_mode))
-				return;
-
+		struct stat filedata;
+		if (stat(path.c_str(), &filedata) == 0) {
 			smd::Document doc;
-			if (!doc.LoadFromFile(path.c_str()))
-				return;
-			doc.Free();
-
-			smd::Document::PeekInfo peek;
-			if (!smd::Document::Peek(path.c_str(), peek))
-				return;
-
-			// Status-monitor-deux creates a correctly-sized renderer before Tesla's
-			// event loop starts. Resizing an already-live VI layer corrupts compact
-			// modes and triggers Tesla errors, so mode dimensions are set here only.
-			if (peek.layerWidth != 0 && peek.layerHeight != 0) {
-				ult::DefaultFramebufferWidth = peek.layerWidth;
-				ult::DefaultFramebufferHeight = peek.layerHeight;
+			if (doc.LoadFromFile(path.c_str()) == true) {
+				doc.Free();
+				smd::Document::PeekInfo peek;
+				smd::Document::Peek(path.c_str(), peek);
+				if (peek.layerWidth != 0 && peek.layerHeight != 0) {
+					framebufferWidth = peek.layerWidth;
+					framebufferHeight = peek.layerHeight;
+				}
 			}
 			file_to_load = path;
-			// Must be visible to libryazhahand before the first show/input cycle;
-			// otherwise a passive SMD is mistaken for a normal menu overlay.
-			lastMode = std::string(StatusMonitorModeId(smdFilename));
-		};
+		}
+	};
 
 	// Legacy Ryazha/Status-Monitor-Overlay mode arguments are mapped to the
 	// bundled SMD files so pre-Deux shortcuts keep working after the update.

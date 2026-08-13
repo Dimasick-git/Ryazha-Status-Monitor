@@ -135,7 +135,7 @@ User_AdjustToRefreshRate = true
 ;;User_AdjustToRefreshRate_DefaultValue = true
 
 COMMON_MARGIN = 0
-BackgroundColor = COLOR{0x000D}
+BackgroundColor = COLOR{0x0000}
 Movable = true
 HeaderText = false
 FooterText = false

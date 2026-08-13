@@ -4,21 +4,13 @@
 #include <string>
 #include <tesla.hpp>
 #include "smd_parser.hpp"
-#include "status_monitor_mode.hpp"
 
 inline int64_t COMMON_MARGIN = 0;
 
 class RenderingPipeline : public tsl::Gui {
 private:
-	// True only for a process launched directly with --file; it has no GUI
-	// history and therefore must close the overlay instead of calling goBack.
-	bool m_closeOverlayOnExit = false;
+	bool m_double_back = false;
 	uint64_t mappedButtons = HidNpadButton_B;
-	// Passive modes cannot depend on Tesla's foreground input dispatch.
-	// Mirror ppkantorski: poll both player one and handheld explicitly.
-	PadState padPlayerOne{};
-	PadState padHandheld{};
-
 	uint64_t leftJoyconMotionMappedButtons  = 0;
 	uint64_t rightJoyconMotionMappedButtons = 0;
 	uint64_t proControllerMotionMappedButtons = 0;
@@ -28,10 +20,6 @@ private:
 	std::string rel_filepath;
 	std::string error;
 	std::string footerBackup;
-	// Status-monitor-deux changes Tesla's frame background for a mode. Keep the
-	// themed menu color and restore it when the mode exits.
-	tsl::Color m_menuBackgroundBeforeMode{0};
-	bool m_modeBackgroundApplied = false;
 	smd::Document doc;
 	bool HeaderText = true;
 	bool FooterText = true;
@@ -56,7 +44,6 @@ private:
 	int64_t m_saved_base_x = -1;
 	int64_t m_saved_base_y = -1;
 	uint64_t m_last_time = armTicksToNs(svcGetSystemTick());
-	uint64_t m_exitComboStartNs = 0;
 	bool m_gyro_started = false;
 	u32 m_last_layer_w = tsl::cfg::LayerWidth;
 	u32 m_last_layer_h = tsl::cfg::LayerHeight;
@@ -89,8 +76,7 @@ private:
 	bool IsInsideTouchRange(int64_t screen_x, int64_t screen_y, int64_t pad = 0) const;
 
 public:
-	RenderingPipeline(std::string filepath, bool closeOverlayOnExit = false);
-
+	RenderingPipeline(std::string filepath, bool double_back = false);
 	~RenderingPipeline();
 	virtual tsl::elm::Element* createUI() override;
 	virtual void update() override;

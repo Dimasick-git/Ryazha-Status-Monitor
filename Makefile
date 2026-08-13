@@ -38,14 +38,11 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	Ryazha-Status-Monitor
-APP_VERSION	:=	1.5.0
+APP_VERSION	:=	1.4.8
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
-# Use the same complete RyazhaTune renderer and support modules for Switch 2 Style.
-SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/slre \
-				lib/libryazhahand/common lib/libryazhahand/libryazha/source lib/libryazhahand/libtesla/source
-INCLUDES	:=	include lib/libryazhahand/common lib/libryazhahand/libryazha/include \
-				lib/libryazhahand/libtesla/include lib/tinyexpr include/Extensions lib/slre
+SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/libtesla/source lib/slre
+INCLUDES	:=	include lib/libtesla/include lib/tinyexpr include/Extensions lib/slre
 NO_ICON		:=	1
 #ROMFS		:=	romfs
 
@@ -57,11 +54,9 @@ ARCH		:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -flto=auto
 CFLAGS	:=	-g -Wall -Werror -Os -ffunction-sections -fdata-sections -ffast-math -fno-asynchronous-unwind-tables -fno-unwind-tables \
 			$(ARCH) $(DEFINES)
 
-# Use libryazhahand's standard runtime UI catalog. Its native parser loads
-# /config/ryazhahand/theme.ini after startup and applies all Switch 2 colors.
-CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DIS_STATUS_MONITOR_DIRECTIVE=1 -DUI_OVERRIDE_PATH="\"/config/ryazhahand/\"" -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\""
+CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\""
 
-CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++26
+CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++23
 
 ifdef DEBUG
     CXXFLAGS += -DDEBUG
@@ -84,8 +79,7 @@ LDFLAGS     += -Wl,--wrap,__cxa_pure_virtual \
 			-Wl,--wrap,_ZSt20__throw_length_errorPKc \
 			-Wl,--wrap,_ZNSt11logic_errorC2EPKc
 
-# Keep the full RyazhaTune renderer dependency order: libpng precedes zlib.
-LIBS		:=	-lcurl -lpng -lz -lmbedtls -lmbedx509 -lmbedcrypto -lnx
+LIBS		:=	-lnx
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -104,21 +98,13 @@ ifneq ($(BUILD),$(notdir $(CURDIR)))
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
 export TOPDIR	:=	$(CURDIR)
 
-# Give full libryazhahand implementations priority over retired legacy helpers.
-export VPATH	:=	$(CURDIR)/lib/libryazhahand/libryazha/source \
-				$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
-				$(foreach dir,$(DATA),$(CURDIR)/$(dir))
+export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
+			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
-# The first Makefile pass runs before `git submodule update` in a fresh CI
-# checkout. Keep canonical submodule units explicit so they are still present
-# in OFILES when the child make begins after the submodule is initialized.
-CFILES		:=	$(foreach dir,$(filter-out lib/libryazhahand/common,$(SOURCES)),$(notdir $(wildcard $(dir)/*.c))) cJSON.c
-CPPFILES	:=	$(foreach dir,$(filter-out lib/libryazhahand/libryazha/source lib/libryazhahand/libtesla/source,$(SOURCES)),$(notdir $(wildcard $(dir)/*.cpp))) \
-			audio.cpp debug_funcs.cpp download_funcs.cpp exception_wrap.cpp get_funcs.cpp global_vars.cpp \
-			haptics.cpp hex_funcs.cpp ini_funcs.cpp json_funcs.cpp list_funcs.cpp mod_funcs.cpp \
-			path_funcs.cpp string_funcs.cpp switch2_style.cpp tsl_utils.cpp tesla.cpp
+CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
+CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 
@@ -189,23 +175,13 @@ ifneq ($(ROMFS),)
 	export NROFLAGS += --romfsdir=$(CURDIR)/$(ROMFS)
 endif
 
-.PHONY: $(BUILD) clean all validate-smd
+.PHONY: $(BUILD) clean all
 
 #---------------------------------------------------------------------------------
-# Every native build validates every bundled SMD document first. This runs the
-# same strict parser/evaluation suite used in CI and prevents packaging a broken
-# mode even when `make` is invoked outside GitHub Actions.
-all: validate-smd $(BUILD)
-
-validate-smd:
-	@./scripts/test.sh
+all: $(BUILD)
 
 
 $(BUILD):
-	@# CI and fresh clones check out the library from its canonical submodule path.
-	@if [ ! -f "$(CURDIR)/lib/libryazhahand/libryazha/include/tsl_utils.hpp" ]; then \
-		git submodule update --init --recursive; \
-	fi
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
 	@rm -rf out/

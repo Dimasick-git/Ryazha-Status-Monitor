@@ -5,11 +5,9 @@
 #include <cstring>
 #include <algorithm>
 #include <charconv>
-#include <cctype>
 #include <dirent.h>
 #include "Utils.hpp"
 #include <ini_funcs.hpp>
-#include <switch2_style.hpp>
 
 namespace tsl::hlp::ini {
     using IniData = std::map<std::string, std::map<std::string, std::string>>;
@@ -18,14 +16,6 @@ namespace tsl::hlp::ini {
 #if !defined(__SWITCH__) && !defined(__OUNCE__)
 uint64_t systemtickfrequency = 0;
 #endif
-
-// Status Monitor mode state. The complete RyazhaTune renderer retains control
-// of visual theme and UI rendering; these values are used only by SMD logic.
-std::string defaultButtonView;
-uint16_t menuBackgroundColor = 0x000D;
-uint16_t backgroundColor = 0x000D;
-uint64_t frameTimeInNS = 0;
-bool isDocked = false;
 
 //System
 std::string keyCombo = "L+R+DUP"; // Ryazha default: classic Status-Monitor exit combo
@@ -53,7 +43,7 @@ LocalTimeType LocalTime;
 std::unordered_map<std::string, std::string> locale;
 bool teslaCombo = false;
 bool ultrahandCombo = false;
-int64_t keyComboTimeDelay = 100'000'000;
+int64_t keyComboTimeDelay = 200'000'000;
 
 std::array<unsigned char, sizeof(impl_defaultLocale)> defaultLocale = std::to_array(impl_defaultLocale);
 
@@ -737,60 +727,70 @@ void removeSpaces(std::string& str) {
 }
 
 void convertToUpper(std::string& str) {
-		std::transform(str.begin(), str.end(), str.begin(), [](unsigned char ch) {
-			return static_cast<char>(std::toupper(ch));
-		});
-	}
+	std::transform(str.begin(), str.end(), str.begin(), ::toupper);
+}
 
-	void convertToLower(std::string& str) {
-		std::transform(str.begin(), str.end(), str.begin(), [](unsigned char ch) {
-			return static_cast<char>(std::tolower(ch));
-		});
-	}
+void convertToLower(std::string& str) {
+	std::transform(str.begin(), str.end(), str.begin(), ::tolower);
+}
 
 void convertHidnpadKeyToButtonCombination (u64 bitfield, std::string& buttonCombinationToShow, std::string& buttonCombinationToConfig) {
-		struct ButtonGlyph {
-			HidNpadButton key;
-			const char* configName;
-			const char* glyph;
-		};
-		// Ordered to make saved combinations and their visual preview stable.
-		// Glyphs mirror libryazhahand's Switch 2 Style button map.
-		static constexpr std::array<ButtonGlyph, 18> buttonGlyphs{{
-			{HidNpadButton_L,     "L",      "\uE0E4"},
-			{HidNpadButton_R,     "R",      "\uE0E5"},
-			{HidNpadButton_ZL,    "ZL",     "\uE0E6"},
-			{HidNpadButton_ZR,    "ZR",     "\uE0E7"},
-			{HidNpadButton_AnySL, "SL",     "\uE0E8"},
-			{HidNpadButton_AnySR, "SR",     "\uE0E9"},
-			{HidNpadButton_Left,  "DLEFT", "\uE0ED"},
-			{HidNpadButton_Up,    "DUP",   "\uE0EB"},
-			{HidNpadButton_Right, "DRIGHT","\uE0EE"},
-			{HidNpadButton_Down,  "DDOWN", "\uE0EC"},
-			{HidNpadButton_A,     "A",      "\uE0E0"},
-			{HidNpadButton_B,     "B",      "\uE0E1"},
-			{HidNpadButton_X,     "X",      "\uE0E2"},
-			{HidNpadButton_Y,     "Y",      "\uE0E3"},
-			{HidNpadButton_StickL,"LSTICK", "\uE08A"},
-			{HidNpadButton_StickR,"RSTICK", "\uE08B"},
-			{HidNpadButton_Minus, "MINUS",  "\uE0B6"},
-			{HidNpadButton_Plus,  "PLUS",   "\uE0B5"}
-		}};
+	buttonCombinationToShow = "";
+	buttonCombinationToConfig = "";
+	std::unordered_map<HidNpadButton, std::string> replacesEmoji{
+		{HidNpadButton_L, "\uE0E4"},
+		{HidNpadButton_R, "\uE0E5"},
+		{HidNpadButton_ZL, "\uE0E6"},
+		{HidNpadButton_ZR, "\uE0E7"},
+		{HidNpadButton_A, "\uE0E0"},
+		{HidNpadButton_B, "\uE0E1"},
+		{HidNpadButton_X, "\uE0E2"},
+		{HidNpadButton_Y, "\uE0E3"},
+		{HidNpadButton_Up, "\uE0EB"},
+		{HidNpadButton_Down, "\uE0EC"},
+		{HidNpadButton_Left, "\uE0ED"},
+		{HidNpadButton_Right, "\uE0EE"},
+		{HidNpadButton_Plus, "\uE0EF"},
+		{HidNpadButton_Minus, "\uE0F0"},
+		{HidNpadButton_StickL, "\uE104"},
+		{HidNpadButton_StickR, "\uE105"}
+	};
 
-		buttonCombinationToShow.clear();
-		buttonCombinationToConfig.clear();
-		size_t count = 0;
-		for (const auto& button : buttonGlyphs) {
-			if (!(bitfield & button.key)) continue;
-			if (!buttonCombinationToShow.empty()) {
+	std::unordered_map<HidNpadButton, std::string> replaces{
+		{HidNpadButton_L, "L"},
+		{HidNpadButton_R, "R"},
+		{HidNpadButton_ZL, "ZL"},
+		{HidNpadButton_ZR, "ZR"},
+		{HidNpadButton_A, "A"},
+		{HidNpadButton_B, "B"},
+		{HidNpadButton_X, "X"},
+		{HidNpadButton_Y, "Y"},
+		{HidNpadButton_Up, "DUP"},
+		{HidNpadButton_Down, "DDOWN"},
+		{HidNpadButton_Left, "DLEFT"},
+		{HidNpadButton_Right, "DRIGHT"},
+		{HidNpadButton_Plus, "PLUS"},
+		{HidNpadButton_Minus, "MINUS"},
+		{HidNpadButton_StickL, "LSTICK"},
+		{HidNpadButton_StickR, "RSTICK"}
+	};
+
+	size_t count = 0;
+
+	for (const auto& [key, value] : replaces) {
+		if (bitfield & key) {
+			bool addPlus = buttonCombinationToShow.length() > 0;
+			if (addPlus == true) {
 				buttonCombinationToShow += " + ";
 				buttonCombinationToConfig += "+";
 			}
-			buttonCombinationToShow += button.glyph;
-			buttonCombinationToConfig += button.configName;
-			if (++count >= 4) break;
+			buttonCombinationToShow += replacesEmoji[key];
+			buttonCombinationToConfig += value;
+			count++;
+			if (count >= 4) break;
 		}
 	}
+}
 
 void formatButtonCombination(std::string& line) {
 	std::map<std::string, std::string> replaces{
@@ -806,14 +806,12 @@ void formatButtonCombination(std::string& line) {
 		{"DDOWN", "\uE0EC"},
 		{"DLEFT", "\uE0ED"},
 		{"DRIGHT", "\uE0EE"},
-			{"SL", "\uE0E8"},
-			{"SR", "\uE0E9"},
-			{"PLUS", "\uE0B5"},
-			{"MINUS", "\uE0B6"},
-			{"LSTICK", "\uE08A"},
-			{"RSTICK", "\uE08B"},
-			{"RS", "\uE08B"},
-			{"LS", "\uE08A"}
+		{"PLUS", "\uE0EF"},
+		{"MINUS", "\uE0F0"},
+		{"LSTICK", "\uE104"},
+		{"RSTICK", "\uE105"},
+		{"RS", "\uE105"},
+		{"LS", "\uE104"}
 	};
 	// Remove all spaces from the line
 	line.erase(std::remove(line.begin(), line.end(), ' '), line.end());
@@ -826,9 +824,8 @@ void formatButtonCombination(std::string& line) {
 			line = line.substr(0, pos);
 			return;
 		}
-			if (pos > 0 && pos < line.size() - 1) {
-				if (std::isalnum(static_cast<unsigned char>(line[pos - 1])) &&
-					std::isalnum(static_cast<unsigned char>(line[pos + 1]))) {
+		if (pos > 0 && pos < line.size() - 1) {
+			if (std::isalnum(line[pos - 1]) && std::isalnum(line[pos + 1])) {
 				line.replace(pos, 1, " + ");
 				pos += 3;
 			}
@@ -864,10 +861,8 @@ uint64_t MapButtons(const std::string& buttonCombo) {
 		{"L", HidNpadButton_L},
 		{"R", HidNpadButton_R},
 		{"ZL", HidNpadButton_ZL},
-			{"ZR", HidNpadButton_ZR},
-			{"SL", HidNpadButton_AnySL},
-			{"SR", HidNpadButton_AnySR},
-			{"PLUS", HidNpadButton_Plus},
+		{"ZR", HidNpadButton_ZR},
+		{"PLUS", HidNpadButton_Plus},
 		{"MINUS", HidNpadButton_Minus},
 		{"DUP", HidNpadButton_Up},
 		{"DDOWN", HidNpadButton_Down},
@@ -910,19 +905,18 @@ void createDefaultFile(std::string filepath) {
 	mkdir("sdmc:/config/", 69);
 	mkdir("sdmc:/config/status-monitor/", 420);
 	setIniFile(filepath, "status-monitor", "key_combo", "L+R+DUP", "");
-	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "100", "");
+	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "200", "");
 	setIniFile(filepath, "status-monitor", "battery_avg_iir_filter", "false", "");
 	setIniFile(filepath, "status-monitor", "battery_time_left_refreshrate", "10", "");
 	setIniFile(filepath, "status-monitor", "touch_screen", "true", "");
-	setIniFile(filepath, "status-monitor", "switch_2_style", "true", "");
 	setIniFile(filepath, "status-monitor", "motion_control", "true", "");
 	setIniFile(filepath, "status-monitor", "left_joycon_motion_key_combo", "ZL+L+LSTICK", "");
 	setIniFile(filepath, "status-monitor", "right_joycon_motion_key_combo", "ZR+R+RSTICK", "");
 	setIniFile(filepath, "status-monitor", "pro_controller_motion_key_combo", "ZR+R+RSTICK", "");
 	setIniFile(filepath, "status-monitor", "jump_immediately_to_single_smd", "true", "");
 	setIniFile(filepath, "status-monitor", "save_and_load_movable_overlay_position", "true", "");
-	setIniFile(filepath, "status-monitor", "override_language", "true", "");
-	setIniFile(filepath, "status-monitor", "override_language_ietf_code", "RU-RU", "");
+	setIniFile(filepath, "status-monitor", "override_language", "false", "");
+	setIniFile(filepath, "status-monitor", "override_language_ietf_code", "EN-US", "");
 	// Ryazha default: L+R+DUP toggles the Full mode — in the menu it
 	// quick-launches it, inside the mode the same combo exits.
 	setIniFile(filepath, "01.Full.smd", "quick_combo", "L+R+DUP", "");
@@ -940,7 +934,7 @@ bool ProcessSmdSettings(std::string filename, uint32_t crc32, uint16_t* x, uint1
 		fread(&fileDataString[0], sizeof(char), fileSize, configFileIn);
 		fclose(configFileIn);
 		
-		std::map<std::string, std::map<std::string, std::string>> parsedData = parseIni(fileDataString);
+		std::unordered_map<std::string, std::unordered_map<std::string, std::string>> parsedData = parseIni(fileDataString);
 		if (parsedData.find(filename.c_str()) != parsedData.end()) {
 			if (parsedData[filename.c_str()].find("hash") != parsedData[filename.c_str()].end()) {
 				auto key = parsedData[filename.c_str()]["hash"];
@@ -1042,7 +1036,7 @@ void ParseIniFile() {
 	std::string ultrahandConfigIniPath = ultrahandDirectoryPath + "config.ini";
 	std::string teslaConfigIniPath = teslaDirectoryPath + "config.ini";
 	std::string localeIniPath = directoryPath + "locale.ini";
-	std::map<std::string, std::map<std::string, std::string>> parsedData;
+	std::unordered_map<std::string, std::unordered_map<std::string, std::string>> parsedData;
 	
 	struct stat st;
 	if (stat(directoryPath.c_str(), &st) != 0) {
@@ -1050,8 +1044,6 @@ void ParseIniFile() {
 	}
 	
 	bool readExternalCombo = true;
-	// Match RyazhaTune/Ryazhahand-Overlay: Switch 2 UI is enabled unless explicitly disabled.
-	ult::useSwitch2Style = true;
 
 	// Open the INI file
 	config = getParsedDataFromIniFile(configIniPath.c_str());
@@ -1089,12 +1081,7 @@ void ParseIniFile() {
 					batteryTimeLeftRefreshRate = rate;
 				}
 			}
-			else if (key.compare("switch_2_style") == 0 and value.length() > 0) {
-					std::string temp = value;
-					convertToUpper(temp);
-					ult::useSwitch2Style = temp != "FALSE";
-				}
-				else if (key.compare("touch_screen") == 0 and value.length() > 0) {
+			else if (key.compare("touch_screen") == 0 and value.length() > 0) {
 				std::string temp = value;
 				convertToUpper(temp);
 				touchScreen = temp.compare("FALSE");
@@ -1157,12 +1144,7 @@ void ParseIniFile() {
 			}
 		}
 	}
-	else {
-		createDefaultFile(configIniPath);
-		config = getParsedDataFromIniFile(configIniPath.c_str());
-		override_check = true;
-		temp_overrideLanguage = "RU-RU";
-	}
+	else createDefaultFile(configIniPath);
 
 	if (readExternalCombo) {
 		FILE* ultrahandConfigFileIn = fopen(ultrahandConfigIniPath.c_str(), "r");
@@ -1206,8 +1188,8 @@ void ParseIniFile() {
 		}
 	}
 
-	std::map<std::string, std::map<std::string, std::string>> defaultIni = parseIni(std::string((const char*)impl_defaultLocale, sizeof(impl_defaultLocale)));
-	std::map<std::string, std::string> m_defaultLocale = defaultIni["RU-RU"];
+	std::unordered_map<std::string, std::unordered_map<std::string, std::string>> defaultIni = parseIni(std::string((const char*)impl_defaultLocale, sizeof(impl_defaultLocale)));
+	std::unordered_map<std::string, std::string> m_defaultLocale = defaultIni["EN-US"];
 	std::map<std::string, std::map<std::string, std::string>> temp = getParsedDataFromIniFile(localeIniPath.c_str());
 
 	if (override_check == true && temp_overrideLanguage.length() > 0) {
@@ -1401,8 +1383,9 @@ std::string lookupSMF(const std::string& folderPath) {
 		std::string searchKey = "EN-US";
 		if (overrideLanguage.length() != 0) searchKey = overrideLanguage;
 
+		std::string temp = parseValueFromIniSectionF(file, "_folder", searchKey);
 		fclose(file);
-		return parseValueFromIniSection(path, "_folder", searchKey);
+		return temp;
 	}
 
 	return "";

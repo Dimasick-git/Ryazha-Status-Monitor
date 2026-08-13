@@ -11,7 +11,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-release-${{ github.ref }}
@@ -24,7 +24,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
 
       - name: Configure
         run: cmake -S . -B build-tests -DSMD_BUILD_TESTS=ON -DSMD_WARNINGS_AS_ERRORS=ON
@@ -38,11 +38,11 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    container: devkitpro/devkita64@sha256:1fc388c3a0d34bd2045a6dadcb1020e069d5f876a187fd705de14b4440c00282 # latest at audit time
+    container: devkitpro/devkita64:latest
 
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -53,7 +53,7 @@ jobs:
         run: make -j$(nproc)
 
       - name: Upload overlay artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@v7
         with:
           name: Ryazha-Status-Monitor
           path: Ryazha-Status-Monitor.ovl
@@ -64,7 +64,7 @@ jobs:
       # include-hidden-files is required: upload-artifact v4 silently drops
       # hidden directories like .overlays by default.
       - name: Upload dist artifact
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        uses: actions/upload-artifact@v7
         with:
           name: Ryazha-Status-Monitor-dist
           path: out/
@@ -81,18 +81,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download overlay artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@v8
         with:
           name: Ryazha-Status-Monitor
 
       - name: Download dist artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@v8
         with:
           name: Ryazha-Status-Monitor-dist
           path: dist-out
@@ -165,7 +165,7 @@ jobs:
 
       - name: Publish GitHub Release
         if: steps.tag.outputs.should_release == 'true'
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: Ryazha-Status-Monitor ${{ steps.tag.outputs.tag }}

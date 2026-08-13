@@ -118,7 +118,7 @@ User_BoxColor = COLOR{0x1115}
 
 EmaFps: -1
 
-BackgroundColor = COLOR{0x000D}
+BackgroundColor = COLOR{0x0000}
 COMMON_MARGIN = 0
 Movable = true
 HeaderText = false
