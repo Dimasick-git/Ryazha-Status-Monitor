@@ -1,5 +1,6 @@
 #pragma once
 #define ALWAYS_INLINE inline __attribute__((always_inline))
+#include "status_monitor_compat.hpp"
 #include "System/SaltyNX.h"
 
 #include "System/max17050.h"
