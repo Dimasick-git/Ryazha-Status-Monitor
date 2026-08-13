@@ -109,10 +109,14 @@ export VPATH	:=	$(CURDIR)/lib/libryazhahand/libryazha/source \
 
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
-CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-# Compile the complete renderer and all support implementations directly from
-# the pinned libryazhahand submodule. Do not fall back to copied local sources.
-CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
+# The first Makefile pass runs before `git submodule update` in a fresh CI
+# checkout. Keep canonical submodule units explicit so they are still present
+# in OFILES when the child make begins after the submodule is initialized.
+CFILES		:=	$(foreach dir,$(filter-out lib/libryazhahand/common,$(SOURCES)),$(notdir $(wildcard $(dir)/*.c))) cJSON.c
+CPPFILES	:=	$(foreach dir,$(filter-out lib/libryazhahand/libryazha/source lib/libryazhahand/libtesla/source,$(SOURCES)),$(notdir $(wildcard $(dir)/*.cpp))) \
+			audio.cpp debug_funcs.cpp download_funcs.cpp exception_wrap.cpp get_funcs.cpp global_vars.cpp \
+			haptics.cpp hex_funcs.cpp ini_funcs.cpp json_funcs.cpp list_funcs.cpp mod_funcs.cpp \
+			path_funcs.cpp string_funcs.cpp switch2_style.cpp tsl_utils.cpp tesla.cpp
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 
