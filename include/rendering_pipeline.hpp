@@ -45,6 +45,7 @@ private:
 	int64_t m_saved_base_x = -1;
 	int64_t m_saved_base_y = -1;
 	uint64_t m_last_time = armTicksToNs(svcGetSystemTick());
+	uint64_t m_exitComboHoldStartedNs = 0;
 	bool m_gyro_started = false;
 	u32 m_last_layer_w = tsl::cfg::LayerWidth;
 	u32 m_last_layer_h = tsl::cfg::LayerHeight;
@@ -69,6 +70,7 @@ private:
 	size_t getFreeHeapMemory() const;
 
 	bool IsInsideTouchRange(int64_t screen_x, int64_t screen_y, int64_t pad = 0) const;
+	bool isExitComboHeld(uint64_t keysHeld, uint64_t comboBitmask, uint64_t holdDurationNs);
 
 public:
 	RenderingPipeline(std::string filepath, bool double_back = false);

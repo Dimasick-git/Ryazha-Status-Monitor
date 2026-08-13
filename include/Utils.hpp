@@ -369,20 +369,6 @@ struct GyroCursor {
 	return line;
 }
 
-ALWAYS_INLINE bool isKeyComboPressed(uint64_t keysHeld, uint64_t keysDown, uint64_t comboBitmask, uint64_t expectedPressTime) {
-	static uint64_t first_time_checked = 0;
-	if ((keysDown == comboBitmask) || (keysHeld == comboBitmask)) {
-		if (!first_time_checked) {
-			first_time_checked = armTicksToNs(svcGetSystemTick());
-			return false;
-		}
-		uint64_t second_time_checked = armTicksToNs(svcGetSystemTick());
-		if (second_time_checked - first_time_checked > expectedPressTime) return true;
-	}
-	else first_time_checked = 0;
-	return false;
-}
-
 ALWAYS_INLINE bool isValidRGBA4Color(const std::string& hexColor) {
     for (char c : hexColor) {
         if (!isxdigit(c)) {

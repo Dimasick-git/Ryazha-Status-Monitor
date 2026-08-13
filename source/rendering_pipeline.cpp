@@ -216,6 +216,24 @@ bool RenderingPipeline::IsInsideTouchRange(int64_t screen_x, int64_t screen_y, i
 	return false;
 }
 
+bool RenderingPipeline::isExitComboHeld(uint64_t keysHeld, uint64_t comboBitmask, uint64_t holdDurationNs) {
+	const uint64_t physicalKeys = keysHeld & ALL_KEYS_MASK;
+	const bool comboMatches = comboBitmask != 0
+		&& (physicalKeys & comboBitmask) == comboBitmask
+		&& (physicalKeys & ~comboBitmask) == 0;
+	if (!comboMatches) {
+		m_exitComboHoldStartedNs = 0;
+		return false;
+	}
+
+	const uint64_t nowNs = armTicksToNs(svcGetSystemTick());
+	if (m_exitComboHoldStartedNs == 0) {
+		m_exitComboHoldStartedNs = nowNs;
+		return false;
+	}
+	return nowNs - m_exitComboHoldStartedNs >= holdDurationNs;
+}
+
 inline uint64_t get_current_heap_position() {
     return (uintptr_t)(sbrk(0));
 }
@@ -555,7 +573,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 	}
 
 	if (error.length() != 0) {
-		if (isKeyComboPressed(keysHeld, keysDown, mappedButtons, 20'000'000)) [[unlikely]] {
+		if (isExitComboHeld(keysHeld, mappedButtons, 100'000'000)) [[unlikely]] {
 			tsl::goBack();
 			if (m_double_back == true) tsl::goBack();
 			return true;
@@ -745,7 +763,10 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 					}
 				}
 			}
-			if (isKeyComboPressed(keysHeld, keysDown, mappedButtons, UseCustomExitCombo ? keyComboTimeDelay : 20'000'000)) [[unlikely]] {
+			if (isExitComboHeld(
+				keysHeld, mappedButtons,
+				UseCustomExitCombo ? static_cast<uint64_t>(keyComboTimeDelay) : 100'000'000
+			)) [[unlikely]] {
 				tsl::goBack();
 				if (m_double_back == true) tsl::goBack();
 				return true;

@@ -43,7 +43,7 @@ LocalTimeType LocalTime;
 std::unordered_map<std::string, std::string> locale;
 bool teslaCombo = false;
 bool ultrahandCombo = false;
-int64_t keyComboTimeDelay = 200'000'000;
+int64_t keyComboTimeDelay = 100'000'000;
 
 std::array<unsigned char, sizeof(impl_defaultLocale)> defaultLocale = std::to_array(impl_defaultLocale);
 
