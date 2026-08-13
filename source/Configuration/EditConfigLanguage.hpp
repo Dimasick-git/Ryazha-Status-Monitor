@@ -18,8 +18,8 @@ public:
 	EditConfigLanguage(bool* skipSavingConfig) {
 		m_skipSavingConfig = skipSavingConfig;
 		m_locale = getParsedDataFromIniFile("sdmc:/config/status-monitor/locale.ini");
-		std::unordered_map<std::string, std::unordered_map<std::string, std::string>> defaultIni = parseIni(std::string((const char*)impl_defaultLocale, sizeof(impl_defaultLocale)));
-		defaultSection = defaultIni["RU-RU"];
+std::map<std::string, std::map<std::string, std::string>> defaultIni = parseIni(std::string((const char*)impl_defaultLocale, sizeof(impl_defaultLocale)));
+			defaultSection = std::unordered_map<std::string, std::string>(defaultIni["RU-RU"].begin(), defaultIni["RU-RU"].end());
 
 		footerBackup = defaultButtonView;
 		defaultButtonView = locale["Footer"];

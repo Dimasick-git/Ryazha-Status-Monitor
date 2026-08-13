@@ -32,6 +32,17 @@ inline std::string trim(std::string&& value) {
 	return value;
 }
 
+inline std::string trim(const std::string& value) {
+	std::string copy = value;
+	ult::trim(copy);
+	return copy;
+}
+
+inline std::string removeQuotes(std::string value) {
+	ult::removeQuotes(value);
+	return value;
+}
+
 inline bool isNumeric(const std::string& value, int64_t* output = nullptr) {
 	if (value.empty()) return false;
 	int64_t parsed = 0;
@@ -62,7 +73,6 @@ inline std::string parseValueFromIniSectionF(const std::string& filePath,
 }
 
 using ult::removeIniSection;
-using ult::removeQuotes;
 
 #define NVGPU_GPU_IOCTL_PMU_GET_GPU_LOAD 0x80044715
 #define FieldDescriptor uint32_t

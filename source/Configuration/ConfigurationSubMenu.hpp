@@ -8,7 +8,7 @@ private:
 	std::string footerBackup;
 	static constexpr size_t descriptionSize = 18;
 
-	std::string wrapText(const std::string& text, u32 maxWidth, u32 fontsize) {
+	std::string wrapText(const std::string& text, int maxWidth, u32 fontsize) {
 		std::string wrappedText;
 		std::string currentLine;
 		std::string currentWord;

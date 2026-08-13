@@ -1401,9 +1401,8 @@ std::string lookupSMF(const std::string& folderPath) {
 		std::string searchKey = "EN-US";
 		if (overrideLanguage.length() != 0) searchKey = overrideLanguage;
 
-		std::string temp = parseValueFromIniSectionF(file, "_folder", searchKey);
 		fclose(file);
-		return temp;
+		return parseValueFromIniSection(path, "_folder", searchKey);
 	}
 
 	return "";
