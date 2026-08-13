@@ -62,7 +62,7 @@ CFLAGS	:=	-g -Wall -Werror -Os -ffunction-sections -fdata-sections -ffast-math -
 			$(ARCH) $(DEFINES)
 
 CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\"" \
-			-DIS_STATUS_MONITOR_DIRECTIVE=1 -include $(CURDIR)/include/status_monitor_compat.hpp
+			-DIS_STATUS_MONITOR_DIRECTIVE=1 -include $(TOPDIR)/include/status_monitor_compat.hpp
 
 CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++26
 
