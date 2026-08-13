@@ -831,44 +831,27 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 		}
 	}
 	if (!changingPos) {
-		uint64_t new_time = armTicksToNs(svcGetSystemTick());
-		do {
-			if (Movable == true) {
-				if (m_touchScreen == true) {
-					HidTouchScreenState state = {0};
-					if (hidGetTouchScreenStates(&state, 1) && state.count && IsInsideTouchRange(state.touches[0].x, state.touches[0].y, 24)) {
-						break;
-					}
-				}
-				if (m_motionControl == true) {
-					u64 style_set = hidGetNpadStyleSet(HidNpadIdType_No1);
-					if (style_set & HidNpadStyleTag_NpadJoyDual) {
-						if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) break;
-						else if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) break;
-					}
-					else if (style_set & HidNpadStyleTag_NpadJoyLeft) {
-						if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) break;
-					}
-					else if (style_set & HidNpadStyleTag_NpadJoyRight) {
-						if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) break;
-					}
-					else if (style_set & HidNpadStyleTag_NpadFullKey) {
-						if ((keysHeld & proControllerMotionMappedButtons) == proControllerMotionMappedButtons) break;
-					}
-				}
-			}
-			if (isExitComboHeld(
-				keysHeld, mappedButtons,
-				UseCustomExitCombo ? static_cast<uint64_t>(keyComboTimeDelay) : 100'000'000
-			)) [[unlikely]] {
-				tsl::goBack();
-				if (m_double_back == true) tsl::goBack();
-				return true;
-			}
-			svcSleepThread(1000000);
-			new_time = armTicksToNs(svcGetSystemTick());
-		} while (new_time - m_last_time < timeout);
-		m_last_time = new_time;
+		// Never wait inside handleInput: it stalls canonical navigation, footer
+		// processing and the exit hold timer. Mode refresh rate is handled by the
+		// data threads; input must be processed on every framework callback.
+		if (keysDown & KEY_B) {
+			triggerExitFeedback();
+			tsl::goBack();
+			if (m_double_back == true) tsl::goBack();
+			return true;
+		}
+
+		if (isExitComboHeld(
+			keysHeld, mappedButtons,
+			UseCustomExitCombo ? static_cast<uint64_t>(keyComboTimeDelay) : 100'000'000
+		)) [[unlikely]] {
+			triggerExitFeedback();
+			tsl::goBack();
+			if (m_double_back == true) tsl::goBack();
+			return true;
+		}
+
+		m_last_time = armTicksToNs(svcGetSystemTick());
 	}
 	SystemData.KeysHeld_int = keysHeld;
 	SystemData.KeysDown_int = keysDown;

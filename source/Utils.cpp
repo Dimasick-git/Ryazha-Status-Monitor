@@ -905,7 +905,7 @@ void createDefaultFile(std::string filepath) {
 	mkdir("sdmc:/config/", 69);
 	mkdir("sdmc:/config/status-monitor/", 420);
 	setIniFile(filepath, "status-monitor", "key_combo", "L+R+DUP", "");
-	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "200", "");
+	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "100", "");
 	setIniFile(filepath, "status-monitor", "battery_avg_iir_filter", "false", "");
 	setIniFile(filepath, "status-monitor", "battery_time_left_refreshrate", "10", "");
 	setIniFile(filepath, "status-monitor", "touch_screen", "true", "");
