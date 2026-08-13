@@ -23,6 +23,8 @@ HidSixAxisSensorHandle sixaxisHandles[Controller_Max];
 #include "MemoryDebug.hpp"
 #endif
 
+static void ApplyRyazhaTheme();
+
 extern "C" {
 	//This is done to save some space as they have no practical use in our case
 	void* __real___cxa_throw();
@@ -424,7 +426,11 @@ public:
     virtual void onShow() override {}
     virtual void onHide() override {}
 
-    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+	virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+		// `tsl::loop` has already parsed [ryazhahand] here. Refresh the theme
+		// bindings used by SMD after that canonical bootstrap, not only before it.
+		ApplyRyazhaTheme();
+
 		//Get actual time without using time service
 		remove("sdmc:/dddd.dddd");
 		FsFileSystem* filesystem = fsdevGetDeviceFileSystem("sdmc");
@@ -450,7 +456,16 @@ public:
 // keeps the mode background opaque so every SMD layout has a stable backdrop.
 static void ApplyRyazhaTheme() {
 	tsl::initializeTheme();
+	tsl::initializeThemeVars();
 	tsl::defaultBackgroundColor.a = 0xF;
+
+	// SMD mode colors must follow the *same loaded canonical colors* as the
+	// renderer. Reading raw INI values before `tsl::loop` parses [ryazhahand]
+	// leaves these bindings stale when the selected theme path changes.
+	ThemeData.TextColor_int     = tsl::defaultTextColor.rgba;
+	ThemeData.CategoryColor_int = tsl::highlightColor1.rgba;
+	ThemeData.AccentColor_int   = tsl::highlightColor2.rgba;
+	ThemeData.BoxColor_int      = tsl::defaultBackgroundColor.rgba;
 }
 
 int main(int argc, char **argv) {
