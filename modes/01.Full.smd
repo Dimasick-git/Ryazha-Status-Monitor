@@ -124,7 +124,8 @@ User_OldFPSAverage = false
 ComboButtonFormat = IETF{"Hold %s to Exit"}
 IETF_LOCALE{ComboButtonFormat, "PL-PL", "Przytrzymaj %s by wyjść"}
 IETF_LOCALE{ComboButtonFormat, "DE-DE", "Halte %s zum Beenden"}
-ComboButtonFooter = {IETF_GET{ComboButtonFormat}, formattedKeyCombo}
+; Keep the exit hint inside a 448px framebuffer even with translated button glyphs.
+ComboButtonFooter = {"B / %s", formattedKeyCombo}
 
 UseCustomExitCombo = true
 EnableControls = false
@@ -280,14 +281,17 @@ Start:
 	#endif
 	VAR{MutedColor, color(0x777F)}
 	VAR{TrackColor, color(0x333D)}
-	VAR{LeftX, 12}
-	VAR{RightX, 230}
-	VAR{CardW, 206}
+		; RecordCallback adds COMMON_MARGIN to every SMD x coordinate. Keep the
+		; right edge at 440px (8px safety margin) on the 448px framebuffer.
+		VAR{LeftX, 12}
+		VAR{RightX, 224}
+		VAR{CardW, 196}
+		VAR{BoardW, 408}
 
 	#if $User_ShowClock
 		VAR{ClockText, ClockBatteryFormat}
 		GET_DIMENSIONS{ClockDims, 16, false, ClockText}
-		TEXT{LayerWidth - ClockDims.x - 14, 112, 16, CatColor, false, ClockText}
+		TEXT{LayerWidth - ClockDims.x - 54, 112, 16, CatColor, false, ClockText}
 	#endif
 
 	; CPU card
@@ -389,9 +393,9 @@ Start:
 	#endif
 
 	; Board card: power and thermals are kept together in one wide, readable row.
-	ROUNDED_BOX{LeftX, 472, 424, 154, 8, 8, 8, 8, CardColor}
-	TEXT{LeftX + 12, 484, 17, CatColor, false, IETF_GET{BoardUsageText}}
-	BOX{LeftX + 12, 505, 400, 1, CatColor}
+		ROUNDED_BOX{LeftX, 472, BoardW, 154, 8, 8, 8, 8, CardColor}
+		TEXT{LeftX + 12, 484, 17, CatColor, false, IETF_GET{BoardUsageText}}
+		BOX{LeftX + 12, 505, BoardW - 24, 1, CatColor}
 	TEXT{LeftX + 12, 518, 13, TxtColor, false, BatteryChargingText}
 	TEXT{LeftX + 12, 543, 13, CatColor, false, IETF_GET{TemperatureText}}
 	TEXT{LeftX + 122, 543, 13, MutedColor, false, IETF_GET{ThermalSensorsText}}

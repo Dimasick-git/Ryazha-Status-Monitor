@@ -501,6 +501,14 @@ int main(int argc, char **argv) {
 			smd::Document::PeekInfo peek;
 			if (!smd::Document::Peek(path.c_str(), peek))
 				return;
+
+			// Status-monitor-deux creates a correctly-sized renderer before Tesla's
+			// event loop starts. Resizing an already-live VI layer corrupts compact
+			// modes and triggers Tesla errors, so mode dimensions are set here only.
+			if (peek.layerWidth != 0 && peek.layerHeight != 0) {
+				ult::DefaultFramebufferWidth = peek.layerWidth;
+				ult::DefaultFramebufferHeight = peek.layerHeight;
+			}
 			file_to_load = path;
 		};
 

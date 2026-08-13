@@ -299,9 +299,10 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 	}
 	HeaderText = doc.GetConfigBool("HeaderText", true);
 	FooterText = doc.GetConfigBool("FooterText", true);
-	// A status mode may suppress menu widgets, but it must never surrender
-	// controller input: otherwise no custom exit combo can be observed.
-	tsl::hlp::requestForeground(true);
+	// Match Status-monitor-deux: compact passive overlays may not claim focus,
+	// while the independent PadState polling below still guarantees exit input.
+	const bool focus = doc.GetConfigBool("EnableControls", true);
+	tsl::hlp::requestForeground(focus);
 	UseCustomExitCombo = doc.GetConfigBool("UseCustomExitCombo", false);
 	if (FooterText == false) {
 		deactivateOriginalFooter = true;
@@ -350,15 +351,6 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 			}
 		}
 	}
-	// SMD mode dimensions describe the native viewport in framebuffer pixels.
-	// Apply them before the first CustomDrawer frame so background, clipping and
-	// touch bounds all match the actual mode instead of inheriting 448×720.
-	const auto modeWidth = static_cast<u16>(std::clamp<int64_t>(doc.GetConfigInt("LayerWidth", 448), 1, 1280));
-	const auto modeHeight = static_cast<u16>(std::clamp<int64_t>(doc.GetConfigInt("LayerHeight", 720), 1, 720));
-	tsl::gfx::Renderer::get().setStatusMonitorFrameSize(modeWidth, modeHeight);
-	m_last_layer_w = tsl::cfg::LayerWidth;
-	m_last_layer_h = tsl::cfg::LayerHeight;
-
 	auto test = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
 	if (test == 0xFFFFFF) backgroundColor = (uint16_t)doc.GetConfigInt("BackgroundColor", 0x000D);
 	else backgroundColor = (uint16_t)test;
@@ -426,10 +418,10 @@ RenderingPipeline::~RenderingPipeline() {
 				setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "scale", std::string(buffer4), "");
 		}
 	}
-	// Restore the standard menu viewport after any compact SMD mode.
+	// The renderer is created at the mode dimensions before Tesla starts.
+	// Do not recreate its framebuffer while this pipeline is being destroyed.
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
-	tsl::gfx::Renderer::get().setStatusMonitorFrameSize(448, 720);
 	tsl::gfx::Renderer::get().setLayerPos(0, 0);
 	if (Movable & motionControl) {
 		hidStopSixAxisSensor(sixaxisHandles[Controller_ProController]);
@@ -564,16 +556,17 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 		return true;
 	}
 
-	if (tsl::cfg::LayerWidth != m_last_layer_w || tsl::cfg::LayerHeight != m_last_layer_h) {
-		m_layer_pos_x_window = tsl::cfg::LayerPosX;
-		m_layer_pos_y_window = tsl::cfg::LayerPosY;
-		m_last_layer_w = tsl::cfg::LayerWidth;
-		m_last_layer_h = tsl::cfg::LayerHeight;
+	// Status-monitor-deux polls a dedicated PadState here. Tesla may suppress
+	// its regular input callback for passive custom drawers, so relying only on
+	// the callback arguments makes every custom exit combo unreachable.
+	padUpdate(&pad);
+	keysHeld |= padGetButtons(&pad);
+	keysDown |= padGetButtonsDown(&pad);
+	if (keysDown & KEY_B) {
+		tsl::goBack(m_double_back ? 2 : 1);
+		return true;
 	}
 
-	// Native Tesla invokes handleInput every frame. Keep exit detection here,
-	// without a secondary PadState polling loop, so handheld, Joy-Con and Pro
-	// controller input all use the same frame input path.
 	const auto shouldExit = [&]() {
 		const bool comboHeld = mappedButtons != 0 && (keysHeld & mappedButtons) == mappedButtons;
 		if (!comboHeld) {
