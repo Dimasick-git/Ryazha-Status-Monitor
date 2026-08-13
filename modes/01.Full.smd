@@ -201,307 +201,186 @@ IETF_LOCALE{GameText,                  "RU-RU", "Игра:"}
 IETF_LOCALE{Resolutions1Text,          "RU-RU", "Разрешения: %dx%d"}
 IETF_LOCALE{Resolutions2Text,          "RU-RU", "Разрешения: %dx%d || %dx%d"}
 
-; CPU works only if clkrst or pcv was correctly initialized, realCPU_Hz_int is always 0 when hoc:clk or sys:clk is not detected
+DashboardTitleText = IETF{"SYSTEM STATUS"}
+ThermalTextFormat = IETF{"SOC %.1f°C | PCB %.1f°C\nSkin %d.%d°C | Fan %.0f%%"}
+FPSTextFormat = IETF{"PFPS %u | FPS %.1f"}
+GameInactiveText = IETF{"No game is running"}
+IETF_LOCALE{DashboardTitleText, "PL-PL", "STATUS SYSTEMU"}
+IETF_LOCALE{ThermalTextFormat, "PL-PL", "SOC %.1f°C | PCB %.1f°C\nObudowa %d.%d°C | Wentylator %.0f%%"}
+IETF_LOCALE{FPSTextFormat, "PL-PL", "PFPS %u | FPS %.1f"}
+IETF_LOCALE{GameInactiveText, "PL-PL", "Gra nie jest uruchomiona"}
+IETF_LOCALE{DashboardTitleText, "DE-DE", "SYSTEMSTATUS"}
+IETF_LOCALE{ThermalTextFormat, "DE-DE", "SOC %.1f°C | PCB %.1f°C\nGehäuse %d.%d°C | Lüfter %.0f%%"}
+IETF_LOCALE{FPSTextFormat, "DE-DE", "PFPS %u | FPS %.1f"}
+IETF_LOCALE{GameInactiveText, "DE-DE", "Kein Spiel aktiv"}
+IETF_LOCALE{DashboardTitleText, "RU-RU", "СТАТУС СИСТЕМЫ"}
+IETF_LOCALE{ThermalTextFormat, "RU-RU", "SOC %.1f°C | PCB %.1f°C\nКорпус %d.%d°C | Вентилятор %.0f%%"}
+IETF_LOCALE{FPSTextFormat, "RU-RU", "PFPS %u | FPS %.1f"}
+IETF_LOCALE{GameInactiveText, "RU-RU", "Игра не запущена"}
+
+; Full dashboard — compact Switch 2 Style card layout.
+; Coordinates are relative to COMMON_MARGIN and leave space for header and custom footer.
+
 EnableCPU = true
 CPUTargetFreqText: {IETF_GET{TargetFreqTextFormat}, CPU_Hz_int / 1000000, (CPU_Hz_int / 100000) % 10}
 CPURealFreqText: {IETF_GET{RealFreqTextFormat}, CPU_RealHz_int / 1000000, (CPU_RealHz_int / 100000) % 10}
 CPUdeltaText: {"Δ %d.%u", (CPU_RealHz_int - CPU_Hz_int) / 1000000, abs((CPU_RealHz_int - CPU_Hz_int) / 100000) % 10}
 CPUloadText: {IETF_GET{CPULoadTextFormat}, CPU_Core0Load_double, CPU_Core1Load_double, CPU_Core2Load_double, CPU_Core3Load_double}
 
-; GPU works only if nv + "clkrst or pcv" was correctly initialized, realGPU_Hz_int is always 0 when hoc:clk or sys:clk is not detected
 EnableGPU = true
 GPUTargetFreqText: {IETF_GET{TargetFreqTextFormat}, GPU_Hz_int / 1000000, (GPU_Hz_int / 100000) % 10}
 GPURealFreqText: {IETF_GET{RealFreqTextFormat}, GPU_RealHz_int / 1000000, (GPU_RealHz_int / 100000) % 10}
 GPUdeltaText: {"Δ %d.%u", (GPU_RealHz_int - GPU_Hz_int) / 1000000, abs((GPU_RealHz_int - GPU_Hz_int) / 100000) % 10}
 GPUloadText: {IETF_GET{GPULoadTextFormat}, GPU_Load_int / 10, GPU_Load_int % 10}
 
-; RAM works only if clkrst or pcv was correctly initialized + sysmodule correctly reports that SVC 0x6F is available
-; loadRAM_All_int, LoadRAM_CPU_int are always 0 when hoc:clk or sys:clk is not detected
 EnableRAM = true
 RAMTargetFreqText: {IETF_GET{TargetFreqTextFormat}, RAM_Hz_int / 1000000, (RAM_Hz_int / 100000) % 10}
 RAMRealFreqText: {IETF_GET{RealFreqTextFormat}, RAM_RealHz_int / 1000000, (RAM_RealHz_int / 100000) % 10}
 RAMdeltaText: {"Δ %d.%u", (RAM_RealHz_int - RAM_Hz_int) / 1000000, abs((RAM_RealHz_int - RAM_Hz_int) / 100000) % 10}
-RAMloadText: {IETF_GET{RAMLoadTextFormat}, RAM_LoadAll_int / 10, RAM_LoadAll_int % 10, RAM_LoadCPU_int / 10, RAM_LoadCPU_int % 10, (RAM_LoadAll_int - RAM_LoadCPU_int) / 10, (RAM_LoadAll_int - RAM_LoadCPU_int) % 10}
-RAMusageBaseText = IETF_GET{RAMUsageBaseTextFormat}
-RAMusageText: {"%4.2f / %4.2f MB\n%4.2f / %4.2f MB\n%4.2f / %4.2f MB\n%4.2f / %4.2f MB\n%4.2f / %4.2f MB", RAM_UsedAllMB_float, RAM_TotalAllMB_float, RAM_UsedApplicationMB_float, RAM_TotalApplicationMB_float, RAM_UsedAppletMB_float, RAM_TotalAppletMB_float, RAM_UsedSystemMB_float, RAM_TotalSystemMB_float, RAM_UsedSystemUnsafeMB_float, RAM_TotalSystemUnsafeMB_float}
+RAMloadText: {IETF_GET{RAMLoadTextFormat}, RAM_LoadAll_int / 10, RAM_LoadAll_int % 10, RAM_LoadCPU_int / 10, RAM_LoadCPU_int % 10}
+RAMusageText: {"App %.0f/%.0f MB\nSys %.0f/%.0f MB", RAM_UsedApplicationMB_float, RAM_TotalApplicationMB_float, RAM_UsedSystemMB_float, RAM_TotalSystemMB_float}
 
-; Board works only if at least one from i2c, tc, pwm was correctly initialized
 EnableBoard = true
 BatteryChargingText: {IETF_GET{BatteryChargingTextFormat}, Board_PowerConsumption_float, {Board_BatteryTimeEstimateInMinutes_int >= 0 ? {"%d:%02d", Board_BatteryTimeEstimateInMinutes_int / 60, Board_BatteryTimeEstimateInMinutes_int % 60} : "-:--"}}
-TemperatureText: {"%2.1f°C\n%2.1f°C\n%d.%d°C", Board_SocTemperatureCelsius_float, Board_PcbTemperatureCelsius_float, Board_SkinTemperatureMiliCelsius_int / 1000, (Board_SkinTemperatureMiliCelsius_int / 100) % 10}
-RotationText: {IETF_GET{FanRotationTextFormat}, Board_FanRotationPercentageLevel_float}
+ThermalText: {IETF_GET{ThermalTextFormat}, Board_SocTemperatureCelsius_float, Board_PcbTemperatureCelsius_float, Board_SkinTemperatureMiliCelsius_int / 1000, (Board_SkinTemperatureMiliCelsius_int / 100) % 10, Board_FanRotationPercentageLevel_float}
 
-;Game works only if SaltyNX was correctly initialized
 EnableGame = true
-FPSText: {"PFPS: %u; FPS: %2.1f", Game_FPS_int, User_OldFPSAverage ? Game_FpsAvgOld_float : Game_FpsAvg_float}
+FPSText: {IETF_GET{FPSTextFormat}, Game_FPS_int, User_OldFPSAverage ? Game_FpsAvgOld_float : Game_FpsAvg_float}
 FPSNoDataText = IETF_GET{FPSNDText}
 ReadSpeedText: {IETF_GET{ReadSpeedTextFormat}, Game_ReadSpeedPerSecond_float / 1048576}
 ReadSpeedUnkText = IETF_GET{ReadSpeedUnkTextFormat}
 
-EnableBenchmark = false
-;FrameTimeAverage = HISTORY{int, 10}
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ClockBatteryFormat: {"%02d:%02d   %.0f%%", System_ClockHour_int, System_ClockMinute_int, Board_BatteryChargePercentage_float}
+DashboardTitle = IETF_GET{DashboardTitleText}
 
 Start:
-; Ryazha theming: colors follow /config/ryazhahand/theme.ini when enabled.
-#if $User_UseTheme
-	VAR{CatColor, Theme_CategoryColor_int}
-	VAR{TxtColor, Theme_TextColor_int}
-	VAR{AccColor, Theme_AccentColor_int}
-#else
-	VAR{CatColor, color(0xCCCF)}
-	VAR{TxtColor, color(0xFFFF)}
-	VAR{AccColor, color(0x8DEF)}
-#endif
-VAR{BarTrack, color(0x3334)}
-#if $User_ShowClock
-	VAR{ClockText, ClockBatteryFormat}
-	GET_DIMENSIONS{ClockDims, 18, false, ClockText}
-	TEXT{LayerWidth - ClockDims.x - 20, 120, 18, CatColor, false, ClockText}
-#endif
-#if $EnableBenchmark
-	HISTORY_UPDATE{FrameTimeAverage, System_OverlayRenderingFrameTimeInNs_int}
-	VAR{Average, HISTORY_AVERAGE{FrameTimeAverage}}
-	TEXT{240, 120, 20, COLOR{0xCCCF}, true, {"MS: %d.%03d", Average / 1000000, (Average / 1000) % 1000}}
-#endif
-;CPU
-#if $EnableCPU
-	TEXT{0, 120, 20, CatColor, false, IETF_GET{CpuUsageText}}
-	BOX{0, 128, 205, 1, CatColor}
-	VAR{height_offset, 155}
-
-	#if $User_ShowTargetFrequencies
-		TEXT{0, height_offset, 15, TxtColor, false, CPUTargetFreqText}
-		GET_DIMENSIONS{TargetDims, 15, false, CPUTargetFreqText}
-	#endif
-
-	#if $CPU_RealHz_int and $User_ShowRealFrequencies
-		VAR{height_offset, height_offset + TargetDims.y}
-		TEXT{0, height_offset, 15, TxtColor, false, CPURealFreqText}
-		GET_DIMENSIONS{RealDims, 15, false, CPURealFreqText}
-	#endif
-
-	VAR{DeltaOffset, TargetDims.x > RealDims.x ? TargetDims.x : RealDims.x}
-
-	#if $User_ShowFrequenceDeltas and $CPU_RealHz_int
-		#if $User_ShowRealFrequencies and $User_ShowTargetFrequencies
-			VAR{delta_offset, height_offset - (TargetDims.y / 2)}
-		#else
-			VAR{delta_offset, height_offset}
-		#endif
-		TEXT{DeltaOffset + 20, delta_offset, 15, TxtColor, false, CPUdeltaText}
-	#endif
-
-	TEXT{0, 200, 15, TxtColor, false, CPUloadText}
-	; Average CPU load bar
-	#if $User_ShowLoadBars
-		VAR{CpuAvg, (CPU_Core0Load_double + CPU_Core1Load_double + CPU_Core2Load_double + CPU_Core3Load_double) / 4}
-		BOX{0, 264, 200, 4, BarTrack}
-		BOX{0, 264, CpuAvg * 2, 4, AccColor}
-	#endif
-#endif
-
-;GPU
-#if $EnableGPU
-	VAR{height_offset, 310}
-	TEXT{0, 285, 20, CatColor, false, IETF_GET{GpuUsageText}}
-	BOX{0, 293, 205, 1, CatColor}
-	#if $User_ShowTargetFrequencies
-		TEXT{0, height_offset, 15, TxtColor, false, GPUTargetFreqText}
-		GET_DIMENSIONS{TargetDims, 15, false, GPUTargetFreqText}
-	#endif
-
-	#if $GPU_RealHz_int and $User_ShowRealFrequencies
-		VAR{height_offset, height_offset + TargetDims.y}
-		TEXT{0, height_offset, 15, TxtColor, false, GPURealFreqText}
-		GET_DIMENSIONS{RealDims, 15, false, GPURealFreqText}
-	#endif
-
-	VAR{DeltaOffset, TargetDims.x > RealDims.x ? TargetDims.x : RealDims.x}
-
-	#if $User_ShowFrequenceDeltas and $GPU_RealHz_int
-		#if $User_ShowRealFrequencies and $User_ShowTargetFrequencies
-			VAR{delta_offset, height_offset - (TargetDims.y / 2)}
-			VAR{height_offset, height_offset + RealDims.y}
-		#elif $User_ShowRealFrequencies or $User_ShowTargetFrequencies
-			VAR{delta_offset, height_offset}
-			#if $User_ShowRealFrequencies
-				VAR{height_offset, height_offset + RealDims.y}
-			#else
-				VAR{height_offset, height_offset + TargetDims.y}
-			#endif
-		#else
-			VAR{delta_offset, height_offset}
-			GET_DIMENSIONS{dimensions, 15, false, "Ą"}
-			VAR{height_offset, height_offset + dimensions.y}
-		#endif
-		TEXT{DeltaOffset + 20, delta_offset, 15, TxtColor, false, GPUdeltaText}
+	#if $User_UseTheme
+		VAR{CatColor, Theme_CategoryColor_int}
+		VAR{TxtColor, Theme_TextColor_int}
+		VAR{AccColor, Theme_AccentColor_int}
 	#else
-		#if $User_ShowRealFrequencies and $GPU_RealHz_int
-			VAR{height_offset, height_offset + RealDims.y}
-		#elif $User_ShowTargetFrequencies
-			VAR{height_offset, height_offset + TargetDims.y}
-		#else
-			GET_DIMENSIONS{dimensions, 15, false, "Ą"}
-			VAR{height_offset, height_offset + dimensions.y}
+		VAR{CatColor, color(0xCCCF)}
+		VAR{TxtColor, color(0xFFFF)}
+		VAR{AccColor, color(0x8DEF)}
+	#endif
+	VAR{CardColor, color(0x202F)}
+	VAR{BarTrack, color(0x333F)}
+	VAR{LeftCardX, 0}
+	VAR{RightCardX, 210}
+	VAR{CardWidth, 190}
+	VAR{InnerWidth, 162}
+
+	TEXT{0, 116, 14, CatColor, false, DashboardTitle}
+	#if $User_ShowClock
+		VAR{ClockText, ClockBatteryFormat}
+		GET_DIMENSIONS{ClockDims, 14, false, ClockText}
+		TEXT{400 - ClockDims.x, 116, 14, CatColor, false, ClockText}
+	#endif
+
+	; CPU card
+	ROUNDED_BOX{LeftCardX, 140, CardWidth, 145, 12, 12, 12, 12, CardColor}
+	#if $EnableCPU
+		TEXT{LeftCardX + 14, 156, 16, CatColor, false, IETF_GET{CpuUsageText}}
+		TEXT{LeftCardX + 14, 184, 12, TxtColor, false, CPUTargetFreqText}
+		#if $User_ShowRealFrequencies and $CPU_RealHz_int
+			TEXT{LeftCardX + 14, 202, 12, TxtColor, false, CPURealFreqText}
 		#endif
-	#endif
-
-	TEXT{0, height_offset, 15, TxtColor, false, GPUloadText}
-	GET_DIMENSIONS{Dims, 15, false, GPUloadText}
-	VAR{height_offset, height_offset + Dims.y}
-	; GPU load bar (GPU_Load_int is in 0.1% units)
-	#if $User_ShowLoadBars
-		BOX{0, height_offset - 9, 200, 4, BarTrack}
-		BOX{0, height_offset - 9, GPU_Load_int / 5, 4, AccColor}
-		VAR{height_offset, height_offset + 2}
-	#endif
-#endif
-
-;RAM
-#if $EnableRAM
-
-	#if $height_offset < 375
-		VAR{height_offset, 375}
-	#endif
-
-	TEXT{0, height_offset, 20, CatColor, false, IETF_GET{RamUsageText}}
-	BOX{0, height_offset + 8, 205, 1, CatColor}
-
-	VAR{height_offset, 400}
-	#if $User_ShowTargetFrequencies
-		TEXT{0, height_offset, 15, TxtColor, false, RAMTargetFreqText}
-		GET_DIMENSIONS{TargetDims, 15, false, RAMTargetFreqText}
-	#endif
-
-	#if $CPU_RealHz_int and $User_ShowRealFrequencies
-		VAR{height_offset, height_offset + TargetDims.y}
-		TEXT{0, height_offset, 15, TxtColor, false, RAMRealFreqText}
-		GET_DIMENSIONS{RealDims, 15, false, RAMRealFreqText}
-	#endif
-
-	VAR{DeltaOffset, TargetDims.x > RealDims.x ? TargetDims.x : RealDims.x}
-
-	#if $User_ShowFrequenceDeltas and $RAM_RealHz_int
-		#if $User_ShowRealFrequencies and $User_ShowTargetFrequencies
-			VAR{delta_offset, height_offset - (TargetDims.y / 2)}
-			VAR{height_offset, height_offset + RealDims.y}
-		#elif $User_ShowRealFrequencies or $User_ShowTargetFrequencies
-			VAR{delta_offset, height_offset}
-			#if $User_ShowRealFrequencies
-				VAR{height_offset, height_offset + RealDims.y}
-			#else
-				VAR{height_offset, height_offset + TargetDims.y}
-			#endif
-		#else
-			VAR{delta_offset, height_offset}
-			GET_DIMENSIONS{dimensions, 15, false, "Ą"}
-			VAR{height_offset, height_offset + dimensions.y}
+		#if $User_ShowFrequenceDeltas and $CPU_RealHz_int
+			TEXT{LeftCardX + 14, 220, 12, AccColor, false, CPUdeltaText}
 		#endif
-		TEXT{DeltaOffset + 20, delta_offset, 15, TxtColor, false, RAMdeltaText}
-	#else
-		#if $User_ShowRealFrequencies
-			VAR{height_offset, height_offset + RealDims.y}
-		#else
-			VAR{height_offset, height_offset + TargetDims.y}
-		#endif
-	#endif
-
-	#if $RAM_LoadAll_int
-		TEXT{0, height_offset, 15, TxtColor, false, RAMloadText}
-		GET_DIMENSIONS{dimensions, 15, false, RAMloadText}
-		VAR{height_offset, height_offset + dimensions.y}
-		; RAM load bar (RAM_LoadAll_int is in 0.1% units)
+		TEXT{LeftCardX + 14, 238, 12, TxtColor, false, CPUloadText}
 		#if $User_ShowLoadBars
-			BOX{0, height_offset - 9, 200, 4, BarTrack}
-			BOX{0, height_offset - 9, RAM_LoadAll_int / 5, 4, AccColor}
-			VAR{height_offset, height_offset + 2}
+			VAR{CpuAvg, (CPU_Core0Load_double + CPU_Core1Load_double + CPU_Core2Load_double + CPU_Core3Load_double) / 4}
+			BOX{LeftCardX + 14, 272, InnerWidth, 4, BarTrack}
+			BOX{LeftCardX + 14, 272, CpuAvg * 1.62, 4, AccColor}
 		#endif
 	#endif
 
-	#if height_offset < 460
-		VAR{height_offset, 460}
+	; GPU card
+	ROUNDED_BOX{RightCardX, 140, CardWidth, 145, 12, 12, 12, 12, CardColor}
+	#if $EnableGPU
+		TEXT{RightCardX + 14, 156, 16, CatColor, false, IETF_GET{GpuUsageText}}
+		TEXT{RightCardX + 14, 184, 12, TxtColor, false, GPUTargetFreqText}
+		#if $User_ShowRealFrequencies and $GPU_RealHz_int
+			TEXT{RightCardX + 14, 202, 12, TxtColor, false, GPURealFreqText}
+		#endif
+		#if $User_ShowFrequenceDeltas and $GPU_RealHz_int
+			TEXT{RightCardX + 14, 220, 12, AccColor, false, GPUdeltaText}
+		#endif
+		TEXT{RightCardX + 14, 238, 12, TxtColor, false, GPUloadText}
+		#if $User_ShowLoadBars
+			BOX{RightCardX + 14, 272, InnerWidth, 4, BarTrack}
+			BOX{RightCardX + 14, 272, GPU_Load_int * 0.162, 4, AccColor}
+		#endif
 	#endif
 
-	GET_DIMENSIONS{dimensions, 15, false, RAMusageBaseText}
-	TEXT{0, height_offset, 15, TxtColor, false, RAMusageBaseText}
-	TEXT{dimensions.x, height_offset, 15, TxtColor, false, RAMusageText}
-#endif
-
-;Board
-#if $EnableBoard
-	TEXT{0, 550, 20, CatColor, false, IETF_GET{BoardUsageText}}
-	BOX{0, 558, 205, 1, CatColor}
-	VAR{height_offset, 570}
-	TEXT{0, height_offset, 15, TxtColor, false, BatteryChargingText}
-	GET_DIMENSIONS{dimensions, 15, false, BatteryChargingText}
-	VAR{height_offset, height_offset + dimensions.y}
-	VAR{TemperText, IETF_GET{TemperatureText}}
-	VAR{SensorsText, IETF_GET{ThermalSensorsText}}
-	GET_DIMENSIONS{dimensions1, 15, false, TemperText}
-	GET_DIMENSIONS{dimensions2, 15, false, SensorsText}
-	TEXT{0, height_offset, 15, TxtColor, false, TemperText}
-	TEXT{dimensions1.x, height_offset, 15, TxtColor, false, SensorsText}
-	TEXT{dimensions1.x + dimensions2.x, height_offset, 15, TxtColor, false, TemperatureText}
-	GET_DIMENSIONS{dimensions, 15, false, SensorsText}
-	VAR{height_offset, height_offset + dimensions.y}
-	TEXT{0, height_offset, 15, TxtColor, false, RotationText}
-#endif
-
-#if $EnableGame
-	#if $Game_IsGameRunning
-		VAR{width_offset, 150}
-		#if $User_ShowFPS or $User_ShowResolution or $User_ShowReadSpeed
-			TEXT{width_offset, 200, 20, CatColor, false, IETF_GET{GameText}}
-			BOX{width_offset, 208, 170, 1, CatColor}
+	; RAM card
+	ROUNDED_BOX{LeftCardX, 300, CardWidth, 160, 12, 12, 12, 12, CardColor}
+	#if $EnableRAM
+		TEXT{LeftCardX + 14, 316, 16, CatColor, false, IETF_GET{RamUsageText}}
+		TEXT{LeftCardX + 14, 342, 12, TxtColor, false, RAMTargetFreqText}
+		#if $User_ShowRealFrequencies and $RAM_RealHz_int
+			TEXT{LeftCardX + 14, 360, 12, TxtColor, false, RAMRealFreqText}
 		#endif
-		VAR{height_offset, 225}
-		#if $User_ShowFPS
-			TEXT{width_offset, height_offset, 15, TxtColor, false, FPSText}
-			GET_DIMENSIONS{dimensions, 15, false, FPSText}
-			VAR{height_offset, height_offset + dimensions.y}
+		#if $User_ShowFrequenceDeltas and $RAM_RealHz_int
+			TEXT{LeftCardX + 14, 378, 12, AccColor, false, RAMdeltaText}
 		#endif
-		#if $User_ShowResolution and $Game_ResolutionRenderCalls_int[0].calls != 0xFFFF
-			#if $Game_ResolutionRenderCalls_int[0].calls > $Game_ResolutionViewportCalls_int[0].calls
-				VAR{resolutionOutput0, Game_ResolutionRenderCalls_int[0]}
-				#if $Game_ResolutionRenderCalls_int[1].calls > $Game_ResolutionViewportCalls_int[0].calls
+		#if $RAM_LoadAll_int
+			TEXT{LeftCardX + 14, 396, 12, TxtColor, false, RAMloadText}
+			#if $User_ShowLoadBars
+				BOX{LeftCardX + 14, 414, InnerWidth, 4, BarTrack}
+				BOX{LeftCardX + 14, 414, RAM_LoadAll_int * 0.162, 4, AccColor}
+			#endif
+		#endif
+		TEXT{LeftCardX + 14, 430, 12, TxtColor, false, RAMusageText}
+	#endif
+
+	; Game card
+	ROUNDED_BOX{RightCardX, 300, CardWidth, 160, 12, 12, 12, 12, CardColor}
+	#if $EnableGame
+		TEXT{RightCardX + 14, 316, 16, CatColor, false, IETF_GET{GameText}}
+		#if $Game_IsGameRunning
+			#if $User_ShowFPS
+				TEXT{RightCardX + 14, 346, 12, TxtColor, false, FPSText}
+			#endif
+			#if $User_ShowResolution and $Game_ResolutionRenderCalls_int[0].calls != 0xFFFF
+				#if $Game_ResolutionRenderCalls_int[0].calls > $Game_ResolutionViewportCalls_int[0].calls
+					VAR{resolutionOutput0, Game_ResolutionRenderCalls_int[0]}
+				#else
+					VAR{resolutionOutput0, Game_ResolutionViewportCalls_int[0]}
+				#endif
+				#if $Game_ResolutionRenderCalls_int[1].calls > $Game_ResolutionViewportCalls_int[1].calls
 					VAR{resolutionOutput1, Game_ResolutionRenderCalls_int[1]}
 				#else
 					VAR{resolutionOutput1, Game_ResolutionViewportCalls_int[1]}
 				#endif
-			#else
-				VAR{resolutionOutput0, Game_ResolutionViewportCalls_int[0]}
-				#if $Game_ResolutionViewportCalls_int[1].calls < $Game_ResolutionRenderCalls_int[0].calls
-					VAR{resolutionOutput1, Game_ResolutionRenderCalls_int[1]}
+				#if $resolutionOutput0.width > 0 and $resolutionOutput1.width > 0
+					TEXT{RightCardX + 14, 370, 12, TxtColor, false, {IETF_GET{Resolutions2Text}, resolutionOutput0.width, resolutionOutput0.height, resolutionOutput1.width, resolutionOutput1.height}}
 				#else
-					VAR{resolutionOutput1, Game_ResolutionViewportCalls_int[1]}
+					TEXT{RightCardX + 14, 370, 12, TxtColor, false, {IETF_GET{Resolutions1Text}, resolutionOutput0.width, resolutionOutput0.height}}
 				#endif
 			#endif
-			VAR{ResolutionsText, {IETF_GET{Resolutions1Text}, resolutionOutput0.width, resolutionOutput0.height}}
-			VAR{ResolutionsBackText, {IETF_GET{Resolutions1Text}, resolutionOutput1.width, resolutionOutput1.height}}
-			VAR{ResolutionsTwoText, {IETF_GET{Resolutions2Text}, resolutionOutput0.width, resolutionOutput0.height, resolutionOutput1.width, resolutionOutput1.height}}
-			#if $resolutionOutput0.width == 0 or $resolutionOutput1.width == 0
-				#if $resolutionOutput0.width > 0
-					TEXT{width_offset, height_offset, 15, TxtColor, false, ResolutionsText}
+			#if $User_ShowReadSpeed
+				#if $Game_ReadSpeedPerSecond_float
+					TEXT{RightCardX + 14, 394, 12, TxtColor, false, ReadSpeedText}
 				#else
-					TEXT{width_offset, height_offset, 15, TxtColor, false, ResolutionsBackText}
+					TEXT{RightCardX + 14, 394, 12, TxtColor, false, ReadSpeedUnkText}
 				#endif
 			#endif
-			#if $resolutionOutput0.width > 0 and $resolutionOutput1.width > 0
-				TEXT{width_offset, height_offset, 15, TxtColor, false, ResolutionsTwoText}
-			#endif
-			GET_DIMENSIONS{Dimensions, 15, false, "Ą"}
-			VAR{height_offset, height_offset + Dimensions.y}
-		#endif
-		#if $User_ShowReadSpeed
-			#if $Game_ReadSpeedPerSecond_float
-				TEXT{width_offset, height_offset, 15, TxtColor, false, ReadSpeedText}
-			#else
-				TEXT{width_offset, height_offset, 15, TxtColor, false, ReadSpeedUnkText}
-			#endif
+		#else
+			TEXT{RightCardX + 14, 350, 12, TxtColor, false, IETF_GET{GameInactiveText}}
 		#endif
 	#endif
-#endif
+
+	; Board and battery card
+	ROUNDED_BOX{0, 475, 400, 170, 12, 12, 12, 12, CardColor}
+	#if $EnableBoard
+		TEXT{14, 491, 16, CatColor, false, IETF_GET{BoardUsageText}}
+		TEXT{14, 523, 13, TxtColor, false, BatteryChargingText}
+		TEXT{14, 553, 13, TxtColor, false, ThermalText}
+		#if $Board_BatteryChargePercentage_float
+			BOX{14, 614, 372, 5, BarTrack}
+			BOX{14, 614, Board_BatteryChargePercentage_float * 3.72, 5, AccColor}
+		#endif
+	#endif
 
