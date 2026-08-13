@@ -517,6 +517,9 @@ int main(int argc, char **argv) {
 				ult::DefaultFramebufferHeight = peek.layerHeight;
 			}
 			file_to_load = path;
+			// Must be visible to libryazhahand before the first show/input cycle;
+			// otherwise a passive SMD is mistaken for a normal menu overlay.
+			lastMode = std::string(StatusMonitorModeId(smdFilename));
 		};
 
 	// Legacy Ryazha/Status-Monitor-Overlay mode arguments are mapped to the

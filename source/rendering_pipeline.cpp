@@ -270,6 +270,10 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool closeOverlayOnEx
 	}
 	Movable = doc.GetConfigBool("Movable", false);
 	rel_filepath = filepath.substr(strlen("sdmc:/config/status-monitor/modes/"));
+	// libryazhahand gates passive input and combo behaviour on lastMode. The
+	// old pipeline never assigned it, leaving every SMD indistinguishable from
+	// a normal menu. Set it for both in-menu and --file launches.
+	lastMode = std::string(StatusMonitorModeId(rel_filepath));
 	if (Movable && saveAndLoadMovableOverlayPosition) {
 		smd_hash = doc.GetFileHash();
 		uint16_t saved_x_pos;
@@ -360,6 +364,14 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool closeOverlayOnEx
 	auto test = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
 	if (test == 0xFFFFFF) backgroundColor = (uint16_t)doc.GetConfigInt("BackgroundColor", 0x000D);
 	else backgroundColor = (uint16_t)test;
+
+	// Status-monitor-deux sets the framework's background before the frame is
+	// drawn. Do the equivalent in libryazhahand instead of filling from inside
+	// CustomDrawer: this preserves the exact SMD-sized layer and prevents stale
+	// or stretched fills when a mode is opened or closed.
+	m_menuBackgroundBeforeMode = tsl::defaultBackgroundColor;
+	tsl::defaultBackgroundColor = tsl::Color(backgroundColor);
+	m_modeBackgroundApplied = true;
 	ClampToLayerRight  = doc.GetConfigBool("ClampToLayerRight",  false);
 	ClampToLayerBottom = doc.GetConfigBool("ClampToLayerBottom", false);
 	if (Movable && motionControl) {
@@ -435,8 +447,11 @@ RenderingPipeline::~RenderingPipeline() {
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConR]);
 	}
 	backgroundColor = menuBackgroundColor;
+	if (m_modeBackgroundApplied)
+		tsl::defaultBackgroundColor = m_menuBackgroundBeforeMode;
 	deactivateOriginalFooter = false;
 	FullMode = true;
+	lastMode.clear();
 	tsl::hlp::requestForeground(true);
 	for (size_t i = 0; i < threads_count; i++) {
 		threadWaitForExit(&threads[i]);
@@ -452,9 +467,6 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, name);
 	else rootFrame = new tsl::elm::OverlayFrame("", "");
 	auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
-		// SMD colors are RGBA4444: mode configuration now directly controls the
-		// actual framebuffer fill instead of leaving a transparent layer.
-		renderer->fillScreen(renderer->a(backgroundColor));
 		if (error.length() > 0) {
 			renderer->drawString(error.c_str(), false, 20, 120, 20, renderer->a(0xFFFF));
 		}

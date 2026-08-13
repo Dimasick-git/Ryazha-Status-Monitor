@@ -4,6 +4,7 @@
 #include <string>
 #include <tesla.hpp>
 #include "smd_parser.hpp"
+#include "status_monitor_mode.hpp"
 
 inline int64_t COMMON_MARGIN = 0;
 
@@ -27,6 +28,10 @@ private:
 	std::string rel_filepath;
 	std::string error;
 	std::string footerBackup;
+	// Status-monitor-deux changes Tesla's frame background for a mode. Keep the
+	// themed menu color and restore it when the mode exits.
+	tsl::Color m_menuBackgroundBeforeMode{0};
+	bool m_modeBackgroundApplied = false;
 	smd::Document doc;
 	bool HeaderText = true;
 	bool FooterText = true;

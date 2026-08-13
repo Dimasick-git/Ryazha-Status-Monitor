@@ -22,6 +22,7 @@ set(SMD_TESTS
     test_error_wrap
     test_history_average
     test_full_mode_options
+    test_mode_mapping
 )
 
 set(FIXTURES_DIR "${CMAKE_SOURCE_DIR}/modes")
@@ -30,7 +31,7 @@ foreach(t ${SMD_TESTS})
     add_executable(${t} ${t}.cpp)
     target_link_libraries(${t} PRIVATE smd_parser)
     # Tests share helpers in test_support.hpp under tests/.
-    target_include_directories(${t} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
+    target_include_directories(${t} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/include)
     add_test(NAME ${t}
         COMMAND ${t}
         WORKING_DIRECTORY ${FIXTURES_DIR}

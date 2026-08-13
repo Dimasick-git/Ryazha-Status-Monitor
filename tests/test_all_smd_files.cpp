@@ -307,6 +307,14 @@ int RunOne(const FixtureExpectation& e) {
         return 1;
     }
 
+    // COLOR{0x000D} is nibble-swapped by the parser to raw RGBA4444 0xD000:
+    // opaque black used by Status-monitor-deux. Every bundled SMD must expose
+    // it so renderer-level background handling never falls back to transparency.
+    if (static_cast<uint16_t>(doc.GetConfigInt("BackgroundColor", 0x0000)) != 0xD000) {
+        std::printf("  FAIL background [%s]: BackgroundColor must resolve to opaque 0xD000\n", e.filename);
+        return 1;
+    }
+
     Capture cap;
     if (!doc.Evaluate(RecordCallback, &cap)) {
         std::printf("  FAIL Evaluate: %s\n", doc.LastError());
