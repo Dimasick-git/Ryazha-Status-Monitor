@@ -1,12 +1,6 @@
 # `smd_parser` — Internal Documentation
 
-> **English — short:** this is the maintainer reference for the C++23 SMD parser. It documents parser internals, the public API, memory ownership, and render callbacks.
-
-## Кратко по-русски
-
-Этот документ предназначен для сопровождения и отладки SMD-парсера. Парсер состоит из `source/smd_parser.cpp` и публичного заголовка `include/smd_parser.hpp`, а для арифметических выражений использует вендорную модификацию `lib/tinyexpr`. Полный технический текст ниже оставлен на английском: в нём имена C++ API, SMD-конструкций и диагностик должны совпадать с кодом.
-
-A C++23 parser for `.smd` (Status Monitor Design) overlay files used by SaltyNX/Tesla Switch overlays. This document is written for future maintainers who need to maintain, extend, or debug the parser. It assumes C++ fluency and skips Switch/Tesla background where irrelevant.
+A C++23 parser for `.smd` (Status Monitor Design) overlay files used by SaltyNX/Tesla Switch overlays. This document is written for a future Claude instance who needs to maintain, extend, or debug the parser. It assumes C++ fluency and skips Switch/Tesla background where irrelevant.
 
 The parser is a single translation unit (`smd_parser.cpp`) plus a public header (`smd_parser.hpp`). It depends on a vendored, modified copy of `tinyexpr` for arithmetic-only expressions. The host uses it like this:
 
@@ -90,7 +84,7 @@ Both kinds are **seeded once at `Compile()`** and never re-seeded by `Reset()` �
 |--------------------------------------------------------------------------------------|--------------------------------------------------------|
 | `TEXT{x, y, fontSize, color, matchLineHeight, "lit" or VAR}`                         | Draw text; `matchLineHeight` is `true`/`false` literal |
 | `BOX{x, y, w, h, color}`                                                             | Filled rectangle                                       |
-| `ROUNDED_BOX{x, y, w, h, roundnessTl, roundnessTr, roundnessBl, roundnessBr, color}` | Filled rectangle with rounded corners                 |
+| `ROUNDED_BOX{x, y, w, h, roundnessTl, roundnessTr, roundnessBl, roundnessBr, color}` | Stroked rectangle with rounded edges                   |
 | `EMPTY_BOX{x, y, w, h, color}`                                                       | Stroked rectangle                                      |
 | `DASHED_LINE{x, y, x2, y2, lineLength, gap, color}`                                  | Dashed line; geometry args are pixels                  |
 | `GET_DIMENSIONS{dimsName, fontSize, matchLineHeight, "lit" or VAR}`                  | Asks host to measure; result stored as `dimsName.x/.y` |
@@ -105,7 +99,7 @@ All commands use `{}` as their argument-list delimiter. Args are split on commas
 
 ### Conditional directives (`#if` / `#elif` / `#else` / `#endif`)
 
-These are **render-script lines**, not preprocessor passes. The condition is evaluated each frame and gates whether the block executes. Conditions are full expressions including `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`/`or`, plus regular arithmetic. There is no `not` operator. **The expression engine for conditions is built on top of tinyexpr** (which only handles pure arithmetic) — see `EvalCondition` in §6.
+These are **render-script lines**, not preprocessor passes. The condition is evaluated each frame and gates whether the block executes. Conditions are full expressions including `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`/`or`/`not`, plus all the regular arithmetic. **The expression engine for conditions is built on top of tinyexpr** (which only handles pure arithmetic) — see `EvalCondition` in §6.
 
 The parser rejects stray `#endif` / `#else` / `#elif` at the top level (anywhere outside an `#if` block) with a clear error. It also rejects double `#else` and `#elif` after `#else`.
 
@@ -412,7 +406,7 @@ The implementation hides behind a single pimpl, `Document::Impl`. Key members:
 - `teVarTable` — `std::vector<te_variable>`. The merged symbol table handed to `te_compile`. **All pointers in here must be stable across the Document's lifetime**, hence all the `unique_ptr<double>`s.
 - `ownedExprs` — `std::vector<te_expr*>`. Every compiled tinyexpr tree we own; freed in `Free()`.
 - `arithCache` — `std::unordered_map<std::string, te_expr*>`. **Persistent across frames.** Caches the compiled form of arithmetic source strings that `EvalCondition` builds on-the-fly. Critical for memory stability: see §9.
-- `dimsMeasureCache` — `std::unordered_map<std::string, Dimensions>`. Caches GET_DIMENSIONS results keyed on `(text, fontSize, matchLineHeight)`. Soft cap of 256 entries.
+- `dimsMeasureCache` — `std::unordered_map<std::string, Dimensions>`. Caches GET_DIMENSIONS results keyed on `(text, fontSize)`. Soft cap of 256 entries.
 - `lastError`, `lastErrorWrapped`, `lastErrorWrappedOf` — error string plus the lazy 40-col wrap.
 
 ### Two-pass build
@@ -459,7 +453,7 @@ A single tight loop that copies every bound host pointer's value into the corres
 
 ## 7. Expression engine
 
-`tinyexpr` (vendored in `lib/tinyexpr/`) handles pure arithmetic only. The parser builds two layers on top:
+`tinyexpr` (vendored, in `third_party/tinyexpr/`) handles pure arithmetic only. The parser builds two layers on top:
 
 ### `PreprocessExpr(source)` — text-level transform
 
@@ -474,8 +468,8 @@ This is purely textual — it doesn't know if a name is bound. The bound-or-not 
 
 ### `EvalCondition` — comparisons + logical ops
 
-tinyexpr can't handle `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, or `or`. So `EvalCondition` is a tiny recursive-descent layer that:
-1. Splits on top-level `or` / `and`.
+tinyexpr can't handle `==`, `!=`, `<`, `<=`, `>`, `>=`, `and`, `or`, `not`. So `EvalCondition` is a tiny recursive-descent layer that:
+1. Splits on top-level `or` / `and` / `not`.
 2. For each leaf comparison `lhs OP rhs`, evaluates `lhs` and `rhs` independently via `EvalArith` (which calls tinyexpr through the `arithCache`), then applies the comparator.
 3. For bare leaves (no comparator), evaluates the leaf via `EvalArith` and checks truthiness (nonzero is true; NaN is false).
 

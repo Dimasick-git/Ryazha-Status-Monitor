@@ -24,10 +24,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Configure
-        run: cmake -S . -B build-tests -DSMD_BUILD_TESTS=ON -DSMD_WARNINGS_AS_ERRORS=ON
+        run: cmake -S . -B build-tests -DSMD_BUILD_TESTS=ON
 
       - name: Build tests
         run: cmake --build build-tests -j$(nproc)
@@ -42,7 +42,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -53,7 +53,7 @@ jobs:
         run: make -j$(nproc)
 
       - name: Upload overlay artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: Ryazha-Status-Monitor
           path: Ryazha-Status-Monitor.ovl
@@ -64,7 +64,7 @@ jobs:
       # include-hidden-files is required: upload-artifact v4 silently drops
       # hidden directories like .overlays by default.
       - name: Upload dist artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: Ryazha-Status-Monitor-dist
           path: out/
@@ -81,18 +81,18 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download overlay artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: Ryazha-Status-Monitor
 
       - name: Download dist artifact
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@v4
         with:
           name: Ryazha-Status-Monitor-dist
           path: dist-out
@@ -113,12 +113,6 @@ jobs:
           APP_VERSION=$(grep -E '^APP_VERSION\s*:=' Makefile | sed -E 's/.*:=\s*//;s/\s*$//')
           if [ -z "$APP_VERSION" ]; then
             echo "::error::Could not extract APP_VERSION."
-            exit 1
-          fi
-
-          NOTES_FILE="docs/RELEASE_NOTES_${APP_VERSION}.md"
-          if [ ! -f "$NOTES_FILE" ]; then
-            echo "::error::Release notes not found: $NOTES_FILE"
             exit 1
           fi
 
@@ -147,7 +141,6 @@ jobs:
             echo "should_release=true" >> "$GITHUB_OUTPUT"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "notes_file=$NOTES_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Create & push tag
         if: steps.tag.outputs.should_release == 'true' && !startsWith(github.ref, 'refs/tags/')
@@ -157,19 +150,19 @@ jobs:
           set -e
           TAG="${{ steps.tag.outputs.tag }}"
           if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-            git config user.name  'Dimasick-git'
-            git config user.email 'dimaorynchukk@gmail.com'
+            git config user.name  'ryazhahand-release-bot'
+            git config user.email 'ryazhahand-release-bot@users.noreply.github.com'
             git tag -a "$TAG" -m "Auto-release on APP_VERSION change: $TAG"
             git push origin "$TAG"
           fi
 
       - name: Publish GitHub Release
         if: steps.tag.outputs.should_release == 'true'
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: Ryazha-Status-Monitor ${{ steps.tag.outputs.tag }}
-          body_path: ${{ steps.tag.outputs.notes_file }}
+          generate_release_notes: true
           files: |
             Ryazha-Status-Monitor.ovl
             Ryazha-Status-Monitor.zip

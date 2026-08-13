@@ -1,12 +1,10 @@
 # SMD Format Reference
 
-> **English — short:** SMD is the declarative script format used to define an overlay mode. Keep configuration above `Start:` and rendering commands below it. The code syntax and complete reference remain in English so identifiers, parser messages, and examples stay exact.
+Status Monitor Design (`.smd`) format.
 
-## Кратко по-русски
+Each file defines a small program: a set of configuration values up top, then a render script that the host runs once per frame.
 
-SMD (`.smd`) — формат сценариев режимов. До строки `Start:` задаются постоянные значения, пользовательские настройки и состояние, после неё — команды рендеринга, которые выполняются каждый кадр. Используйте `=` для неизменяемых значений и `:` для состояния, изменяемого через `VAR`.
-
-Документ рассчитан на авторов `.smd`-режимов. Техническое устройство парсера описано в [SMD_PARSER_INTERNALS.md](SMD_PARSER_INTERNALS.md). Ниже сохранён полный англоязычный справочник: названия конструкций, идентификаторы и диагностические сообщения должны совпадать с исходным кодом.
+This document is for **authors writing `.smd` files**. For details on how the parser is implemented internally, see `PARSER_INTERNALS.md`.
 
 ---
 
@@ -195,7 +193,7 @@ WarningText = IETF{"Game is not running or it's incompatible."}
 
 Assign string to local variable initiated with `IETF{string}` only if provided IETF code matches what program expects.
 
-IETF code is determined by system language or can be overriden by editing `config.ini` in `config/status-monitor/`, enabling `override_language` by writing:
+IETF code is determined by system language or can be overriden by editing `config.ini` in `config/system-monitor-deux/`, enabling `override_language` by writing:
 ```ini
 override_language=true
 ```
@@ -272,7 +270,7 @@ Filled rectangle.
 BOX{0, 0, LayerWidth, 50, BackgroundColor}
 ```
 
-### `ROUNDED_BOX{x, y, width, height, roundness top left corner, roundness top right corner, roundness bottom left corner, roundness bottom right corner, color}`
+### `ROUNDED_BOX{x, y, width, height, roundness top left corner, roundness top right corner, roundness bottom left corner, roundness top right corner, color}`
 
 Filled rectangle with rounded corners. Roundness range is [0.0, 1.0]. 0.0 for all roundness inputs is equal to using BOX{x, y, width, height, color}.
 
@@ -464,7 +462,7 @@ VAR{flag, true}           ; same as VAR{flag, 1}
 A struct VAR or a resolution-array slot is read with `.field`:
 
 ```inno-setup
-GET_DIMENSIONS{D, 18, true, "x"}
+GET_DIMENSIONS{D, 18, "x"}
 TEXT{D.x, D.y, 18, 0xFFFF, true, "x"}
 ```
 
@@ -609,7 +607,7 @@ Use `GET_DIMENSIONS` to measure, then offset:
 
 ```inno-setup
 VAR{label, {"%.1f FPS", Game_FpsAvg_float}}
-GET_DIMENSIONS{labelDims, 18, true, label}
+GET_DIMENSIONS{labelDims, 18, label}
 TEXT{(LayerWidth - labelDims.x) / 2, 10, 18, 0xFFFF, true, label}
 ```
 

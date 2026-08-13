@@ -3171,12 +3171,6 @@ virtual Element* requestFocus(Element *oldFocus, FocusDirection direction) overr
 			// Parse Tesla settings
 			impl::parseOverlaySettings(shData->launchCombo);
 
-			// Explicitly allow standard + SystemExt + GameCube (USB adapter) controller
-			// styles so GC pads can drive the overlay too (Dimasick-git/RyazhaTune#33).
-			// Without this the vendored lib relied on whatever style set was active,
-			// and NpadGc input never reached the overlay process.
-			padConfigureInput(8, HidNpadStyleSet_NpadStandard | HidNpadStyleTag_NpadSystemExt | HidNpadStyleTag_NpadGc);
-
 			padInitializeAny(&pad);
 
 			//Doesn't work in sysmodule space, not needed anyway because other applets are always having it initialized
