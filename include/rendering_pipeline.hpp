@@ -11,6 +11,7 @@ class RenderingPipeline : public tsl::Gui {
 private:
 	bool m_double_back = false;
 	uint64_t mappedButtons = HidNpadButton_B;
+	PadState pad{};
 	uint64_t leftJoyconMotionMappedButtons  = 0;
 	uint64_t rightJoyconMotionMappedButtons = 0;
 	uint64_t proControllerMotionMappedButtons = 0;

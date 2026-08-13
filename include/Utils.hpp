@@ -10,6 +10,59 @@
 #include "smd_parser.hpp"
 #include "status_monitor_ini_compat.hpp"
 #include <array>
+#include <charconv>
+#include <string_funcs.hpp>
+
+// Application state retained by Status Monitor across its standalone SMD and
+// configuration screens. Visual controls remain owned by the full RyazhaTune
+// renderer; these values only preserve Status Monitor's own mode behaviour.
+extern std::string defaultButtonView;
+extern uint16_t menuBackgroundColor;
+extern uint16_t backgroundColor;
+extern uint64_t frameTimeInNS;
+extern bool isDocked;
+
+inline std::string& trim(std::string& value) {
+	ult::trim(value);
+	return value;
+}
+
+inline std::string trim(std::string&& value) {
+	ult::trim(value);
+	return value;
+}
+
+inline bool isNumeric(const std::string& value, int64_t* output = nullptr) {
+	if (value.empty()) return false;
+	int64_t parsed = 0;
+	auto [end, error] = std::from_chars(value.data(), value.data() + value.size(), parsed);
+	if (error != std::errc{} || end != value.data() + value.size()) return false;
+	if (output != nullptr) *output = parsed;
+	return true;
+}
+
+inline bool isValid4444HexColor(const std::string& value) {
+	if (value.size() != 4) return false;
+	for (const unsigned char ch : value) {
+		const bool digit = ch >= '0' && ch <= '9';
+		const bool lower = ch >= 'a' && ch <= 'f';
+		const bool upper = ch >= 'A' && ch <= 'F';
+		if (!digit && !lower && !upper) return false;
+	}
+	return true;
+}
+
+inline std::string parseValueFromIniSectionF(const std::string& filePath,
+		const std::string& section, const std::string& key) {
+	const auto document = ult::getParsedDataFromIniFile(filePath);
+	const auto sectionIt = document.find(section);
+	if (sectionIt == document.end()) return {};
+	const auto valueIt = sectionIt->second.find(key);
+	return valueIt == sectionIt->second.end() ? std::string{} : valueIt->second;
+}
+
+using ult::removeIniSection;
+using ult::removeQuotes;
 
 #define NVGPU_GPU_IOCTL_PMU_GET_GPU_LOAD 0x80044715
 #define FieldDescriptor uint32_t

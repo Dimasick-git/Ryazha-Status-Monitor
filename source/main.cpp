@@ -1,6 +1,7 @@
 #define TESLA_INIT_IMPL
 #include <tesla.hpp>
 #include "status_monitor_tesla_compat.hpp"
+#include "ryazha_audio.hpp"
 #include "Utils.hpp"
 #include <malloc.h>
 #include <set>
@@ -237,7 +238,8 @@ public:
 					std::string args = "--file " + filesChecked[0].name;
 					tsl::setNextOverlay(filepath, args);
 					tsl::Overlay::get()->close();
-					backgroundColor = 0x0000;
+											backgroundColor = 0x000D;
+
 					rootFrame = new tsl::elm::OverlayFrame("", "");
 					return rootFrame;
 				}
@@ -336,7 +338,7 @@ public:
 								tsl::changeTo<Configuration>(full_path, info.name);
 								return true;
 							}
-							else if (isMainMenu && (keys & KEY_DLEFT)) {
+							else if (isMainMenu && (keys & KEY_PLUS)) {
 								tsl::changeTo<ConfigurationMainMenu>();
 								return true;
 							}
@@ -455,26 +457,6 @@ public:
     }
 };
 
-// Apply the Ryazha theme to menu screens. Element/frame colors are read
-// through ryazhaThemeValue() at element construction; the menu background
-// is global state, so it is themed once here at startup.
-static void ApplyRyazhaTheme() {
-	std::string bgStr = ryazhaThemeValue("bg_color");
-	if (bgStr.empty())
-		return;
-	tsl::gfx::Color bg = tsl::gfx::RGB888(bgStr, "#000000");
-	unsigned long alpha = 13;
-	std::string alphaStr = ryazhaThemeValue("bg_alpha");
-	if (!alphaStr.empty()) {
-		alpha = strtoul(alphaStr.c_str(), nullptr, 10);
-		if (alpha > 15)
-			alpha = 13;
-	}
-	bg.a = alpha;
-	menuBackgroundColor = bg.rgba;
-	backgroundColor = menuBackgroundColor;
-}
-
 static bool isSafeModePath(std::string_view name) {
 	if (name.empty() || name.size() > 128 || !name.ends_with(".smd"))
 		return false;
@@ -501,7 +483,6 @@ int main(int argc, char **argv) {
 	#endif
 
 	ParseIniFile();
-	ApplyRyazhaTheme();
     
 	if (argc > 0) {
 		filename = argv[0];
@@ -526,10 +507,6 @@ int main(int argc, char **argv) {
 			smd::Document::PeekInfo peek;
 			if (!smd::Document::Peek(path.c_str(), peek))
 				return;
-			if (peek.layerWidth != 0 && peek.layerHeight != 0) {
-				framebufferWidth = peek.layerWidth;
-				framebufferHeight = peek.layerHeight;
-			}
 			file_to_load = path;
 		};
 

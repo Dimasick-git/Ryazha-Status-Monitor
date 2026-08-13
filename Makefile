@@ -113,7 +113,7 @@ CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
 # The target keeps libtesla/source only for the exact RyazhaTune tesla.cpp.
 # Legacy INI/audio helpers are superseded by libryazhahand and must not collide
 # with its identically named translation units.
-CPPFILES	:=	$(foreach dir,$(filter-out lib/libtesla/source,$(SOURCES)),$(notdir $(wildcard $(dir)/*.cpp))) tesla.cpp
+CPPFILES	:=	$(foreach dir,$(filter-out lib/libtesla/source,$(SOURCES)),$(notdir $(wildcard $(dir)/*.cpp))) tesla.cpp ryazha_audio.cpp
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 

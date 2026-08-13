@@ -19,6 +19,14 @@ namespace tsl::hlp::ini {
 uint64_t systemtickfrequency = 0;
 #endif
 
+// Status Monitor mode state. The complete RyazhaTune renderer retains control
+// of visual theme and UI rendering; these values are used only by SMD logic.
+std::string defaultButtonView;
+uint16_t menuBackgroundColor = 0x000D;
+uint16_t backgroundColor = 0x000D;
+uint64_t frameTimeInNS = 0;
+bool isDocked = false;
+
 //System
 std::string keyCombo = "L+R+DUP"; // Ryazha default: classic Status-Monitor exit combo
 LEvent threadexit = {0};
@@ -932,7 +940,7 @@ bool ProcessSmdSettings(std::string filename, uint32_t crc32, uint16_t* x, uint1
 		fread(&fileDataString[0], sizeof(char), fileSize, configFileIn);
 		fclose(configFileIn);
 		
-		std::unordered_map<std::string, std::unordered_map<std::string, std::string>> parsedData = parseIni(fileDataString);
+		std::map<std::string, std::map<std::string, std::string>> parsedData = parseIni(fileDataString);
 		if (parsedData.find(filename.c_str()) != parsedData.end()) {
 			if (parsedData[filename.c_str()].find("hash") != parsedData[filename.c_str()].end()) {
 				auto key = parsedData[filename.c_str()]["hash"];
@@ -1034,7 +1042,7 @@ void ParseIniFile() {
 	std::string ultrahandConfigIniPath = ultrahandDirectoryPath + "config.ini";
 	std::string teslaConfigIniPath = teslaDirectoryPath + "config.ini";
 	std::string localeIniPath = directoryPath + "locale.ini";
-	std::unordered_map<std::string, std::unordered_map<std::string, std::string>> parsedData;
+	std::map<std::string, std::map<std::string, std::string>> parsedData;
 	
 	struct stat st;
 	if (stat(directoryPath.c_str(), &st) != 0) {
@@ -1198,8 +1206,8 @@ void ParseIniFile() {
 		}
 	}
 
-	std::unordered_map<std::string, std::unordered_map<std::string, std::string>> defaultIni = parseIni(std::string((const char*)impl_defaultLocale, sizeof(impl_defaultLocale)));
-	std::unordered_map<std::string, std::string> m_defaultLocale = defaultIni["RU-RU"];
+	std::map<std::string, std::map<std::string, std::string>> defaultIni = parseIni(std::string((const char*)impl_defaultLocale, sizeof(impl_defaultLocale)));
+	std::map<std::string, std::string> m_defaultLocale = defaultIni["RU-RU"];
 	std::map<std::string, std::map<std::string, std::string>> temp = getParsedDataFromIniFile(localeIniPath.c_str());
 
 	if (override_check == true && temp_overrideLanguage.length() > 0) {

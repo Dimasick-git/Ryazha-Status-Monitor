@@ -12,7 +12,7 @@ private:
 		std::string wrappedText;
 		std::string currentLine;
 		std::string currentWord;
-		auto renderer = tsl::gfx::Renderer::getRenderer();
+		auto renderer = tsl::gfx::Renderer::get();
 
 		// Helper lambda to measure string width invisibly
 		auto measureWidth = [&](const std::string& str) {
@@ -64,7 +64,7 @@ private:
 	}
 
 	size_t GetHeight(const std::string& text, size_t fontsize) {
-		auto renderer = tsl::gfx::Renderer::getRenderer();
+		auto renderer = tsl::gfx::Renderer::get();
 		const auto [width, height] = renderer.drawString(text.c_str(), false, 0, fontsize, fontsize, renderer.a(0x0000));
 		return height;
 	}

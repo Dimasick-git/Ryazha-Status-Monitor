@@ -115,7 +115,8 @@ void RenderingPipeline::RecordCallback(smd::RenderCommand& cmd, void* user) {
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
 		case smd::RenderCmdType::RoundedBox:
-			m_renderer->drawRoundRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height, cmd.roundnessTl, cmd.roundnessTr, cmd.roundnessBl, cmd.roundnessBr, m_renderer->a(cmd.color));
+			m_renderer->drawRoundedRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height,
+					std::max<s32>(0, static_cast<s32>(cmd.roundnessTl)), m_renderer->a(cmd.color));
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
 		case smd::RenderCmdType::EmptyBox:
@@ -123,7 +124,8 @@ void RenderingPipeline::RecordCallback(smd::RenderCommand& cmd, void* user) {
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
 		case smd::RenderCmdType::DashedLine: {
-			m_renderer->drawDashedLine(COMMON_MARGIN + cmd.x, cmd.y, cmd.x2, cmd.y2, cmd.dashOn, cmd.dashOff, m_renderer->a(cmd.color));
+			m_renderer->drawDashedLine(COMMON_MARGIN + cmd.x, cmd.y, cmd.x2, cmd.y2,
+					std::max<s32>(1, static_cast<s32>(cmd.dashOn)), m_renderer->a(cmd.color));
 
 			int64_t a = COMMON_MARGIN + orig_x, b = orig_x2;
 			int64_t c = orig_y,                 d = orig_y2;
@@ -217,6 +219,7 @@ size_t RenderingPipeline::getFreeHeapMemory() const {
 // ─── Constructor ─────────────────────────────────────────────────────────────
 
 RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
+	padInitialize(&pad, HidNpadIdType_No1);
 	footerBackup = defaultButtonView;
 	defaultButtonView = locale["Footer"];
 	m_double_back = double_back;
@@ -227,7 +230,7 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 	m_layer_pos_y_window  = 0;
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
-	tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
+	tsl::gfx::Renderer::get().setLayerPos(0, 0);
 	if (SaltySD) {
 		uintptr_t base = (uintptr_t)shmemGetAddr(&_sharedmemory);
 		if (base) displayRefreshRate = (uint8_t*)(base + 1);
@@ -405,9 +408,7 @@ RenderingPipeline::~RenderingPipeline() {
 		}
 		// Ryazha pinch-to-resize: persist the layer scale (percent).
 		{
-			uint32_t pct = (uint32_t)(tsl::gfx::Renderer::getRenderer().getLayerScale() * 100.0f + 0.5f);
-			if (pct < 35) pct = 35;
-			if (pct > 200) pct = 200;
+			uint32_t pct = 100;
 			char buffer4[10] = {0};
 			auto [ptr4, ec4] = std::to_chars(&buffer4[0], &buffer4[sizeof(buffer4)], pct, 10);
 			if (ec4 == std::errc{})
@@ -415,10 +416,9 @@ RenderingPipeline::~RenderingPipeline() {
 		}
 	}
 	// Restore the unscaled layer for the menus.
-	tsl::gfx::Renderer::getRenderer().setLayerScale(1.0f);
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
-	tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
+	tsl::gfx::Renderer::get().setLayerPos(0, 0);
 	if (Movable & motionControl) {
 		hidStopSixAxisSensor(sixaxisHandles[Controller_ProController]);
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConL]);
@@ -442,6 +442,9 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, name);
 	else rootFrame = new tsl::elm::OverlayFrame("", "");
 	auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
+		// SMD colors are RGBA4444: mode configuration now directly controls the
+		// actual framebuffer fill instead of leaving a transparent layer.
+		renderer->fillScreen(renderer->a(backgroundColor));
 		if (error.length() > 0) {
 			renderer->drawString(error.c_str(), false, 20, 120, 20, renderer->a(0xFFFF));
 		}
@@ -485,7 +488,7 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 						m_obj_offset_y_screen = std::clamp(raw_obj_y, obj_min_y, obj_max_y >= obj_min_y ? obj_max_y : obj_min_y);
 						reachedMaxX = (m_obj_offset_x_screen + mxx >= layer_w);
 						reachedMaxY = (m_obj_offset_y_screen + mxy >= layer_h);
-						tsl::gfx::Renderer::getRenderer().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
+						tsl::gfx::Renderer::get().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
 						touch_pos_x = -1;
 						touch_pos_y = -1;
 						m_saved_base_x = -1;
@@ -501,7 +504,7 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 				error = doc.LastError();
 			}
 		}
-		if (deactivateOriginalFooter == true && FullMode == true) renderer->drawString(ComboButtonFooter.c_str(), false, 30, 693, 23, a(rootFrame->defaultTextColor));
+		if (deactivateOriginalFooter == true && FullMode == true) renderer->drawString(ComboButtonFooter.c_str(), false, 30, 693, 23, a(tsl::defaultTextColor));
 	});
 
 	rootFrame->setContent(Status);
@@ -611,7 +614,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 
 		reachedMaxX = (m_obj_offset_x_screen + mxx >= layer_w);
 		reachedMaxY = (m_obj_offset_y_screen + mxy >= layer_h);
-		tsl::gfx::Renderer::getRenderer().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
+		tsl::gfx::Renderer::get().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
 	};
 
 	bool m_touchScreen = touchScreen;
@@ -646,8 +649,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 		// Ryazha pinch-to-resize: apply the saved scale once the layer is live.
 		if (!m_savedScaleApplied) {
 			m_savedScaleApplied = true;
-			if (m_saved_scale_pct != 100)
-				tsl::gfx::Renderer::getRenderer().setLayerScale(m_saved_scale_pct / 100.0f);
+
 		}
 		if (m_touchScreen && sixaxisChangingPos == false) [[unlikely]] {
 			// Two fingers: pinch resizes the overlay instead of dragging it.
@@ -662,15 +664,15 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 					     IsInsideTouchRange(pinchState.touches[1].x, pinchState.touches[1].y, 56))) {
 						m_pinching = true;
 						m_pinchStartDist = dist;
-						m_pinchStartScale = tsl::gfx::Renderer::getRenderer().getLayerScale();
+						m_pinchStartScale = 1.0f;
 						// Cancel any in-progress drag.
 						changingPos = false;
 						touch_pos_x = -1;
 						touch_pos_y = -1;
 					}
 				}
-				if (m_pinching && dist > 1.0f && m_pinchStartDist > 1.0f)
-					tsl::gfx::Renderer::getRenderer().setLayerScale(m_pinchStartScale * (dist / m_pinchStartDist));
+					// The reference RyazhaTune renderer owns native layer dimensions;
+					// pinch still suppresses accidental dragging but does not rescale it.
 			}
 			else if (m_pinching) {
 				// Keep blocking single-finger drag until every finger lifts,
