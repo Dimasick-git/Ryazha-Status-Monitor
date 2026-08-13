@@ -271,7 +271,7 @@ public:
 							return true;							
 						}
 						#endif
-						else if (isMainMenu && (keys & KEY_DLEFT)) {
+						else if (isMainMenu && (keys & KEY_PLUS)) {
 							tsl::changeTo<ConfigurationMainMenu>();
 							return true;
 						}
@@ -334,7 +334,7 @@ public:
 								tsl::changeTo<Configuration>(full_path, info.name);
 								return true;
 							}
-							else if (isMainMenu && (keys & KEY_DLEFT)) {
+							else if (isMainMenu && (keys & KEY_PLUS)) {
 								tsl::changeTo<ConfigurationMainMenu>();
 								return true;
 							}
