@@ -350,6 +350,15 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 			}
 		}
 	}
+	// SMD mode dimensions describe the native viewport in framebuffer pixels.
+	// Apply them before the first CustomDrawer frame so background, clipping and
+	// touch bounds all match the actual mode instead of inheriting 448×720.
+	const auto modeWidth = static_cast<u16>(std::clamp<int64_t>(doc.GetConfigInt("LayerWidth", 448), 1, 1280));
+	const auto modeHeight = static_cast<u16>(std::clamp<int64_t>(doc.GetConfigInt("LayerHeight", 720), 1, 720));
+	tsl::gfx::Renderer::get().setStatusMonitorFrameSize(modeWidth, modeHeight);
+	m_last_layer_w = tsl::cfg::LayerWidth;
+	m_last_layer_h = tsl::cfg::LayerHeight;
+
 	auto test = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
 	if (test == 0xFFFFFF) backgroundColor = (uint16_t)doc.GetConfigInt("BackgroundColor", 0x000D);
 	else backgroundColor = (uint16_t)test;
@@ -417,9 +426,10 @@ RenderingPipeline::~RenderingPipeline() {
 				setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "scale", std::string(buffer4), "");
 		}
 	}
-	// Restore the unscaled layer for the menus.
+	// Restore the standard menu viewport after any compact SMD mode.
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
+	tsl::gfx::Renderer::get().setStatusMonitorFrameSize(448, 720);
 	tsl::gfx::Renderer::get().setLayerPos(0, 0);
 	if (Movable & motionControl) {
 		hidStopSixAxisSensor(sixaxisHandles[Controller_ProController]);
@@ -546,6 +556,14 @@ void RenderingPipeline::update() {
 // ─── handleInput ─────────────────────────────────────────────────────────────
 
 bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) {
+	// Always preserve the standard Back path, including modes that intentionally
+	// hide Tesla's original footer. Native dispatch also calls this handler with
+	// KEY_B alone, so direct launches correctly pop both the pipeline and dummy.
+	if (keysDown & KEY_B) {
+		tsl::goBack(m_double_back ? 2 : 1);
+		return true;
+	}
+
 	if (tsl::cfg::LayerWidth != m_last_layer_w || tsl::cfg::LayerHeight != m_last_layer_h) {
 		m_layer_pos_x_window = tsl::cfg::LayerPosX;
 		m_layer_pos_y_window = tsl::cfg::LayerPosY;

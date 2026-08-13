@@ -189,10 +189,16 @@ ifneq ($(ROMFS),)
 	export NROFLAGS += --romfsdir=$(CURDIR)/$(ROMFS)
 endif
 
-.PHONY: $(BUILD) clean all
+.PHONY: $(BUILD) clean all validate-smd
 
 #---------------------------------------------------------------------------------
-all: $(BUILD)
+# Every native build validates every bundled SMD document first. This runs the
+# same strict parser/evaluation suite used in CI and prevents packaging a broken
+# mode even when `make` is invoked outside GitHub Actions.
+validate-smd:
+	@./scripts/test.sh
+
+all: validate-smd $(BUILD)
 
 
 $(BUILD):
