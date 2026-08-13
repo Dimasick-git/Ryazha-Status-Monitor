@@ -248,10 +248,6 @@ public:
 		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, version.c_str());
 		auto list = new tsl::elm::List();
 
-        std::string rel_dir = "";
-        if (standard_path.length() > root_path.length()) {
-            rel_dir = standard_path.substr(root_path.length());
-        }
 
         if (!filesChecked.empty()) {
             for (const auto& item : filesChecked) {
@@ -308,25 +304,12 @@ public:
 						if (doesHaveConfig) second += "\uE04F";
 					} 
                     auto fileItem = new tsl::elm::ListItem(info.name.empty() ? item.name : info.name, second.c_str(), info.name.empty() ? true : false);
-                    fileItem->setClickListener([this, item, info, full_path, rel_dir, doesHaveConfig](uint64_t keys) {
+                    fileItem->setClickListener([this, info, full_path, doesHaveConfig](uint64_t keys) {
 						if (info.name.empty() == false) {
 							if (keys & KEY_A) {
-								if (info.layerWidth != 0 && info.layerHeight != 0 && info.layerWidth != 448 && info.layerHeight != 720) {
-									smd::Document doc;
-									if (doc.LoadFromFile(full_path.c_str()) == false) {
-										tsl::changeTo<RenderingPipeline>(full_path);
-										return true;
-									}
-									BindAllPredefined(doc);
-									if (doc.Compile() == false) {
-										tsl::changeTo<RenderingPipeline>(full_path);
-										return true;
-									}
-									std::string args = "--file " + rel_dir + item.name + " --submenu";
-									tsl::setNextOverlay(filepath, args);
-									tsl::Overlay::get()->close();
-									return true;
-								}
+								// SMD dimensions describe widget geometry only. Changing the
+								// canonical framebuffer or restarting the overlay per mode breaks
+								// compact layouts and their return/lifecycle path.
 								tsl::changeTo<RenderingPipeline>(full_path);
 								return true;
 							}
@@ -484,20 +467,10 @@ int main(int argc, char **argv) {
 		std::string path = "sdmc:/config/status-monitor/modes/";
 		path += smd_filename;
 
-		struct stat filedata;
-		if (stat(path.c_str(), &filedata) == 0) {
-			smd::Document doc;
-			if (doc.LoadFromFile(path.c_str()) == true) {
-				doc.Free();
-				smd::Document::PeekInfo peek;
-				smd::Document::Peek(path.c_str(), peek);
-				if (peek.layerWidth != 0 && peek.layerHeight != 0) {
-						tsl::cfg::FramebufferWidth = peek.layerWidth;
-						tsl::cfg::FramebufferHeight = peek.layerHeight;
-				}
+			struct stat filedata;
+			if (stat(path.c_str(), &filedata) == 0) {
+				file_to_load = path;
 			}
-			file_to_load = path;
-		}
 	};
 
 	// Legacy Ryazha/Status-Monitor-Overlay mode arguments are mapped to the
