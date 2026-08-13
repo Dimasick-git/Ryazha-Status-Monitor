@@ -46,6 +46,17 @@ private:
 	int64_t m_saved_base_y = -1;
 	uint64_t m_last_time = armTicksToNs(svcGetSystemTick());
 	uint64_t m_exitComboHoldStartedNs = 0;
+	uint64_t m_touchHoldStartedNs = 0;
+	uint64_t m_joystickHoldStartedNs = 0;
+	int64_t m_touchDragOriginX = 0;
+	int64_t m_touchDragOriginY = 0;
+	float m_joystickDragResidualX = 0.0f;
+	float m_joystickDragResidualY = 0.0f;
+	bool m_touchContactActive = false;
+	bool m_touchOriginValid = false;
+	bool m_touchDragActive = false;
+	bool m_touchDragExceededThreshold = false;
+	bool m_joystickDragActive = false;
 	bool m_gyro_started = false;
 	u32 m_last_layer_w = tsl::cfg::LayerWidth;
 	u32 m_last_layer_h = tsl::cfg::LayerHeight;
@@ -68,6 +79,7 @@ private:
 	static void RecordCallback(smd::RenderCommand& cmd, void* user);
 	static void DryRunCallback(smd::RenderCommand& cmd, void* user);
 	size_t getFreeHeapMemory() const;
+	void persistMovablePosition();
 
 	bool IsInsideTouchRange(int64_t screen_x, int64_t screen_y, int64_t pad = 0) const;
 	bool isExitComboHeld(uint64_t keysHeld, uint64_t comboBitmask, uint64_t holdDurationNs);

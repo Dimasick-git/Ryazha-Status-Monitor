@@ -207,10 +207,8 @@ bool RenderingPipeline::IsInsideTouchRange(int64_t screen_x, int64_t screen_y, i
 	int64_t lx = screen_x - (m_layer_pos_x_window * 2 / 3) - m_obj_offset_x_screen;
 	int64_t ly = screen_y - (m_layer_pos_y_window * 2 / 3) - m_obj_offset_y_screen;
 	if (lx < -pad || ly < -pad) return false;
-	if (tsl::defaultBackgroundColor.a != 0)
-		return lx < tsl::cfg::FramebufferWidth + pad && ly < tsl::cfg::FramebufferHeight + pad;
-	// Inflate every drawn rect by `pad` so small overlays (a thin Micro bar,
-	// a tiny FPS counter) are easy to grab and pinch.
+	// Relocation may only start from a rendered monitor widget. This remains true
+	// even though every mode now uses an opaque background.
 	for (const auto& r : s_rects)
 		if (lx >= r.x-pad && ly >= r.y-pad && lx < r.x+r.w+pad && ly < r.y+r.h+pad) return true;
 	return false;
@@ -244,6 +242,25 @@ size_t RenderingPipeline::getFreeHeapMemory() const {
 	u32 dummy;
 	svcQueryMemory(&info, &dummy, heap_pos);
 	return (info.addr+info.size) - heap_pos;
+}
+
+void RenderingPipeline::persistMovablePosition() {
+	if (!Movable || !saveAndLoadMovableOverlayPosition || rel_filepath.empty()) return;
+
+	const uint32_t savedX = reachedMaxX ? 1280U : m_base_x;
+	const uint32_t savedY = reachedMaxY ? 720U : m_base_y;
+	char hashBuffer[10] = {};
+	auto [hashEnd, hashError] = std::to_chars(
+		&hashBuffer[0], &hashBuffer[sizeof(hashBuffer)], smd_hash, 16
+	);
+	if (hashError != std::errc{}) return;
+
+	setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "x", std::to_string(savedX), "");
+	setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "y", std::to_string(savedY), "");
+	setIniFile(
+		"sdmc:/config/status-monitor/config.ini", rel_filepath, "hash",
+		std::string(hashBuffer, hashEnd), ""
+	);
 }
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
@@ -420,24 +437,7 @@ RenderingPipeline::~RenderingPipeline() {
 	defaultButtonView = footerBackup;
 	svcSignalToAddress(&threadexit2, SignalType_SignalAndIncrementIfEqual, 0, 4);
 	leventSignal(&threadexit);
-	if (Movable && saveAndLoadMovableOverlayPosition) {
-		char buffer[10] = {0};
-		char buffer2[10] = {0};
-		char buffer3[10] = {0};
-		if (reachedMaxX == true) m_base_x = 1280;
-		if (reachedMaxY == true) m_base_y = 720;
-		auto [ptr, ec] = std::to_chars(&buffer[0], &buffer[sizeof(buffer)], m_base_x, 10);
-		std::string value = buffer;
-		auto [ptr2, ec2] = std::to_chars(&buffer2[0], &buffer2[sizeof(buffer2)], m_base_y, 10);
-		std::string value2 = buffer2;
-		auto [ptr3, ec3] = std::to_chars(&buffer3[0], &buffer3[sizeof(buffer3)], smd_hash, 16);
-		std::string value3 = buffer3;
-		if (ec == std::errc{} && ec2 == std::errc{} && ec3 == std::errc{}) {
-			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "x", value, "");
-			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "y", value2, "");
-			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "hash", value3, "");
-		}
-		}
+	persistMovablePosition();
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
 	tsl::gfx::Renderer::get().setLayerPos(0, 0);
@@ -667,26 +667,120 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 			}
 			(void)changed;
 		}
-			if (m_touchScreen && sixaxisChangingPos == false) [[unlikely]] {
-				if (!changingPos && *touchInput.delta_time != 0) {
-					if (IsInsideTouchRange(*touchInput.x, *touchInput.y, 24)) {
-						changingPos = true;
-						m_anchor_offset_x = static_cast<int64_t>(*touchInput.x) - static_cast<int64_t>(m_base_x);
-						m_anchor_offset_y = static_cast<int64_t>(*touchInput.y) - static_cast<int64_t>(m_base_y);
+			constexpr uint64_t kDragHoldNs = 500'000'000ULL;
+			constexpr int64_t kTouchDragThresholdPx = 8;
+			const uint64_t nowNs = armTicksToNs(svcGetSystemTick());
+			const bool touchDetected = m_touchScreen && *touchInput.delta_time != 0;
+
+			if (touchDetected && !sixaxisChangingPos) [[unlikely]] {
+				const int64_t currentTouchX = *touchInput.x;
+				const int64_t currentTouchY = *touchInput.y;
+				if (!m_touchContactActive) {
+					m_touchContactActive = true;
+					m_touchOriginValid = IsInsideTouchRange(currentTouchX, currentTouchY, 24);
+					m_touchHoldStartedNs = m_touchOriginValid ? nowNs : 0;
+					m_touchDragActive = false;
+					m_touchDragExceededThreshold = false;
+				}
+
+				if (m_touchOriginValid && !m_touchDragActive
+					&& nowNs - m_touchHoldStartedNs >= kDragHoldNs) {
+					m_touchDragActive = true;
+					changingPos = true;
+					m_touchDragOriginX = currentTouchX;
+					m_touchDragOriginY = currentTouchY;
+					m_anchor_offset_x = currentTouchX - static_cast<int64_t>(m_base_x);
+					m_anchor_offset_y = currentTouchY - static_cast<int64_t>(m_base_y);
+					tsl::triggerOnFeedback();
+				}
+
+				if (m_touchDragActive) {
+					const int64_t deltaX = currentTouchX - m_touchDragOriginX;
+					const int64_t deltaY = currentTouchY - m_touchDragOriginY;
+					if (!m_touchDragExceededThreshold
+						&& std::abs(deltaX) + std::abs(deltaY) >= kTouchDragThresholdPx) {
+						m_touchDragExceededThreshold = true;
+					}
+					if (m_touchDragExceededThreshold) {
+						touch_pos_x = currentTouchX;
+						touch_pos_y = currentTouchY;
+						applyDrag();
 					}
 				}
-				else if (changingPos && *touchInput.delta_time == 0) {
-					touch_pos_x = -1;
-					touch_pos_y = -1;
+			}
+			else if (m_touchContactActive) {
+				if (m_touchDragActive) {
+					if (m_touchDragExceededThreshold) persistMovablePosition();
+					tsl::triggerOffFeedback(true);
 					changingPos = false;
 				}
-				if (changingPos) {
-					touch_pos_x = *touchInput.x;
-					touch_pos_y = *touchInput.y;
-					applyDrag();
+				m_touchContactActive = false;
+				m_touchOriginValid = false;
+				m_touchHoldStartedNs = 0;
+				m_touchDragActive = false;
+				m_touchDragExceededThreshold = false;
+				touch_pos_x = -1;
+				touch_pos_y = -1;
+			}
+
+			const bool plusHeldAlone = (keysHeld & KEY_PLUS)
+				&& !(keysHeld & ~KEY_PLUS & ALL_KEYS_MASK);
+			if (plusHeldAlone && !sixaxisChangingPos) {
+				if (m_joystickHoldStartedNs == 0) m_joystickHoldStartedNs = nowNs;
+				if (!m_joystickDragActive && nowNs - m_joystickHoldStartedNs >= kDragHoldNs) {
+					m_joystickDragActive = true;
+					changingPos = true;
+					m_anchor_offset_x = 0;
+					m_anchor_offset_y = 0;
+					m_joystickDragResidualX = 0.0f;
+					m_joystickDragResidualY = 0.0f;
+					tsl::triggerOnFeedback();
+				}
+
+				if (m_joystickDragActive) {
+					const int64_t leftMagnitude = static_cast<int64_t>(leftJoyStick.x) * leftJoyStick.x
+						+ static_cast<int64_t>(leftJoyStick.y) * leftJoyStick.y;
+					const int64_t rightMagnitude = static_cast<int64_t>(rightJoyStick.x) * rightJoyStick.x
+						+ static_cast<int64_t>(rightJoyStick.y) * rightJoyStick.y;
+					const auto& activeStick = rightMagnitude > leftMagnitude ? rightJoyStick : leftJoyStick;
+					constexpr int kJoystickDeadzone = 20;
+					if (std::abs(activeStick.x) > kJoystickDeadzone || std::abs(activeStick.y) > kJoystickDeadzone) {
+						const float magnitude = std::sqrt(static_cast<float>(
+							static_cast<int64_t>(activeStick.x) * activeStick.x
+							+ static_cast<int64_t>(activeStick.y) * activeStick.y
+						));
+						const float normalizedMagnitude = magnitude / 32767.0f;
+						const float sensitivity = 0.00008f
+							+ (0.0005f - 0.00008f) * std::pow(normalizedMagnitude, 8.0f);
+						m_joystickDragResidualX += static_cast<float>(activeStick.x) * sensitivity;
+						m_joystickDragResidualY -= static_cast<float>(activeStick.y) * sensitivity;
+						const int64_t deltaX = static_cast<int64_t>(m_joystickDragResidualX);
+						const int64_t deltaY = static_cast<int64_t>(m_joystickDragResidualY);
+						m_joystickDragResidualX -= static_cast<float>(deltaX);
+						m_joystickDragResidualY -= static_cast<float>(deltaY);
+						if (deltaX != 0 || deltaY != 0) {
+							touch_pos_x = static_cast<int64_t>(m_base_x) + deltaX;
+							touch_pos_y = static_cast<int64_t>(m_base_y) + deltaY;
+							applyDrag();
+						}
+					}
 				}
 			}
-		if (m_motionControl == true && (changingPos == false || sixaxisChangingPos == true)) [[unlikely]] {
+			else if (m_joystickDragActive) {
+				persistMovablePosition();
+				tsl::triggerOffFeedback(true);
+				m_joystickDragActive = false;
+				m_joystickHoldStartedNs = 0;
+				m_joystickDragResidualX = 0.0f;
+				m_joystickDragResidualY = 0.0f;
+				changingPos = false;
+			}
+			else {
+				m_joystickHoldStartedNs = 0;
+			}
+
+			if (m_motionControl == true && !m_touchDragActive && !m_joystickDragActive
+				&& (changingPos == false || sixaxisChangingPos == true)) [[unlikely]] {
 			HidSixAxisSensorState sixaxis = {0};
 			s32 id = -1;
 			u64 style_set = hidGetNpadStyleSet(HidNpadIdType_No1);
