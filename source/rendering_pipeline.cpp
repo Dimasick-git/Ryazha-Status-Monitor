@@ -691,7 +691,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 					m_touchDragOriginY = currentTouchY;
 					m_anchor_offset_x = currentTouchX - static_cast<int64_t>(m_base_x);
 					m_anchor_offset_y = currentTouchY - static_cast<int64_t>(m_base_y);
-					tsl::triggerOnFeedback();
+					triggerOnFeedback();
 				}
 
 				if (m_touchDragActive) {
@@ -711,7 +711,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 			else if (m_touchContactActive) {
 				if (m_touchDragActive) {
 					if (m_touchDragExceededThreshold) persistMovablePosition();
-					tsl::triggerOffFeedback(true);
+					triggerOffFeedback(true);
 					changingPos = false;
 				}
 				m_touchContactActive = false;
@@ -734,7 +734,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 					m_anchor_offset_y = 0;
 					m_joystickDragResidualX = 0.0f;
 					m_joystickDragResidualY = 0.0f;
-					tsl::triggerOnFeedback();
+					triggerOnFeedback();
 				}
 
 				if (m_joystickDragActive) {
@@ -768,7 +768,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 			}
 			else if (m_joystickDragActive) {
 				persistMovablePosition();
-				tsl::triggerOffFeedback(true);
+				triggerOffFeedback(true);
 				m_joystickDragActive = false;
 				m_joystickHoldStartedNs = 0;
 				m_joystickDragResidualX = 0.0f;
