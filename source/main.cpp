@@ -1,7 +1,6 @@
 #define TESLA_INIT_IMPL
 #include <tesla.hpp>
 #include "status_monitor_tesla_compat.hpp"
-#include "ryazha_audio.hpp"
 #include "Utils.hpp"
 #include <malloc.h>
 #include <set>
@@ -404,17 +403,12 @@ public:
 			smseLoadFolder("sdmc:/config/status-monitor/extensions/");
 			smseExecuteAll();
 		});
-		// Ryazha sound feedback (no-op when sound_effects=false or the
-		// Ryazhahand sound pack is absent).
-		ryz::RyazhaSound::start();
 		Hinted = envIsSyscallHinted(0x6F);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_ProController], 1, HidNpadIdType_No1,      HidNpadStyleTag_NpadFullKey);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_JoyConL], 2, HidNpadIdType_No1,      HidNpadStyleTag_NpadJoyDual);
 	}
 
 	virtual void exitServices() override {
-		ryz::RyazhaSound::stop();
-
 		for (auto& se : serviceExt) {
 			serviceClose(&se.service);
 		}

@@ -43,9 +43,9 @@ TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
 # Use the same complete RyazhaTune renderer and support modules for Switch 2 Style.
 SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/slre \
-			lib/libryazhahand/common lib/libryazhahand/libryazha/source lib/libtesla/source
+				lib/libryazhahand/common lib/libryazhahand/libryazha/source lib/libryazhahand/libtesla/source
 INCLUDES	:=	include lib/libryazhahand/common lib/libryazhahand/libryazha/include \
-			lib/libtesla/include lib/tinyexpr include/Extensions lib/slre
+				lib/libryazhahand/libtesla/include lib/tinyexpr include/Extensions lib/slre
 NO_ICON		:=	1
 #ROMFS		:=	romfs
 
@@ -110,10 +110,9 @@ export VPATH	:=	$(CURDIR)/lib/libryazhahand/libryazha/source \
 export DEPSDIR	:=	$(CURDIR)/$(BUILD)
 
 CFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.c)))
-# The target keeps libtesla/source only for the exact RyazhaTune tesla.cpp.
-# Legacy INI/audio helpers are superseded by libryazhahand and must not collide
-# with its identically named translation units.
-CPPFILES	:=	$(foreach dir,$(filter-out lib/libtesla/source,$(SOURCES)),$(notdir $(wildcard $(dir)/*.cpp))) tesla.cpp ryazha_audio.cpp
+# Compile the complete renderer and all support implementations directly from
+# the pinned libryazhahand submodule. Do not fall back to copied local sources.
+CPPFILES	:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.cpp)))
 SFILES		:=	$(foreach dir,$(SOURCES),$(notdir $(wildcard $(dir)/*.s)))
 BINFILES	:=	$(foreach dir,$(DATA),$(notdir $(wildcard $(dir)/*.*)))
 

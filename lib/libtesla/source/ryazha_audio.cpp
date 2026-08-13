@@ -405,7 +405,7 @@ namespace ryz {
     static constexpr HidVibrationValue kRumbleStop{};
 
     static bool ryazhaConfigBool(const char* key, bool defaultValue) {
-        std::string v = ult::parseValueFromIniSection("/config/ryazhahand/config.ini", "ryazhahand", key);
+        std::string v = parseValueFromIniSection("/config/ryazhahand/config.ini", "ryazhahand", key);
         if (v.empty()) return defaultValue;
         return !(strcasecmp(v.c_str(), "false") == 0 || v == "0");
     }
@@ -479,7 +479,7 @@ namespace ryz {
         m_useExit     = ryazhaConfigBool("sound_exit", true);
 
         if (m_soundsActive) {
-            std::string vol = ult::parseValueFromIniSection("/config/ryazhahand/config.ini", "ryazhahand", "sound_volume");
+            std::string vol = parseValueFromIniSection("/config/ryazhahand/config.ini", "ryazhahand", "sound_volume");
             if (!vol.empty()) {
                 unsigned long pct = strtoul(vol.c_str(), nullptr, 10);
                 if (pct > 100) pct = 100;
