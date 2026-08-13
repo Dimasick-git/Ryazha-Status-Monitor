@@ -51,12 +51,6 @@ private:
 	u64 last_tick = 0;
 	u32 smd_hash = 0;
 
-	// Ryazha pinch-to-resize state
-	bool m_pinching = false;
-	float m_pinchStartDist = 0.0f;
-	float m_pinchStartScale = 1.0f;
-	bool m_savedScaleApplied = false;
-	uint32_t m_saved_scale_pct = 100;
 
 	struct TouchRect { int64_t x, y, w, h; };
 	static inline std::vector<TouchRect> s_rects{};

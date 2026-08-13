@@ -83,7 +83,8 @@ public:
 			u64 delta_tick = svcGetSystemTick() - start_tick;
 			double seconds = (double)delta_tick / (double)systemtickfrequency;
 			double timeCounter = fmod(seconds, cycleDuration);
-			float progress = (std::sin(2 * M_PI * timeCounter / cycleDuration) + 1) / 2;
+			constexpr double kPi = 3.14159265358979323846;
+			float progress = (std::sin(2.0 * kPi * timeCounter / cycleDuration) + 1.0) / 2.0;
 
 			tsl::gfx::Color highlightColor1 = tsl::gfx::Color(0xFC82);
 			tsl::gfx::Color highlightColor2 = tsl::gfx::Color(0xFFF8);

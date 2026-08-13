@@ -114,16 +114,30 @@ void RenderingPipeline::RecordCallback(smd::RenderCommand& cmd, void* user) {
 			m_renderer->drawRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height, m_renderer->a(cmd.color));
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
-		case smd::RenderCmdType::RoundedBox:
-			m_renderer->drawRoundRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height, cmd.roundnessTl, cmd.roundnessTr, cmd.roundnessBl, cmd.roundnessBr, m_renderer->a(cmd.color));
+		case smd::RenderCmdType::RoundedBox: {
+			const auto radius = static_cast<s32>(std::max(
+				std::max(cmd.roundnessTl, cmd.roundnessTr),
+				std::max(cmd.roundnessBl, cmd.roundnessBr)
+			));
+			m_renderer->drawRoundedRect(
+				static_cast<s32>(COMMON_MARGIN + cmd.x), static_cast<s32>(cmd.y),
+				static_cast<s32>(cmd.width), static_cast<s32>(cmd.height),
+				radius, m_renderer->a(cmd.color)
+			);
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
+		}
 		case smd::RenderCmdType::EmptyBox:
 			m_renderer->drawEmptyRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height, m_renderer->a(cmd.color));
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
 		case smd::RenderCmdType::DashedLine: {
-			m_renderer->drawDashedLine(COMMON_MARGIN + cmd.x, cmd.y, cmd.x2, cmd.y2, cmd.dashOn, cmd.dashOff, m_renderer->a(cmd.color));
+			m_renderer->drawDashedLine(
+				static_cast<s32>(COMMON_MARGIN + cmd.x), static_cast<s32>(cmd.y),
+				static_cast<s32>(cmd.x2), static_cast<s32>(cmd.y2),
+				static_cast<s32>(std::max<int64_t>(1, cmd.dashOn)),
+				m_renderer->a(cmd.color)
+			);
 
 			int64_t a = COMMON_MARGIN + orig_x, b = orig_x2;
 			int64_t c = orig_y,                 d = orig_y2;
@@ -288,12 +302,8 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 		if (saved_x_pos == 1280) reachedMaxX = true;
 		if (saved_y_pos == 720) reachedMaxY = true;
 
-		// Ryazha pinch-to-resize: restore the saved layer scale (percent).
-		std::string savedScale = parseValueFromIniSection("sdmc:/config/status-monitor/config.ini", rel_filepath, "scale");
-		if (savedScale.length() > 0) {
-			unsigned long pct = strtoul(savedScale.c_str(), nullptr, 10);
-			if (pct >= 35 && pct <= 200) m_saved_scale_pct = (uint32_t)pct;
-		}
+
+
 	}
 	HeaderText = doc.GetConfigBool("HeaderText", true);
 	FooterText = doc.GetConfigBool("FooterText", true);
@@ -409,19 +419,7 @@ RenderingPipeline::~RenderingPipeline() {
 			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "y", value2, "");
 			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "hash", value3, "");
 		}
-		// Ryazha pinch-to-resize: persist the layer scale (percent).
-		{
-			uint32_t pct = (uint32_t)(tsl::gfx::Renderer::get().getLayerScale() * 100.0f + 0.5f);
-			if (pct < 35) pct = 35;
-			if (pct > 200) pct = 200;
-			char buffer4[10] = {0};
-			auto [ptr4, ec4] = std::to_chars(&buffer4[0], &buffer4[sizeof(buffer4)], pct, 10);
-			if (ec4 == std::errc{})
-				setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "scale", std::string(buffer4), "");
 		}
-	}
-	// Restore the unscaled layer for the menus.
-	tsl::gfx::Renderer::get().setLayerScale(1.0f);
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
 	tsl::gfx::Renderer::get().setLayerPos(0, 0);
@@ -529,7 +527,7 @@ void RenderingPipeline::update() {
 	if (error.length() != 0) return;
 	s_rects.clear();
 	doc.Reset(changingPos);
-	SystemData.IsDocked = appletGetOperationMode() == AppletOperationMode_Docked;
+	SystemData.IsDocked = appletGetOperationMode() != AppletOperationMode_Handheld;
 	if (displayRefreshRate) {
 		SystemData.DisplayRefreshRate_int = *displayRefreshRate;
 	}
@@ -651,62 +649,25 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 			}
 			(void)changed;
 		}
-		// Ryazha pinch-to-resize: apply the saved scale once the layer is live.
-		if (!m_savedScaleApplied) {
-			m_savedScaleApplied = true;
-			if (m_saved_scale_pct != 100)
-				tsl::gfx::Renderer::get().setLayerScale(m_saved_scale_pct / 100.0f);
-		}
-		if (m_touchScreen && sixaxisChangingPos == false) [[unlikely]] {
-			// Two fingers: pinch resizes the overlay instead of dragging it.
-			HidTouchScreenState pinchState = {0};
-			if (hidGetTouchScreenStates(&pinchState, 1) && pinchState.count >= 2) {
-				const float dx = (float)pinchState.touches[0].x - (float)pinchState.touches[1].x;
-				const float dy = (float)pinchState.touches[0].y - (float)pinchState.touches[1].y;
-				const float dist = sqrtf(dx * dx + dy * dy);
-				if (!m_pinching) {
-					if (dist > 1.0f &&
-					    (IsInsideTouchRange(pinchState.touches[0].x, pinchState.touches[0].y, 56) ||
-					     IsInsideTouchRange(pinchState.touches[1].x, pinchState.touches[1].y, 56))) {
-						m_pinching = true;
-						m_pinchStartDist = dist;
-						m_pinchStartScale = tsl::gfx::Renderer::get().getLayerScale();
-						// Cancel any in-progress drag.
-						changingPos = false;
-						touch_pos_x = -1;
-						touch_pos_y = -1;
+			if (m_touchScreen && sixaxisChangingPos == false) [[unlikely]] {
+				if (!changingPos && *touchInput.delta_time != 0) {
+					if (IsInsideTouchRange(*touchInput.x, *touchInput.y, 24)) {
+						changingPos = true;
+						m_anchor_offset_x = static_cast<int64_t>(*touchInput.x) - static_cast<int64_t>(m_base_x);
+						m_anchor_offset_y = static_cast<int64_t>(*touchInput.y) - static_cast<int64_t>(m_base_y);
 					}
 				}
-				if (m_pinching && dist > 1.0f && m_pinchStartDist > 1.0f)
-					tsl::gfx::Renderer::get().setLayerScale(m_pinchStartScale * (dist / m_pinchStartDist));
-			}
-			else if (m_pinching) {
-				// Keep blocking single-finger drag until every finger lifts,
-				// otherwise the remaining finger of a pinch yanks the overlay.
-				if (pinchState.count == 0)
-					m_pinching = false;
-			}
-
-			if (!m_pinching) {
-			if (!changingPos && *touchInput.delta_time != 0) {
-				if (IsInsideTouchRange(*touchInput.x, *touchInput.y, 24)) {
-					changingPos = true;
-					m_anchor_offset_x = (int64_t)*touchInput.x - (int64_t)m_base_x;
-					m_anchor_offset_y = (int64_t)*touchInput.y - (int64_t)m_base_y;
+				else if (changingPos && *touchInput.delta_time == 0) {
+					touch_pos_x = -1;
+					touch_pos_y = -1;
+					changingPos = false;
+				}
+				if (changingPos) {
+					touch_pos_x = *touchInput.x;
+					touch_pos_y = *touchInput.y;
+					applyDrag();
 				}
 			}
-			else if (changingPos && *touchInput.delta_time == 0) {
-				touch_pos_x = -1;
-				touch_pos_y = -1;
-				changingPos = false;
-			}
-			if (changingPos) {
-				touch_pos_x = *touchInput.x;
-				touch_pos_y = *touchInput.y;
-				applyDrag();
-			}
-			}
-		}
 		if (m_motionControl == true && (changingPos == false || sixaxisChangingPos == true)) [[unlikely]] {
 			HidSixAxisSensorState sixaxis = {0};
 			s32 id = -1;

@@ -9,6 +9,7 @@
 #include <cstdint>
 #include <string>
 #include <system_error>
+#include <unordered_map>
 
 // Legacy Status Monitor called common libtesla helpers from the global namespace.
 // Canonical libryazhahand exposes them through ult::. These adapters deliberately
@@ -19,13 +20,28 @@ inline std::string trim(std::string value) {
 }
 
 using ult::getParsedDataFromIniFile;
-using ult::parseIni;
 using ult::parseValueFromIniSection;
 using ult::removeIniSection;
-using ult::removeQuotes;
 using ult::setIniFile;
 using ult::setIniFileKey;
 using ult::setIniFileValue;
+
+// Canonical INI utilities use ordered maps, while legacy Status Monitor stores
+// its parsed configuration in unordered maps. Convert at this boundary so the
+// old configuration model remains deterministic and source-compatible.
+inline std::unordered_map<std::string, std::unordered_map<std::string, std::string>>
+parseIni(const std::string& contents) {
+    std::unordered_map<std::string, std::unordered_map<std::string, std::string>> result;
+    for (const auto& [section, values] : ult::parseIni(contents)) {
+        result.emplace(section, std::unordered_map<std::string, std::string>(values.begin(), values.end()));
+    }
+    return result;
+}
+
+inline std::string removeQuotes(std::string value) {
+    ult::removeQuotes(value);
+    return value;
+}
 
 // Canonical OverlayFrame owns the visible footer. This value only preserves
 // source compatibility for old editor views until each footer is migrated.
