@@ -21,7 +21,6 @@ HidSixAxisSensorHandle sixaxisHandles[Controller_Max];
 #include "Configuration/EditConfigInt.hpp"
 #include "Configuration/ConfigurationMainMenu.hpp"
 #include "Configuration/Configuration.hpp"
-#include "RenderingPipelineDummy.hpp"
 #ifdef DEBUG
 #include "MemoryDebug.hpp"
 #endif
@@ -394,15 +393,16 @@ public:
 			psmCheck = psmInitialize();
 			i2cCheck = i2cInitialize();
 
-			SaltySD = CheckPort();
-
-			if (SaltySD) {
-				LoadSharedMemoryAndRefreshRate();
-			}
-
 			smseLoadFolder("sdmc:/config/status-monitor/extensions/");
 			smseExecuteAll();
 		});
+
+		// Match ppkantorski's working ordering: the SaltyNX named port and its
+		// shared memory are opened after the SM service session is released.
+		SaltySD = CheckPort();
+		if (SaltySD) {
+			LoadSharedMemoryAndRefreshRate();
+		}
 		Hinted = envIsSyscallHinted(0x6F);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_ProController], 1, HidNpadIdType_No1,      HidNpadStyleTag_NpadFullKey);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_JoyConL], 2, HidNpadIdType_No1,      HidNpadStyleTag_NpadJoyDual);
@@ -426,7 +426,12 @@ public:
 		i2cExit();
 	}
 
-    virtual void onShow() override {}
+    virtual void onShow() override {
+		// Direct mode launches are passive overlays. RenderingPipeline performs
+		// the final per-SMD foreground decision after it is constructed.
+		if (!file_to_load.empty())
+			tsl::hlp::requestForeground(false);
+	}
     virtual void onHide() override {}
 
     virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
@@ -446,7 +451,9 @@ public:
 		if (file_to_load.length() == 0)
         	return initially<MainMenu>("");
 		else {
-			return initially<RenderingPipelineDummy>(file_to_load);
+			// ppkantorski uses a dedicated entry overlay whose first GUI is the
+			// actual mode. Do the same instead of waiting for a dummy input event.
+			return initially<RenderingPipeline>(file_to_load, true);
 		}
     }
 };

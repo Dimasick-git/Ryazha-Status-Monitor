@@ -218,11 +218,17 @@ size_t RenderingPipeline::getFreeHeapMemory() const {
 
 // ─── Constructor ─────────────────────────────────────────────────────────────
 
-RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
-	padInitialize(&pad, HidNpadIdType_No1);
+RenderingPipeline::RenderingPipeline(std::string filepath, bool closeOverlayOnExit) {
+	// Poll both supported controllers ourselves. Passive overlays intentionally
+	// relinquish Tesla focus, therefore callback input is not a reliable source.
+	const HidNpadIdType inputIds[2] = {HidNpadIdType_No1, HidNpadIdType_Handheld};
+	hidSetSupportedNpadIdType(inputIds, 2);
+	padConfigureInput(2, HidNpadStyleSet_NpadStandard | HidNpadStyleTag_NpadSystemExt | HidNpadStyleTag_NpadGc);
+	padInitialize(&padPlayerOne, HidNpadIdType_No1);
+	padInitialize(&padHandheld, HidNpadIdType_Handheld);
 	footerBackup = defaultButtonView;
 	defaultButtonView = locale["Footer"];
-	m_double_back = double_back;
+	m_closeOverlayOnExit = closeOverlayOnExit;
 	leftJoyconMotionMappedButtons   = MapButtons(leftJoyconMotionKeyCombo);
 	rightJoyconMotionMappedButtons  = MapButtons(rightJoyconMotionKeyCombo);
 	proControllerMotionMappedButtons = MapButtons(proControllerMotionKeyCombo);
@@ -548,22 +554,26 @@ void RenderingPipeline::update() {
 // ─── handleInput ─────────────────────────────────────────────────────────────
 
 bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) {
-	// Always preserve the standard Back path, including modes that intentionally
-	// hide Tesla's original footer. Native dispatch also calls this handler with
-	// KEY_B alone, so direct launches correctly pop both the pipeline and dummy.
-	if (keysDown & KEY_B) {
-		tsl::goBack(m_double_back ? 2 : 1);
-		return true;
-	}
+	// ppkantorski's passive modes poll HID directly. Do this before every exit
+	// decision and merge both P1 and handheld state with Tesla's callback state.
+	padUpdate(&padPlayerOne);
+	padUpdate(&padHandheld);
+	keysHeld |= padGetButtons(&padPlayerOne) | padGetButtons(&padHandheld);
+	keysDown |= padGetButtonsDown(&padPlayerOne) | padGetButtonsDown(&padHandheld);
 
-	// Status-monitor-deux polls a dedicated PadState here. Tesla may suppress
-	// its regular input callback for passive custom drawers, so relying only on
-	// the callback arguments makes every custom exit combo unreachable.
-	padUpdate(&pad);
-	keysHeld |= padGetButtons(&pad);
-	keysDown |= padGetButtonsDown(&pad);
+	// A direct --file launch has no previous GUI to pop. ppkantorski closes its
+	// entry overlay in that case; menu-started modes still go back to the menu.
+	auto exitMode = [this]() {
+		if (m_closeOverlayOnExit) {
+			tsl::Overlay::get()->close();
+		} else {
+			tsl::goBack();
+		}
+	};
+
+	// B is always a reliable escape hatch, including SMDs that hide controls.
 	if (keysDown & KEY_B) {
-		tsl::goBack(m_double_back ? 2 : 1);
+		exitMode();
 		return true;
 	}
 
@@ -583,8 +593,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 	};
 
 	if (shouldExit()) [[unlikely]] {
-		tsl::goBack();
-		if (m_double_back) tsl::goBack();
+		exitMode();
 		return true;
 	}
 
@@ -734,7 +743,8 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 		if (m_motionControl == true && (changingPos == false || sixaxisChangingPos == true)) [[unlikely]] {
 			HidSixAxisSensorState sixaxis = {0};
 			s32 id = -1;
-			u64 style_set = padGetStyleSet(&pad);
+							u64 style_set = padGetStyleSet(&padPlayerOne);
+
 			if (style_set & HidNpadStyleTag_NpadJoyDual) {
 				if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) id = Controller_JoyConL;
 				else if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) id = Controller_JoyConR;

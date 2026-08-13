@@ -9,9 +9,15 @@ inline int64_t COMMON_MARGIN = 0;
 
 class RenderingPipeline : public tsl::Gui {
 private:
-	bool m_double_back = false;
+	// True only for a process launched directly with --file; it has no GUI
+	// history and therefore must close the overlay instead of calling goBack.
+	bool m_closeOverlayOnExit = false;
 	uint64_t mappedButtons = HidNpadButton_B;
-	PadState pad{};
+	// Passive modes cannot depend on Tesla's foreground input dispatch.
+	// Mirror ppkantorski: poll both player one and handheld explicitly.
+	PadState padPlayerOne{};
+	PadState padHandheld{};
+
 	uint64_t leftJoyconMotionMappedButtons  = 0;
 	uint64_t rightJoyconMotionMappedButtons = 0;
 	uint64_t proControllerMotionMappedButtons = 0;
@@ -78,7 +84,8 @@ private:
 	bool IsInsideTouchRange(int64_t screen_x, int64_t screen_y, int64_t pad = 0) const;
 
 public:
-	RenderingPipeline(std::string filepath, bool double_back = false);
+	RenderingPipeline(std::string filepath, bool closeOverlayOnExit = false);
+
 	~RenderingPipeline();
 	virtual tsl::elm::Element* createUI() override;
 	virtual void update() override;
