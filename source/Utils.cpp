@@ -1378,17 +1378,9 @@ std::string lookupSMF(const std::string& folderPath) {
 
 	path += "_folder.ini";
 
-	FILE* file = fopen(path.c_str(), "r");
-	if (file) {
-		std::string searchKey = "EN-US";
-		if (overrideLanguage.length() != 0) searchKey = overrideLanguage;
-
-		std::string temp = parseValueFromIniSectionF(file, "_folder", searchKey);
-		fclose(file);
-		return temp;
-	}
-
-	return "";
+	std::string searchKey = "EN-US";
+	if (!overrideLanguage.empty()) searchKey = overrideLanguage;
+	return ult::parseValueFromIniSection(path, "_folder", searchKey);
 }
 
 std::string listToFlatList(const std::string& input) {

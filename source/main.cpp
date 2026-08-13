@@ -234,8 +234,7 @@ public:
 					std::string args = "--file " + filesChecked[0].name;
 					tsl::setNextOverlay(filepath, args);
 					tsl::Overlay::get()->close();
-					backgroundColor = 0x0000;
-					rootFrame = new tsl::elm::OverlayFrame("", "");
+						rootFrame = new tsl::elm::OverlayFrame("", "");
 					return rootFrame;
 				}
 			}
@@ -399,17 +398,12 @@ public:
 			smseLoadFolder("sdmc:/config/status-monitor/extensions/");
 			smseExecuteAll();
 		});
-		// Ryazha sound feedback (no-op when sound_effects=false or the
-		// Ryazhahand sound pack is absent).
-		ryz::RyazhaSound::start();
-		Hinted = envIsSyscallHinted(0x6F);
+			Hinted = envIsSyscallHinted(0x6F);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_ProController], 1, HidNpadIdType_No1,      HidNpadStyleTag_NpadFullKey);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_JoyConL], 2, HidNpadIdType_No1,      HidNpadStyleTag_NpadJoyDual);
 	}
 
 	virtual void exitServices() override {
-		ryz::RyazhaSound::stop();
-
 		for (auto& se : serviceExt) {
 			serviceClose(&se.service);
 		}
@@ -452,24 +446,11 @@ public:
     }
 };
 
-// Apply the Ryazha theme to menu screens. Element/frame colors are read
-// through ryazhaThemeValue() at element construction; the menu background
-// is global state, so it is themed once here at startup.
+// Canonical libryazhahand owns theme loading. Status Monitor deliberately
+// keeps the mode background opaque so every SMD layout has a stable backdrop.
 static void ApplyRyazhaTheme() {
-	std::string bgStr = ryazhaThemeValue("bg_color");
-	if (bgStr.empty())
-		return;
-	tsl::gfx::Color bg = tsl::gfx::RGB888(bgStr, "#000000");
-	unsigned long alpha = 13;
-	std::string alphaStr = ryazhaThemeValue("bg_alpha");
-	if (!alphaStr.empty()) {
-		alpha = strtoul(alphaStr.c_str(), nullptr, 10);
-		if (alpha > 15)
-			alpha = 13;
-	}
-	bg.a = alpha;
-	menuBackgroundColor = bg.rgba;
-	backgroundColor = menuBackgroundColor;
+	tsl::initializeTheme();
+	tsl::defaultBackgroundColor.a = 0xF;
 }
 
 int main(int argc, char **argv) {
@@ -496,8 +477,8 @@ int main(int argc, char **argv) {
 				smd::Document::PeekInfo peek;
 				smd::Document::Peek(path.c_str(), peek);
 				if (peek.layerWidth != 0 && peek.layerHeight != 0) {
-					framebufferWidth = peek.layerWidth;
-					framebufferHeight = peek.layerHeight;
+						tsl::cfg::FramebufferWidth = peek.layerWidth;
+						tsl::cfg::FramebufferHeight = peek.layerHeight;
 				}
 			}
 			file_to_load = path;

@@ -193,7 +193,7 @@ bool RenderingPipeline::IsInsideTouchRange(int64_t screen_x, int64_t screen_y, i
 	int64_t lx = screen_x - (m_layer_pos_x_window * 2 / 3) - m_obj_offset_x_screen;
 	int64_t ly = screen_y - (m_layer_pos_y_window * 2 / 3) - m_obj_offset_y_screen;
 	if (lx < -pad || ly < -pad) return false;
-	if (backgroundColor != 0x0000)
+	if (tsl::defaultBackgroundColor.a != 0)
 		return lx < tsl::cfg::FramebufferWidth + pad && ly < tsl::cfg::FramebufferHeight + pad;
 	// Inflate every drawn rect by `pad` so small overlays (a thin Micro bar,
 	// a tiny FPS counter) are easy to grab and pinch.
@@ -220,6 +220,7 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 	footerBackup = defaultButtonView;
 	defaultButtonView = locale["Footer"];
 	m_double_back = double_back;
+	m_menuBackgroundColor = tsl::defaultBackgroundColor;
 	leftJoyconMotionMappedButtons   = MapButtons(leftJoyconMotionKeyCombo);
 	rightJoyconMotionMappedButtons  = MapButtons(rightJoyconMotionKeyCombo);
 	proControllerMotionMappedButtons = MapButtons(proControllerMotionKeyCombo);
@@ -227,7 +228,7 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 	m_layer_pos_y_window  = 0;
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
-	tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
+	tsl::gfx::Renderer::get().setLayerPos(0, 0);
 	if (SaltySD) {
 		uintptr_t base = (uintptr_t)shmemGetAddr(&_sharedmemory);
 		if (base) displayRefreshRate = (uint8_t*)(base + 1);
@@ -346,8 +347,13 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 		}
 	}
 	auto test = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
-	if (test == 0xFFFFFF) backgroundColor = (uint16_t)doc.GetConfigInt("BackgroundColor", 0xD000);
-	else backgroundColor = (uint16_t)test;
+	const uint16_t modeBackground = static_cast<uint16_t>(
+		test == 0xFFFFFF ? doc.GetConfigInt("BackgroundColor", 0xD000) : test
+	);
+	tsl::defaultBackgroundColor = tsl::Color(modeBackground);
+	// Every monitor mode must retain a visible backdrop, independent of an SMD's
+	// historic alpha nibble or the active system theme transparency preference.
+	tsl::defaultBackgroundColor.a = 0xF;
 	ClampToLayerRight  = doc.GetConfigBool("ClampToLayerRight",  false);
 	ClampToLayerBottom = doc.GetConfigBool("ClampToLayerBottom", false);
 	if (Movable && motionControl) {
@@ -405,7 +411,7 @@ RenderingPipeline::~RenderingPipeline() {
 		}
 		// Ryazha pinch-to-resize: persist the layer scale (percent).
 		{
-			uint32_t pct = (uint32_t)(tsl::gfx::Renderer::getRenderer().getLayerScale() * 100.0f + 0.5f);
+			uint32_t pct = (uint32_t)(tsl::gfx::Renderer::get().getLayerScale() * 100.0f + 0.5f);
 			if (pct < 35) pct = 35;
 			if (pct > 200) pct = 200;
 			char buffer4[10] = {0};
@@ -415,16 +421,17 @@ RenderingPipeline::~RenderingPipeline() {
 		}
 	}
 	// Restore the unscaled layer for the menus.
-	tsl::gfx::Renderer::getRenderer().setLayerScale(1.0f);
+	tsl::gfx::Renderer::get().setLayerScale(1.0f);
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
-	tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
+	tsl::gfx::Renderer::get().setLayerPos(0, 0);
 	if (Movable & motionControl) {
 		hidStopSixAxisSensor(sixaxisHandles[Controller_ProController]);
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConL]);
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConR]);
 	}
-	backgroundColor = menuBackgroundColor;
+	tsl::defaultBackgroundColor = m_menuBackgroundColor;
+	tsl::defaultBackgroundColor.a = 0xF;
 	deactivateOriginalFooter = false;
 	FullMode = true;
 	tsl::hlp::requestForeground(true);
@@ -485,7 +492,7 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 						m_obj_offset_y_screen = std::clamp(raw_obj_y, obj_min_y, obj_max_y >= obj_min_y ? obj_max_y : obj_min_y);
 						reachedMaxX = (m_obj_offset_x_screen + mxx >= layer_w);
 						reachedMaxY = (m_obj_offset_y_screen + mxy >= layer_h);
-						tsl::gfx::Renderer::getRenderer().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
+						tsl::gfx::Renderer::get().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
 						touch_pos_x = -1;
 						touch_pos_y = -1;
 						m_saved_base_x = -1;
@@ -501,7 +508,8 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 				error = doc.LastError();
 			}
 		}
-		if (deactivateOriginalFooter == true && FullMode == true) renderer->drawString(ComboButtonFooter.c_str(), false, 30, 693, 23, a(rootFrame->defaultTextColor));
+			if (deactivateOriginalFooter == true && FullMode == true)
+				renderer->drawString(ComboButtonFooter.c_str(), false, 30, 693, 23, renderer->a(tsl::defaultTextColor));
 	});
 
 	rootFrame->setContent(Status);
@@ -516,12 +524,12 @@ void RenderingPipeline::update() {
 		smseExecuteAll();
 		last_tick = tick;
 	}
-	SystemData.OverlayRenderingFrameTimeInNs = frameTimeInNS;
+	SystemData.OverlayRenderingFrameTimeInNs = 0;
 	SystemData.OverlayMemoryLeftInB =  getFreeHeapMemory();
 	if (error.length() != 0) return;
 	s_rects.clear();
 	doc.Reset(changingPos);
-	SystemData.IsDocked = isDocked;
+	SystemData.IsDocked = appletGetOperationMode() == AppletOperationMode_Docked;
 	if (displayRefreshRate) {
 		SystemData.DisplayRefreshRate_int = *displayRefreshRate;
 	}
@@ -611,7 +619,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 
 		reachedMaxX = (m_obj_offset_x_screen + mxx >= layer_w);
 		reachedMaxY = (m_obj_offset_y_screen + mxy >= layer_h);
-		tsl::gfx::Renderer::getRenderer().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
+		tsl::gfx::Renderer::get().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
 	};
 
 	bool m_touchScreen = touchScreen;
@@ -647,7 +655,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 		if (!m_savedScaleApplied) {
 			m_savedScaleApplied = true;
 			if (m_saved_scale_pct != 100)
-				tsl::gfx::Renderer::getRenderer().setLayerScale(m_saved_scale_pct / 100.0f);
+				tsl::gfx::Renderer::get().setLayerScale(m_saved_scale_pct / 100.0f);
 		}
 		if (m_touchScreen && sixaxisChangingPos == false) [[unlikely]] {
 			// Two fingers: pinch resizes the overlay instead of dragging it.
@@ -662,7 +670,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 					     IsInsideTouchRange(pinchState.touches[1].x, pinchState.touches[1].y, 56))) {
 						m_pinching = true;
 						m_pinchStartDist = dist;
-						m_pinchStartScale = tsl::gfx::Renderer::getRenderer().getLayerScale();
+						m_pinchStartScale = tsl::gfx::Renderer::get().getLayerScale();
 						// Cancel any in-progress drag.
 						changingPos = false;
 						touch_pos_x = -1;
@@ -670,7 +678,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 					}
 				}
 				if (m_pinching && dist > 1.0f && m_pinchStartDist > 1.0f)
-					tsl::gfx::Renderer::getRenderer().setLayerScale(m_pinchStartScale * (dist / m_pinchStartDist));
+					tsl::gfx::Renderer::get().setLayerScale(m_pinchStartScale * (dist / m_pinchStartDist));
 			}
 			else if (m_pinching) {
 				// Keep blocking single-finger drag until every finger lifts,
@@ -702,7 +710,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 		if (m_motionControl == true && (changingPos == false || sixaxisChangingPos == true)) [[unlikely]] {
 			HidSixAxisSensorState sixaxis = {0};
 			s32 id = -1;
-			u64 style_set = padGetStyleSet(&pad);
+			u64 style_set = hidGetNpadStyleSet(HidNpadIdType_No1);
 			if (style_set & HidNpadStyleTag_NpadJoyDual) {
 				if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) id = Controller_JoyConL;
 				else if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) id = Controller_JoyConR;
@@ -760,7 +768,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 					}
 				}
 				if (m_motionControl == true) {
-					u64 style_set = padGetStyleSet(&pad);
+					u64 style_set = hidGetNpadStyleSet(HidNpadIdType_No1);
 					if (style_set & HidNpadStyleTag_NpadJoyDual) {
 						if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) break;
 						else if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) break;
@@ -781,9 +789,6 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 				if (m_double_back == true) tsl::goBack();
 				return true;
 			}
-			padUpdate(&pad);
-			keysHeld = padGetButtons(&pad);
-			keysDown = padGetButtonsDown(&pad);
 			svcSleepThread(1000000);
 			new_time = armTicksToNs(svcGetSystemTick());
 		} while (new_time - m_last_time < timeout);

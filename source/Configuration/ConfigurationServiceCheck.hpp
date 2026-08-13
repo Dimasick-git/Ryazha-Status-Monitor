@@ -12,12 +12,12 @@ private:
 		std::string wrappedText;
 		std::string currentLine;
 		std::string currentWord;
-		auto renderer = tsl::gfx::Renderer::getRenderer();
+		auto& renderer = tsl::gfx::Renderer::get();
 
 		// Helper lambda to measure string width invisibly
 		auto measureWidth = [&](const std::string& str) {
 			// Passing 0, 0 for x/y since we only care about the returned width
-			
+
 			const auto [width, height] = renderer.drawString(str.c_str(), false, 0, fontsize, fontsize, renderer.a(0x0000));
 			return width;
 		};
@@ -64,7 +64,7 @@ private:
 	}
 
 	size_t GetHeight(const std::string& text, size_t fontsize) {
-		auto renderer = tsl::gfx::Renderer::getRenderer();
+		auto& renderer = tsl::gfx::Renderer::get();
 		const auto [width, height] = renderer.drawString(text.c_str(), false, 0, fontsize, fontsize, renderer.a(0x0000));
 		return height;
 	}
@@ -93,7 +93,7 @@ public:
 					else descriptionAdjusted = "Init error with no desc";
 					errorFound = true;
 				}
-            }				
+            }
 			if (errorFound == false && svc.execErrors -> size() > 0) {
 				for (size_t i = 0; i < svc.execErrors -> size(); i++) {
 					for (size_t x = 0; x < svc.execErrors[i].size(); x++) {

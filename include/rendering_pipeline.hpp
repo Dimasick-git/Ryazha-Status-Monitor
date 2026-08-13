@@ -30,6 +30,7 @@ private:
 	Thread threads[6];
 	uint64_t timeout = 15'000'000;
 	std::string ComboButtonFooter;
+	tsl::Color m_menuBackgroundColor{};
 	bool changingPos = false;
 	bool sixaxisChangingPos = false;
 	bool changedPos = false;
