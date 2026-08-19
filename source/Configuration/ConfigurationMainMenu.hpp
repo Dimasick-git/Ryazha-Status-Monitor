@@ -138,11 +138,13 @@ public:
 	}
 
 	virtual tsl::elm::Element* createUI() override {
-		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, locale["Settings"]);
-		auto list = new tsl::elm::List();
+					rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, locale["Settings"]);
+			auto list = new tsl::elm::List();
+			list->addItem(new tsl::elm::CategoryHeader(locale["section_exit"]));
 
-		{
-			auto Item = new tsl::elm::ListItem(locale["key_combo"]);
+			{
+
+				auto Item = new tsl::elm::ListItem(locale["key_combo"]);
 			Item->setClickListener([this](uint64_t keys) {
 				if (keys & KEY_A) {
 					tsl::changeTo<EditConfigKeyCombo>(true, "key_combo", m_configs["key_combo"], locale["key_combo"], &m_configs, &keyCombo);
@@ -162,11 +164,12 @@ public:
 				}
 				return false;
 			});
-			list->addItem(Item);
-		}
+				list->addItem(Item);
+			}
 
-		{
-			auto Item = new tsl::elm::ToggleListItem(locale["battery_avg_iir_filter"], m_configs["battery_avg_iir_filter"] == "false" ? false : true);
+			list->addItem(new tsl::elm::CategoryHeader(locale["section_battery"]));
+			{
+				auto Item = new tsl::elm::ToggleListItem(locale["battery_avg_iir_filter"], m_configs["battery_avg_iir_filter"] == "false" ? false : true);
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
 					BoardData.IsBatteryFiltered = Item->getState();
@@ -187,11 +190,12 @@ public:
 				}
 				return false;
 			});
-			list->addItem(Item);
-		}
+				list->addItem(Item);
+			}
 
-		{
-			auto Item = new tsl::elm::ToggleListItem(locale["touch_screen"], m_configs["touch_screen"] == "false" ? false : true);
+			list->addItem(new tsl::elm::CategoryHeader(locale["section_controls"]));
+			{
+				auto Item = new tsl::elm::ToggleListItem(locale["touch_screen"], m_configs["touch_screen"] == "false" ? false : true);
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
 					touchScreen = Item->getState();
@@ -249,11 +253,12 @@ public:
 				}
 				return false;
 			});		
-			list->addItem(Item);
-		}
+				list->addItem(Item);
+			}
 
-		{
-			auto Item = new tsl::elm::ToggleListItem(locale["jump_immediately_to_single_smd"], m_configs["jump_immediately_to_single_smd"] == "false" ? false : true);
+			list->addItem(new tsl::elm::CategoryHeader(locale["section_behavior"]));
+			{
+				auto Item = new tsl::elm::ToggleListItem(locale["jump_immediately_to_single_smd"], m_configs["jump_immediately_to_single_smd"] == "false" ? false : true);
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
 					jumpImmediatelyToSingleSmd = Item->getState();
@@ -262,11 +267,25 @@ public:
 				}
 				return false;
 			});		
-			list->addItem(Item);
-		}
+				list->addItem(Item);
+			}
 
-		{
-			auto Item = new tsl::elm::ListItem(locale["override_language"]);
+			{
+				auto Item = new tsl::elm::ToggleListItem(locale["save_and_load_movable_overlay_position"], m_configs["save_and_load_movable_overlay_position"] == "false" ? false : true);
+				Item->setClickListener([this, Item](uint64_t keys) {
+					if (keys & KEY_A) {
+						saveAndLoadMovableOverlayPosition = Item->getState();
+						m_configs["save_and_load_movable_overlay_position"] = Item->getState() ? "true" : "false";
+						return true;
+					}
+					return false;
+				});
+				list->addItem(Item);
+			}
+
+			list->addItem(new tsl::elm::CategoryHeader(locale["section_system"]));
+			{
+				auto Item = new tsl::elm::ListItem(locale["override_language"]);
 			Item->setClickListener([this](uint64_t keys) {
 				if (keys & KEY_A) {
 					tsl::changeTo<EditConfigLanguage>(&skipConfigSaving);
