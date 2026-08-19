@@ -237,7 +237,7 @@ EnableRAM = true
 RAMTargetFreqText: {IETF_GET{TargetFreqTextFormat}, RAM_Hz_int / 1000000, (RAM_Hz_int / 100000) % 10}
 RAMRealFreqText: {IETF_GET{RealFreqTextFormat}, RAM_RealHz_int / 1000000, (RAM_RealHz_int / 100000) % 10}
 RAMdeltaText: {"Δ %d.%u", (RAM_RealHz_int - RAM_Hz_int) / 1000000, abs((RAM_RealHz_int - RAM_Hz_int) / 100000) % 10}
-RAMloadText: {IETF_GET{RAMLoadTextFormat}, RAM_LoadAll_int / 10, RAM_LoadAll_int % 10, RAM_LoadCPU_int / 10, RAM_LoadCPU_int % 10}
+RAMloadText: {IETF_GET{RAMLoadTextFormat}, RAM_LoadAll_int / 10, RAM_LoadAll_int % 10, RAM_LoadCPU_int / 10, RAM_LoadCPU_int % 10, (RAM_LoadAll_int - RAM_LoadCPU_int) / 10, (RAM_LoadAll_int - RAM_LoadCPU_int) % 10}
 RAMusageText: {"App %.0f/%.0f MB\nSys %.0f/%.0f MB", RAM_UsedApplicationMB_float, RAM_TotalApplicationMB_float, RAM_UsedSystemMB_float, RAM_TotalSystemMB_float}
 
 EnableBoard = true
@@ -281,7 +281,9 @@ Start:
 	ROUNDED_BOX{LeftCardX, 140, CardWidth, 145, 12, 12, 12, 12, CardColor}
 	#if $EnableCPU
 		TEXT{LeftCardX + 14, 156, 16, CatColor, false, IETF_GET{CpuUsageText}}
-		TEXT{LeftCardX + 14, 184, 12, TxtColor, false, CPUTargetFreqText}
+		#if $User_ShowTargetFrequencies
+			TEXT{LeftCardX + 14, 184, 12, TxtColor, false, CPUTargetFreqText}
+		#endif
 		#if $User_ShowRealFrequencies and $CPU_RealHz_int
 			TEXT{LeftCardX + 14, 202, 12, TxtColor, false, CPURealFreqText}
 		#endif
@@ -300,7 +302,9 @@ Start:
 	ROUNDED_BOX{RightCardX, 140, CardWidth, 145, 12, 12, 12, 12, CardColor}
 	#if $EnableGPU
 		TEXT{RightCardX + 14, 156, 16, CatColor, false, IETF_GET{GpuUsageText}}
-		TEXT{RightCardX + 14, 184, 12, TxtColor, false, GPUTargetFreqText}
+		#if $User_ShowTargetFrequencies
+			TEXT{RightCardX + 14, 184, 12, TxtColor, false, GPUTargetFreqText}
+		#endif
 		#if $User_ShowRealFrequencies and $GPU_RealHz_int
 			TEXT{RightCardX + 14, 202, 12, TxtColor, false, GPURealFreqText}
 		#endif
@@ -318,7 +322,9 @@ Start:
 	ROUNDED_BOX{LeftCardX, 300, CardWidth, 160, 12, 12, 12, 12, CardColor}
 	#if $EnableRAM
 		TEXT{LeftCardX + 14, 316, 16, CatColor, false, IETF_GET{RamUsageText}}
-		TEXT{LeftCardX + 14, 342, 12, TxtColor, false, RAMTargetFreqText}
+		#if $User_ShowTargetFrequencies
+			TEXT{LeftCardX + 14, 342, 12, TxtColor, false, RAMTargetFreqText}
+		#endif
 		#if $User_ShowRealFrequencies and $RAM_RealHz_int
 			TEXT{LeftCardX + 14, 360, 12, TxtColor, false, RAMRealFreqText}
 		#endif

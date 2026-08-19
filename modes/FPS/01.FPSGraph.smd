@@ -150,15 +150,6 @@ gameWasActive: false
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Start:
-#if $User_UseTheme
-	VAR{CounterColor, Theme_AccentColor_int}
-	VAR{BorderColor, Theme_CategoryColor_int}
-	VAR{BoxColor, Theme_BoxColor_int}
-#else
-	VAR{CounterColor, User_FpsCounterColor}
-	VAR{BorderColor, User_BorderColor}
-	VAR{BoxColor, User_BoxColor}
-#endif
 GET_DIMENSIONS{MaxSize, 10, true, FPSmax}
 #if $User_AdjustToRefreshRate
 	VAR{GraphHeight, System_DisplayRefreshRate_int}
@@ -169,16 +160,16 @@ GET_DIMENSIONS{MaxSize, 10, true, FPSmax}
 	VAR{GraphHeight, User_GraphHeight}
 #endif
 VAR{BoxWidth, User_GraphWidth + MaxSize.x + 10}
-BOX{0, 0, BoxWidth, GraphHeight  + 12, BoxColor}
+BOX{0, 0, BoxWidth, GraphHeight  + 12, User_BoxColor}
 VAR{FPSavg, User_OldFpsAverage ? Game_FpsAvgOld_float : Game_FpsAvg_float}
 VAR{TextBaseOffset, MaxSize.x + 2}
 #if $FPSavg < 254 and $FPSavg >= 0
 	#if $GraphHeight < $User_GraphWidth
 		GET_DIMENSIONS{dimensions, GraphHeight + 4, true, FPStext}
-		TEXT{TextBaseOffset + (((User_GraphWidth + 2) - dimensions.x) / 2), GraphHeight + 4, GraphHeight + 4, CounterColor, true, FPStext}
+		TEXT{TextBaseOffset + (((User_GraphWidth + 2) - dimensions.x) / 2), GraphHeight + 4, GraphHeight + 4, User_FpsCounterColor, true, FPStext}
 	#endif
 #endif
-EMPTY_BOX{TextBaseOffset, 5, User_GraphWidth + 2, GraphHeight  + 2, BorderColor}
+EMPTY_BOX{TextBaseOffset, 5, User_GraphWidth + 2, GraphHeight  + 2, User_BorderColor}
 DASHED_LINE{TextBaseOffset + 1, 6 + (GraphHeight  / 2), (User_GraphWidth + 1) + TextBaseOffset + 1, 6 + (GraphHeight  / 2), 6, 3, User_DashedLineColor}
 TEXT{0, 13, 10, User_MaxValueColor, true, FPSmax}
 TEXT{TextBaseOffset - 9, GraphHeight  + 7, 10, User_MinValueColor, true, "0"}

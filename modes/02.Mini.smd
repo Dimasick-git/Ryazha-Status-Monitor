@@ -233,16 +233,6 @@ ReadText: {"%.2f MiB/s", Game_ReadSpeedPerSecond_float / 1048576}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Start:
-; Ryazha theming: colors follow /config/ryazhahand/theme.ini when enabled.
-#if $User_UseTheme
-	VAR{CatColor, Theme_CategoryColor_int}
-	VAR{TxtColor, Theme_TextColor_int}
-	VAR{BoxColor, Theme_BoxColor_int}
-#else
-	VAR{CatColor, User_CategoryColor}
-	VAR{TxtColor, User_TextColor}
-	VAR{BoxColor, User_BoxColor}
-#endif
 VAR{LeftText, ""}
 VAR{RightText, ""}
 VAR{BoxWidth, 0}
@@ -421,6 +411,6 @@ VAR{BoxWidth, 0}
 
 GET_DIMENSIONS{LeftDimensions, fontsize, true, LeftText}
 VAR{BoxWidth, BoxWidth + LeftDimensions.x}
-BOX{0, 0, BoxWidth, LeftDimensions.y + 4, BoxColor}
-TEXT{0, fontsize, fontsize, CatColor, true, LeftText}
-TEXT{LeftDimensions.x, fontsize, fontsize, TxtColor, true, RightText}
+BOX{0, 0, BoxWidth, LeftDimensions.y + 4, User_BoxColor}
+TEXT{0, fontsize, fontsize, User_CategoryColor, true, LeftText}
+TEXT{LeftDimensions.x, fontsize, fontsize, User_TextColor, true, RightText}

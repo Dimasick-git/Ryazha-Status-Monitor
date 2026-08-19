@@ -99,13 +99,6 @@ Start:
 	VAR{fontsize, User_HandheldFontSize}
 #endif
 VAR{margin, fontsize / 8}
-#if $User_UseTheme
-	VAR{TxtColor, Theme_TextColor_int}
-	VAR{BoxColor, Theme_BoxColor_int}
-#else
-	VAR{TxtColor, User_TextColor}
-	VAR{BoxColor, User_BoxColor}
-#endif
 #if $EnableGame
 	#if $Game_IsGameRunning
 		VAR{FpsAvg, User_OldFpsAverage ? Game_FpsAvgOld_float : Game_FpsAvg_float}
@@ -113,21 +106,11 @@ VAR{margin, fontsize / 8}
 			VAR{Text, FPSnoDataText}
 		#else
 			VAR{Text, FPStext}
-			#if $User_ColorByFps
-				VAR{rrc, System_DisplayRefreshRate_int}
-				#if FpsAvg >= rrc - 0.5
-					VAR{TxtColor, color(0x9FBF)}
-				#elif FpsAvg >= (rrc / 2) - 0.5
-					VAR{TxtColor, color(0xFE8F)}
-				#else
-					VAR{TxtColor, color(0xF77F)}
-				#endif
-			#endif
 		#endif
 	#else
 		VAR{Text, FPSnoDataText}
 	#endif
 #endif
 GET_DIMENSIONS{Dimensions, fontsize, true, Text}
-BOX{0, 0, Dimensions.x + margin, fontsize + (margin / 2), BoxColor}
-TEXT{0, fontsize - margin, fontsize, TxtColor, true, Text}
+BOX{0, 0, Dimensions.x + margin, fontsize + (margin / 2), User_BoxColor}
+TEXT{0, fontsize - margin, fontsize, User_TextColor, true, Text}
