@@ -303,8 +303,9 @@ public:
             // Every color comes from the existing Full-mode palette.  This keeps
             // the card layout compatible with the Color settings screen instead
             // of pinning it to the old hard-coded blue background.
-            const tsl::Color cardFill = !isDragging ? tsl::Color(settings.backgroundColor)
-                                                     : tsl::Color(settings.focusBackgroundColor);
+            const tsl::Color cardFill = plusFocusActive.load(std::memory_order_acquire)
+                ? tsl::Color(settings.focusBackgroundColor)
+                : tsl::Color(settings.backgroundColor);
             const tsl::Color titleColor(settings.catColor1);
             const tsl::Color labelColor(settings.catColor2);
             const tsl::Color textColor(settings.textColor);
