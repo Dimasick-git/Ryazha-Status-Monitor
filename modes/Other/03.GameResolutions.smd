@@ -1,10 +1,8 @@
 Name = Game Resolutions
 NAME_LOCALE{"PL-PL", "Rozdzielczości w grze"}
 NAME_LOCALE{"DE-DE", "Spiel Auflösungen"}
-NAME_LOCALE{"RU-RU", "Разрешения в игре"}
+NAME_LOCALE{"RU-RU", "Разрешения игры"}
 VERSION = 1
-LayerWidth = 400
-LayerHeight = 260
 
 COMMON_MARGIN = 0
 
@@ -12,53 +10,38 @@ User_RefreshRate = 10
 ;;User_RefreshRate_Description = Max refresh rate of rendered overlay. It won't be faster than your current display refresh rate because of vsync.
 ;;User_RefreshRate_Description_PL-PL = Maksymalna częstotliwość odświeżania nakładki. Przez vsync nie będzie szybsza niż odświeżanie ekranu.
 ;;User_RefreshRate_Description_DE-DE = Maximale Aktualisierungsrate des Overlays. Aufgrund von VSync kann es nicht höher als die aktuelle Bildwiederholrate sein.
-;;User_RefreshRate_Description_RU-RU = Максимальная частота обновления оверлея. Из-за vsync не будет выше текущей частоты обновления экрана.
 ;;User_RefreshRate_DefaultValue = 10
 ;;User_RefreshRate_Name = Refresh rate
 ;;User_RefreshRate_Name_PL-PL = Odświeżanie
 ;;User_RefreshRate_Name_DE-DE = Aktualisierungsrate
-;;User_RefreshRate_Name_RU-RU = Частота обновления
 ;;User_RefreshRate_Range = {int, 1, 60}
-User_UseTheme = true
-;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode.
-;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для этого режима.
-;;User_UseTheme_Name = Use theme colors
-;;User_UseTheme_Name_RU-RU = Цвета из темы
-;;User_UseTheme_DefaultValue = true
 User_TextColor = COLOR{0xFFFF}
 ;;User_TextColor_Name = Data color
 ;;User_TextColor_Name_PL-PL = Kolor danych
 ;;User_TextColor_Name_DE-DE = Datenfarbe
-;;User_TextColor_Name_RU-RU = Цвет данных
 ;;User_TextColor_DefaultValue = COLOR{0xFFFF}
 User_CategoryColor = COLOR{0xFFFF}
 ;;User_CategoryColor_Name = Data type color
 ;;User_CategoryColor_Name_PL-PL = Kolor kategorii danych
 ;;User_CategoryColor_Name_DE-DE = Datentypfarbe
-;;User_CategoryColor_Name_RU-RU = Цвет названий данных
 ;;User_CategoryColor_DefaultValue = COLOR{0xFFFF}
-User_BoxColor = COLOR{0x1115}
+User_BoxColor = COLOR{0x1117}
 ;;User_BoxColor_Name = Background color
 ;;User_BoxColor_Name_PL-PL = Kolor tła
 ;;User_BoxColor_Name_DE-DE = Hintergrundfarbe
-;;User_BoxColor_Name_RU-RU = Цвет фона
-;;User_BoxColor_DefaultValue = COLOR{0x1115}
+;;User_BoxColor_DefaultValue = COLOR{0x1117}
 User_WarningColor = COLOR{0xF00F}
 ;;User_WarningColor_Description = Color of text when no game is running or no valid data is detected.
 ;;User_WarningColor_Description_PL-PL = Kolor tekstu, który się pojawia gdy żadna gra nie jest uruchomiona lub gdy otrzymane dane są nieprawidłowe.
 ;;User_WarningColor_Description_DE-DE = Textfarbe, wenn kein Spiel läuft oder keine gültigen Daten erkannt werden.
-;;User_WarningColor_Description_RU-RU = Цвет текста, когда игра не запущена или нет корректных данных.
 ;;User_WarningColor_Name = Information text color
 ;;User_WarningColor_Name_PL-PL = Kolor tekstu informacyjnego
 ;;User_WarningColor_Name_DE-DE = Informationstextfarbe
-;;User_WarningColor_Name_RU-RU = Цвет информационного текста
 ;;User_WarningColor_DefaultValue = COLOR{0xF00F}
 
 WarningText = IETF{"Game is not running or it's incompatible."}
 IETF_LOCALE{WarningText, "PL-PL", "Gra jest nieuruchomiona lub niekompatybilna."}
 IETF_LOCALE{WarningText, "DE-DE", "Das Spiel läuft nicht oder ist inkompatibel."}
-
-IETF_LOCALE{WarningText, "RU-RU", "Игра не запущена или несовместима."}
 
 BackgroundColor = COLOR{0x0000}
 HeaderText = false
@@ -89,14 +72,7 @@ RightText7: {"7. %dx%d, %d\n", Game_ResolutionViewportCalls_int[6].width, Game_R
 RightText8: {"8. %dx%d, %d", Game_ResolutionViewportCalls_int[7].width, Game_ResolutionViewportCalls_int[7].height, Game_ResolutionViewportCalls_int[7].calls}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DepthLabel = IETF{"Depth:"}
-IETF_LOCALE{DepthLabel, "RU-RU", "Глубина:"}
-IETF_LOCALE{DepthLabel, "PL-PL", "Głębia:"}
-IETF_LOCALE{DepthLabel, "DE-DE", "Tiefe:"}
-ViewportLabel = IETF{"Viewport:"}
-IETF_LOCALE{ViewportLabel, "RU-RU", "Вьюпорт:"}
-IETF_LOCALE{ViewportLabel, "PL-PL", "Viewport:"}
-IETF_LOCALE{ViewportLabel, "DE-DE", "Viewport:"}
+IETF_LOCALE{WarningText, "RU-RU", "Игра не запущена или несовместима."}
 
 Start:
 #if $Game_IsGameRunning and $Game_ResolutionRenderCalls_int[0].calls != 0xFFFF

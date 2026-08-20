@@ -229,7 +229,7 @@ You inspect `cmd.type` and read the relevant fields. The `RenderCommand` struct 
 - `x`, `y`, `width`, `height`, `color`
 
 ### `RenderCmdType::RoundedBox`
-- `x`, `y`, `width`, `height`, 
+- `x`, `y`, `width`, `height`,
 - `roundnessTl`, `roundnessTr`, `roundnessBl`, `roundnessBr` - level of roundness for each top/bottom right/left corner for range [0.0, 1.0]
 - `color`
 

@@ -1,6 +1,5 @@
 #pragma once
 #define ALWAYS_INLINE inline __attribute__((always_inline))
-#include "status_monitor_compat.hpp"
 #include "System/SaltyNX.h"
 
 #include "System/max17050.h"
@@ -228,13 +227,14 @@ extern CpuDataType CpuData;
 extern GpuDataType GpuData;
 extern RamDataType RamData;
 extern BoardDataType BoardData;
-// Ryazha theme colors in raw framebuffer (ABGR4444) format, filled from
-// /config/ryazhahand/theme.ini at startup (defaults match the classic look).
+
+// Raw ABGR4444 colors loaded from /config/ryazhahand/theme.ini.
+// They are exposed to SMD modes as Theme_* variables.
 struct ThemeDataType {
-	int64_t TextColor_int     = 0xFFFF; // text_color
-	int64_t CategoryColor_int = 0xFCCC; // highlight_color_1
-	int64_t AccentColor_int   = 0xFFF8; // highlight_color_2
-	int64_t BoxColor_int      = 0x7111; // bg_color + bg_alpha
+    int64_t TextColor_int     = 0xFFFF;
+    int64_t CategoryColor_int = 0xFCCC;
+    int64_t AccentColor_int   = 0xFFF8;
+    int64_t BoxColor_int      = 0x7111;
 };
 extern ThemeDataType ThemeData;
 
@@ -292,12 +292,12 @@ inline void BindAllPredefined(smd::Document& doc) {
     doc.BindFloat ("Game_FpsAvgOld_float",                		&GameData.FpsAvgOld_float);
     doc.BindFloat ("Game_FpsAvg_float",                   		&GameData.FpsAvg_float);
     doc.BindFloat ("Game_ReadSpeedPerSecond_float",       		&GameData.ReadSpeedPerSecond_float);
-    doc.BindResolutionArray("Game_ResolutionRenderCalls_int",   GameData.ResolutionRenderCalls_int);
+        doc.BindResolutionArray("Game_ResolutionRenderCalls_int",   GameData.ResolutionRenderCalls_int);
     doc.BindResolutionArray("Game_ResolutionViewportCalls_int", GameData.ResolutionViewportCalls_int);
-    doc.BindInt64 ("Theme_TextColor_int",                 		&ThemeData.TextColor_int);
-    doc.BindInt64 ("Theme_CategoryColor_int",             		&ThemeData.CategoryColor_int);
-    doc.BindInt64 ("Theme_AccentColor_int",               		&ThemeData.AccentColor_int);
-    doc.BindInt64 ("Theme_BoxColor_int",                  		&ThemeData.BoxColor_int);
+    doc.BindInt64 ("Theme_TextColor_int",                      &ThemeData.TextColor_int);
+    doc.BindInt64 ("Theme_CategoryColor_int",                  &ThemeData.CategoryColor_int);
+    doc.BindInt64 ("Theme_AccentColor_int",                    &ThemeData.AccentColor_int);
+    doc.BindInt64 ("Theme_BoxColor_int",                       &ThemeData.BoxColor_int);
     doc.BindInt64 ("System_DisplayRefreshRate_int",       		&SystemData.DisplayRefreshRate_int);
     doc.BindBool  ("System_IsDocked",                     		&SystemData.IsDocked);
     doc.BindInt64 ("System_KeysDown_int",                 		&SystemData.KeysDown_int);
@@ -367,6 +367,20 @@ struct GyroCursor {
 		else if (c == ';' && !inStr) return line.substr(0, i);
 	}
 	return line;
+}
+
+ALWAYS_INLINE bool isKeyComboPressed(uint64_t keysHeld, uint64_t keysDown, uint64_t comboBitmask, uint64_t expectedPressTime) {
+	static uint64_t first_time_checked = 0;
+	if ((keysDown == comboBitmask) || (keysHeld == comboBitmask)) {
+		if (!first_time_checked) {
+			first_time_checked = armTicksToNs(svcGetSystemTick());
+			return false;
+		}
+		uint64_t second_time_checked = armTicksToNs(svcGetSystemTick());
+		if (second_time_checked - first_time_checked > expectedPressTime) return true;
+	}
+	else first_time_checked = 0;
+	return false;
 }
 
 ALWAYS_INLINE bool isValidRGBA4Color(const std::string& hexColor) {

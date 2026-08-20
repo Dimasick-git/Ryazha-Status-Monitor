@@ -1,5 +1,5 @@
 #pragma once
- 
+
 struct Data {
 	std::string value;
 	std::string type;

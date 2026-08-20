@@ -4,6 +4,8 @@
 #include <memory>
 #include <cstring>
 #include <algorithm>
+#include <cctype>
+#include <cstdlib>
 #include <charconv>
 #include <dirent.h>
 #include "Utils.hpp"
@@ -18,7 +20,7 @@ uint64_t systemtickfrequency = 0;
 #endif
 
 //System
-std::string keyCombo = "L+R+DUP"; // Ryazha default: classic Status-Monitor exit combo
+std::string keyCombo = "L+DDOWN+RSTICK"; // default Tesla Menu combo
 LEvent threadexit = {0};
 uint32_t threadexit2 = 0;
 PwmChannelSession g_ICon;
@@ -39,11 +41,12 @@ bool jumpImmediatelyToSingleSmd = true;
 bool saveAndLoadMovableOverlayPosition = true;
 std::string overrideLanguage;
 std::map<std::string, std::map<std::string, std::string>> config;
+ThemeDataType ThemeData;
 LocalTimeType LocalTime;
 std::unordered_map<std::string, std::string> locale;
 bool teslaCombo = false;
 bool ultrahandCombo = false;
-int64_t keyComboTimeDelay = 100'000'000;
+int64_t keyComboTimeDelay = 200'000'000;
 
 std::array<unsigned char, sizeof(impl_defaultLocale)> defaultLocale = std::to_array(impl_defaultLocale);
 
@@ -190,7 +193,7 @@ void BatteryChecker(void*) {
 				PsmBatteryChargeInfoFieldsNew* new_data = (PsmBatteryChargeInfoFieldsNew*)&_batteryChargeInfoFields;
 				BoardData.ChargerVoltageLimit_int = new_data->charger_input_voltage_limit;
 				BoardData.ChargerCurrentLimit_int = new_data->charger_input_current_limit;
-				BoardData.ChargerConnected_int = new_data->usb_charger_type;			
+				BoardData.ChargerConnected_int = new_data->usb_charger_type;
 			}
 			else {
 				BoardData.ChargerVoltageLimit_int = _batteryChargeInfoFields.charger_input_voltage_limit;
@@ -240,7 +243,7 @@ void BatteryChecker(void*) {
 
 		if (batCurrent >= 0) {
 			BoardData.BatteryTimeEstimateInMinutes_int = -1;
-		} 
+		}
 		else {
 			static float batteryTimeEstimateInMinutes = 0;
 			Max17050ReadReg(MAX17050_TTE, &data);
@@ -329,7 +332,7 @@ void CpuThreadLoop(void* refreshRate) {
 	threadStart(&threads[3]);
 
 	double inv_frequency = 1.0 / systemtickfrequency_impl;
-	
+
 	do {
 		if (R_SUCCEEDED(clkrstCheck)) {
 			ClkrstSession clkSession;
@@ -405,7 +408,7 @@ void RamThreadLoop(void*) {
 		}
 
 		if (R_SUCCEEDED(Hinted)) {
-			
+
 			uint64_t RAM_Total_application_u;
 			uint64_t RAM_Total_applet_u;
 			uint64_t RAM_Total_system_u;
@@ -436,10 +439,10 @@ void RamThreadLoop(void*) {
 			if (R_SUCCEEDED(svcGetSystemInfo(&RAM_Used_system_u, 1, INVALID_HANDLE, 2)))
 				RamData.UsedSystemMB_float = (float)RAM_Used_system_u / 1024.f / 1024.f;
 			else continue;
-			if (R_SUCCEEDED(svcGetSystemInfo(&RAM_Used_systemunsafe_u, 1, INVALID_HANDLE, 3)))	
+			if (R_SUCCEEDED(svcGetSystemInfo(&RAM_Used_systemunsafe_u, 1, INVALID_HANDLE, 3)))
 				RamData.UsedSystemUnsafeMB_float = (float)RAM_Used_systemunsafe_u / 1024.f / 1024.f;
 			else continue;
-			
+
 			uint64_t RAM_Total_all_u = RAM_Total_application_u + RAM_Total_applet_u + RAM_Total_system_u + RAM_Total_systemunsafe_u;
 			uint64_t RAM_Used_all_u = RAM_Used_application_u + RAM_Used_applet_u + RAM_Used_system_u + RAM_Used_systemunsafe_u;
 			RamData.TotalAllMB_float = (float)RAM_Total_all_u / 1024.f / 1024.f;
@@ -475,7 +478,7 @@ void BoardThreadLoop(void*) {
 				BoardData.FanRotationPercentageLevel_float = Rotation_Duty;
 			}
 		}
-	} while (!leventWait(&threadexit, 1'000'000'000));	
+	} while (!leventWait(&threadexit, 1'000'000'000));
 
 	threadWaitForExit(&thread);
 	threadClose(&thread);
@@ -497,7 +500,7 @@ void GameThreadLoop(void* data) {
 				resolutionLookup = 1;
 			}
 			if (resolutionLookup == 1) {
-				if ((NxFps->renderCalls[0].calls) != 0xFFFF) 
+				if ((NxFps->renderCalls[0].calls) != 0xFFFF)
 					resolutionLookup = 2;
 			}
 			GameData.FPS_int = (NxFps -> FPS);
@@ -509,7 +512,7 @@ void GameThreadLoop(void* data) {
 			GameData.FpsAvgOld_float = FPSavg_old;
 			float FPS_in = (float)FPS;
 			float FPSavg;
-			if (FPSavg_old >= (FPS_in-0.25) && FPSavg_old <= (FPS_in+0.25)) 
+			if (FPSavg_old >= (FPS_in-0.25) && FPSavg_old <= (FPS_in+0.25))
 				FPSavg = FPS_in;
 			else FPSavg = FPSavg_old;
 			GameData.FpsAvg_float = FPSavg;
@@ -524,7 +527,7 @@ void GameThreadLoop(void* data) {
 			qsort(m_resolutionRenderCalls, 8, sizeof(resolutionCalls), compare);
 			qsort(m_resolutionViewportCalls, 8, sizeof(resolutionCalls), compare);
 			memcpy(&GameData.ResolutionRenderCalls_int, &m_resolutionRenderCalls, sizeof(m_resolutionRenderCalls));
-			memcpy(&GameData.ResolutionViewportCalls_int, &m_resolutionViewportCalls, sizeof(m_resolutionViewportCalls));		
+			memcpy(&GameData.ResolutionViewportCalls_int, &m_resolutionViewportCalls, sizeof(m_resolutionViewportCalls));
 		}
 		else {
 			GameData.FpsAvg_float = 254.f;
@@ -534,7 +537,7 @@ void GameThreadLoop(void* data) {
 			GameData.ReadSpeedPerSecond_float = 0.f;
 			resolutionLookup = 0;
 		}
-	} while (!leventWait(&threadexit, timeout));	
+	} while (!leventWait(&threadexit, timeout));
 
 	threadWaitForExit(&thread);
 	threadClose(&thread);
@@ -556,7 +559,7 @@ void MiscThreadLoop(void*) {
 	do {
 		//Multimedia clock rates
 		uint32_t tmp;
-		if (R_SUCCEEDED(nvdecCheck)) 
+		if (R_SUCCEEDED(nvdecCheck))
 			if (R_SUCCEEDED(mmuRequestGet(&nvdecRequest, &tmp))) MiscData.NvDecHz_int = tmp;
 		if (R_SUCCEEDED(nvencCheck))
 			if (R_SUCCEEDED(mmuRequestGet(&nvencRequest, &tmp))) MiscData.NvEncHz_int = tmp;
@@ -613,7 +616,7 @@ void MiscThreadLoop(void*) {
 			MiscData.NetworkConnectionType_int = 0;
 			MiscData.IsWiFiPassphrase = false;
 		}
-	} while (!leventWait(&threadexit, 1'000'000'000));	
+	} while (!leventWait(&threadexit, 1'000'000'000));
 
 	nifmExit();
 	mmuRequestFinalize(&nvdecRequest);
@@ -661,7 +664,7 @@ void gyroCursor_update(GyroCursor& cur, HidSixAxisSensorState& state, int64_t* x
 	if (cur.x < -buffer) cur.x = -buffer;
 	else if (cur.x > 1264.f + buffer) cur.x = 1264.f + buffer;
 	if (cur.y < -buffer) cur.y = -buffer;
-	else if (cur.y > 704.f + buffer) cur.y = 704.f + buffer;	
+	else if (cur.y > 704.f + buffer) cur.y = 704.f + buffer;
 }
 
 void LoadSharedMemoryAndRefreshRate() {
@@ -849,7 +852,7 @@ void formatButtonCombination(std::string& line) {
 	std::string button = line.substr(old_pos);
 	if (replaces.find(button) != replaces.end()) {
 		line.replace(old_pos, button.length(), replaces[button]);
-	}	
+	}
 }
 
 uint64_t MapButtons(const std::string& buttonCombo) {
@@ -904,8 +907,8 @@ uint64_t MapButtons(const std::string& buttonCombo) {
 void createDefaultFile(std::string filepath) {
 	mkdir("sdmc:/config/", 69);
 	mkdir("sdmc:/config/status-monitor/", 420);
-	setIniFile(filepath, "status-monitor", "key_combo", "L+R+DUP", "");
-	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "100", "");
+	setIniFile(filepath, "status-monitor", ";key_combo", "L+DDOWN+RSTICK", "");
+	setIniFile(filepath, "status-monitor", "key_combo_time_delay_ms", "200", "");
 	setIniFile(filepath, "status-monitor", "battery_avg_iir_filter", "false", "");
 	setIniFile(filepath, "status-monitor", "battery_time_left_refreshrate", "10", "");
 	setIniFile(filepath, "status-monitor", "touch_screen", "true", "");
@@ -914,12 +917,9 @@ void createDefaultFile(std::string filepath) {
 	setIniFile(filepath, "status-monitor", "right_joycon_motion_key_combo", "ZR+R+RSTICK", "");
 	setIniFile(filepath, "status-monitor", "pro_controller_motion_key_combo", "ZR+R+RSTICK", "");
 	setIniFile(filepath, "status-monitor", "jump_immediately_to_single_smd", "true", "");
-	setIniFile(filepath, "status-monitor", "save_and_load_movable_overlay_position", "true", "");
-	setIniFile(filepath, "status-monitor", "override_language", "false", "");
-	setIniFile(filepath, "status-monitor", "override_language_ietf_code", "EN-US", "");
-	// Ryazha default: L+R+DUP toggles the Full mode — in the menu it
-	// quick-launches it, inside the mode the same combo exits.
-	setIniFile(filepath, "01.Full.smd", "quick_combo", "L+R+DUP", "");
+		setIniFile(filepath, "status-monitor", "save_and_load_movable_overlay_position", "true", "");
+		setIniFile(filepath, "status-monitor", "override_language", "true", "");
+		setIniFile(filepath, "status-monitor", "override_language_ietf_code", "RU-RU", "");
 }
 
 bool ProcessSmdSettings(std::string filename, uint32_t crc32, uint16_t* x, uint16_t* y) {
@@ -933,7 +933,7 @@ bool ProcessSmdSettings(std::string filename, uint32_t crc32, uint16_t* x, uint1
 		std::string fileDataString(fileSize, '\0');
 		fread(&fileDataString[0], sizeof(char), fileSize, configFileIn);
 		fclose(configFileIn);
-		
+
 		std::unordered_map<std::string, std::unordered_map<std::string, std::string>> parsedData = parseIni(fileDataString);
 		if (parsedData.find(filename.c_str()) != parsedData.end()) {
 			if (parsedData[filename.c_str()].find("hash") != parsedData[filename.c_str()].end()) {
@@ -970,7 +970,7 @@ std::string resolveHexEscapes(const std::string& s) {
             std::isxdigit(static_cast<unsigned char>(s[i + 3]))) {
             result += static_cast<char>(std::stoul(s.substr(i + 2, 2), nullptr, 16));
             i += 3;
-        } 
+        }
 		else if (s[i] == '\\' && s[i+1] == 'n') {
 			result += "\n";
 			i++;
@@ -982,52 +982,50 @@ std::string resolveHexEscapes(const std::string& s) {
     return result;
 }
 
-// Custom utility function for parsing an ini file
-ThemeDataType ThemeData;
-
-// Parse "#RRGGBB" into raw ABGR4444 with the given 0-15 alpha; returns -1 on bad input.
+// Theme colors are stored in Ryazhahand's canonical theme file. SMD modes
+// receive the parsed ABGR4444 values through Theme_* bindings.
 static int64_t themeHexToAbgr4444(const std::string& hex, unsigned alpha) {
-	std::string h = hex;
-	if (!h.empty() && h[0] == '#') h = h.substr(1);
-	if (h.size() != 6) return -1;
-	for (char c : h) if (!isxdigit((unsigned char)c)) return -1;
-	const unsigned long rgb = strtoul(h.c_str(), nullptr, 16);
-	const unsigned r = ((rgb >> 16) & 0xFF) >> 4;
-	const unsigned g = ((rgb >>  8) & 0xFF) >> 4;
-	const unsigned b = ( rgb        & 0xFF) >> 4;
-	return (int64_t)(((alpha & 0xF) << 12) | (b << 8) | (g << 4) | r);
+    std::string value = hex;
+    if (!value.empty() && value.front() == '#') value.erase(value.begin());
+    if (value.size() != 6) return -1;
+    for (const char ch : value) {
+        if (!std::isxdigit(static_cast<unsigned char>(ch))) return -1;
+    }
+
+    const unsigned long rgb = std::strtoul(value.c_str(), nullptr, 16);
+    const unsigned r = ((rgb >> 16) & 0xFF) >> 4;
+    const unsigned g = ((rgb >> 8) & 0xFF) >> 4;
+    const unsigned b = (rgb & 0xFF) >> 4;
+    return static_cast<int64_t>(((alpha & 0xF) << 12) | (b << 8) | (g << 4) | r);
 }
 
-static std::string ryazhaThemeIniValue(const char* key) {
-	std::string v = parseValueFromIniSection("sdmc:/config/ryazhahand/theme.ini", "theme", key);
-	if (v.empty())
-		v = parseValueFromIniSection("sdmc:/config/ultrahand/theme.ini", "theme", key);
-	return v;
+static void loadRyazhaThemeData() {
+    const auto readColor = [](const char* key, unsigned alpha) -> int64_t {
+        return themeHexToAbgr4444(
+            parseValueFromIniSection("sdmc:/config/ryazhahand/theme.ini", "theme", key), alpha);
+    };
+
+    int64_t value = readColor("text_color", 15);
+    if (value >= 0) ThemeData.TextColor_int = value;
+    value = readColor("highlight_color_1", 15);
+    if (value >= 0) ThemeData.CategoryColor_int = value;
+    value = readColor("highlight_color_2", 15);
+    if (value >= 0) ThemeData.AccentColor_int = value;
+
+    unsigned alpha = 7;
+    const std::string configuredAlpha = parseValueFromIniSection(
+        "sdmc:/config/ryazhahand/theme.ini", "theme", "bg_alpha");
+    if (!configuredAlpha.empty()) {
+        const unsigned long parsed = std::strtoul(configuredAlpha.c_str(), nullptr, 10);
+        if (parsed <= 15) alpha = static_cast<unsigned>(parsed);
+    }
+    value = readColor("bg_color", alpha);
+    if (value >= 0) ThemeData.BoxColor_int = value;
 }
 
-// Fill ThemeData (Theme_* SMD bindings) from the Ryazhahand theme.
-static void LoadRyazhaThemeData() {
-	int64_t v;
-	if ((v = themeHexToAbgr4444(ryazhaThemeIniValue("text_color"), 15)) >= 0)
-		ThemeData.TextColor_int = v;
-	if ((v = themeHexToAbgr4444(ryazhaThemeIniValue("highlight_color_1"), 15)) >= 0)
-		ThemeData.CategoryColor_int = v;
-	if ((v = themeHexToAbgr4444(ryazhaThemeIniValue("highlight_color_2"), 15)) >= 0)
-		ThemeData.AccentColor_int = v;
-	unsigned bgAlpha = 7;
-	{
-		std::string a = ryazhaThemeIniValue("bg_alpha");
-		if (!a.empty()) {
-			unsigned long parsed = strtoul(a.c_str(), nullptr, 10);
-			if (parsed <= 15) bgAlpha = (unsigned)parsed;
-		}
-	}
-	if ((v = themeHexToAbgr4444(ryazhaThemeIniValue("bg_color"), bgAlpha)) >= 0)
-		ThemeData.BoxColor_int = v;
-}
-
+// Custom utility function for parsing an ini file
 void ParseIniFile() {
-	LoadRyazhaThemeData();
+    loadRyazhaThemeData();
 	std::string overlayName;
 	std::string directoryPath = "sdmc:/config/status-monitor/";
 	std::string ultrahandDirectoryPath = "sdmc:/config/ultrahand/";
@@ -1037,12 +1035,12 @@ void ParseIniFile() {
 	std::string teslaConfigIniPath = teslaDirectoryPath + "config.ini";
 	std::string localeIniPath = directoryPath + "locale.ini";
 	std::unordered_map<std::string, std::unordered_map<std::string, std::string>> parsedData;
-	
+
 	struct stat st;
 	if (stat(directoryPath.c_str(), &st) != 0) {
 		mkdir(directoryPath.c_str(), 0777);
 	}
-	
+
 	bool readExternalCombo = true;
 
 	// Open the INI file
@@ -1067,7 +1065,7 @@ void ParseIniFile() {
 			else if (key.compare("battery_time_left_refreshrate") == 0 and value.length() > 0) {
 				constexpr uint32_t maxSeconds = 60;
 				constexpr uint32_t minSeconds = 1;
-		
+
 				uint32_t rate;
 				auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), rate);
 
@@ -1120,7 +1118,7 @@ void ParseIniFile() {
 				std::string temp = value;
 				convertToUpper(temp);
 				override_check = !temp.compare("TRUE");
-			}		
+			}
 			else if (key.compare("override_language_ietf_code") == 0 && value.length() > 0) {
 				temp_overrideLanguage = value;
 				convertToUpper(temp_overrideLanguage);
@@ -1128,7 +1126,7 @@ void ParseIniFile() {
 			else if (key.compare("key_combo_time_delay_ms") == 0 and value.length() > 0) {
 				constexpr uint64_t maxMiliseconds = 1000;
 				constexpr uint64_t minMiliseconds = 20;
-		
+
 				uint64_t rate;
 				auto [ptr, ec] = std::from_chars(value.data(), value.data() + value.size(), rate);
 
@@ -1152,14 +1150,14 @@ void ParseIniFile() {
 		if (ultrahandConfigFileIn) {
 			if (teslaConfigFileIn)
 				fclose(teslaConfigFileIn);
-			
+
 			std::string ultrahandFileData;
 			char buffer[256];
 			while (fgets(buffer, sizeof(buffer), ultrahandConfigFileIn) != NULL) {
 				ultrahandFileData += buffer;
 			}
 			fclose(ultrahandConfigFileIn);
-			
+
 			parsedData = parseIni(ultrahandFileData);
 			if (parsedData.find("ultrahand") != parsedData.end() &&
 				parsedData["ultrahand"].find("key_combo") != parsedData["ultrahand"].end()) {
@@ -1168,7 +1166,7 @@ void ParseIniFile() {
 				convertToUpper(keyCombo);
 				ultrahandCombo = true;
 			}
-			
+
 		} else if (teslaConfigFileIn) {
 			std::string teslaFileData;
 			char buffer[256];
@@ -1176,7 +1174,7 @@ void ParseIniFile() {
 				teslaFileData += buffer;
 			}
 			fclose(teslaConfigFileIn);
-			
+
 			parsedData = parseIni(teslaFileData);
 			if (parsedData.find("tesla") != parsedData.end() &&
 				parsedData["tesla"].find("key_combo") != parsedData["tesla"].end()) {
@@ -1218,60 +1216,34 @@ void ParseIniFile() {
 		}
 	}
 	else {
-		// Ryazhahand integration: the language selected in the Ryazhahand menu
-		// (default_lang in /config/ryazhahand/config.ini) takes priority over
-		// the system language; Ultrahand's config is honoured as a fallback.
-		overrideLanguage.clear();
-		{
-			std::string ryazhaLang = parseValueFromIniSection("sdmc:/config/ryazhahand/config.ini", "ryazhahand", "default_lang");
-			if (ryazhaLang.empty())
-				ryazhaLang = parseValueFromIniSection("sdmc:/config/ultrahand/config.ini", "ultrahand", "default_lang");
-			for (auto& c : ryazhaLang) c = tolower(c);
-			static constexpr std::pair<const char*, const char*> kLangMap[] = {
-				{"ru", "RU-RU"}, {"en", "EN-US"}, {"pl", "PL-PL"}, {"de", "DE-DE"},
-				{"fr", "FR-FR"}, {"it", "IT-IT"}, {"es", "ES-ES"}, {"pt", "PT-PT"},
-				{"nl", "NL-NL"}, {"ja", "JA-JP"}, {"ko", "KO-KR"},
-				{"zh-cn", "ZH-CN"}, {"zh-tw", "ZH-TW"},
-				{"es-419", "ES-419"}, {"fr-ca", "FR-CA"}, {"pt-br", "PT-BR"},
-			};
-			for (const auto& [shortCode, ietf] : kLangMap) {
-				if (ryazhaLang == shortCode) {
-					overrideLanguage = ietf;
-					break;
-				}
-			}
-		}
 		smInitialize();
 		Result rc = setInitialize();
 		smExit();
 		if (R_SUCCEEDED(rc)) {
-			if (overrideLanguage.empty()) {
-				u64 languageCode;
-				setGetSystemLanguage(&languageCode);
-				SetLanguage language;
-				setMakeLanguage(languageCode, &language);
-				switch(language) {
-					case SetLanguage_JA:     {overrideLanguage = "JA-JP"; break;}
-					case SetLanguage_FR:     {overrideLanguage = "FR-FR"; break;}
-					case SetLanguage_DE:     {overrideLanguage = "DE-DE"; break;}
-					case SetLanguage_IT:     {overrideLanguage = "IT-IT"; break;}
-					case SetLanguage_ES:     {overrideLanguage = "ES-ES"; break;}
-					case SetLanguage_ZHCN:
-					case SetLanguage_ZHHANS: {overrideLanguage = "ZH-CN"; break;}
-					case SetLanguage_ZHTW:
-					case SetLanguage_ZHHANT: {overrideLanguage = "ZH-TW"; break;}
-					case SetLanguage_KO:     {overrideLanguage = "KO-KR"; break;}
-					case SetLanguage_NL:     {overrideLanguage = "NL-NL"; break;}
-					case SetLanguage_PT:     {overrideLanguage = "PT-PT"; break;}
-					case SetLanguage_RU:     {overrideLanguage = "RU-RU"; break;}
-					case SetLanguage_FRCA:   {overrideLanguage = "FR-CA"; break;}
-					case SetLanguage_ES419:  {overrideLanguage = "ES-419"; break;}
-					case SetLanguage_PTBR:   {overrideLanguage = "PT-BR"; break;}
-					// Ryazha default is Russian.
-					default:                 {overrideLanguage = "RU-RU"; break;}
-				}
-			}
+			u64 languageCode;
+			setGetSystemLanguage(&languageCode);
+			SetLanguage language;
+			setMakeLanguage(languageCode, &language);
 			setExit();
+			switch(language) {
+				case SetLanguage_JA:     {overrideLanguage = "JA-JP"; break;}
+				case SetLanguage_FR:     {overrideLanguage = "FR-FR"; break;}
+				case SetLanguage_DE:     {overrideLanguage = "DE-DE"; break;}
+				case SetLanguage_IT:     {overrideLanguage = "IT-IT"; break;}
+				case SetLanguage_ES:     {overrideLanguage = "ES-ES"; break;}
+				case SetLanguage_ZHCN:
+				case SetLanguage_ZHHANS: {overrideLanguage = "ZH-CN"; break;}
+				case SetLanguage_ZHTW:
+				case SetLanguage_ZHHANT: {overrideLanguage = "ZH-TW"; break;}
+				case SetLanguage_KO:     {overrideLanguage = "KO-KR"; break;}
+				case SetLanguage_NL:     {overrideLanguage = "NL-NL"; break;}
+				case SetLanguage_PT:     {overrideLanguage = "PT-PT"; break;}
+				case SetLanguage_RU:     {overrideLanguage = "RU-RU"; break;}
+				case SetLanguage_FRCA:   {overrideLanguage = "FR-CA"; break;}
+				case SetLanguage_ES419:  {overrideLanguage = "ES-419"; break;}
+				case SetLanguage_PTBR:   {overrideLanguage = "PT-BR"; break;}
+				default:                 {overrideLanguage = "EN-US"; break;}
+			}
 
 			auto it = temp.find(overrideLanguage);
 			bool isGood = false;
@@ -1291,30 +1263,9 @@ void ParseIniFile() {
 				}
 			}
 			if (isGood == false) {
-				// Ryazha default: fall back to Russian from locale.ini before
-				// the embedded English strings.
-				auto ru = temp.find("RU-RU");
-				if (ru != temp.end()) {
-					overrideLanguage = "RU-RU";
-					locale = std::unordered_map<std::string, std::string>(ru->second.begin(), ru->second.end());
-					isGood = true;
-					for (const auto& [key, data] : m_defaultLocale) {
-						if (locale.find(key) == locale.end()) {
-							isGood = false;
-							break;
-						}
-					}
-					if (isGood == true) for (const auto& [key, data] : m_defaultLocale) {
-						auto it2 = locale.find(key);
-						if (it2 != locale.end()) it2->second = resolveHexEscapes(it2->second);
-						else locale[key] = resolveHexEscapes(data);
-					}
-				}
-			}
-			if (isGood == false) {
 				for (const auto& [key, data] : m_defaultLocale) {
 					locale[key] = resolveHexEscapes(data);
-				}				
+				}
 			}
 		}
 	}
@@ -1324,7 +1275,7 @@ bool convertStrToRGBA4444(std::string hexColor, uint16_t* returnValue) {
 	// Check if # is present
 	if (hexColor.size() != 5 || hexColor[0] != '#')
 		return false;
-	
+
 	hexColor = hexColor.substr(1);
 
 	if (isValidRGBA4Color(hexColor)) {
@@ -1349,7 +1300,7 @@ void find_smd_files(const std::string& base_path, std::vector<Designs>& filesChe
 
         if (entry->d_type == DT_DIR) {
             dirs.push_back({entry->d_name, true});
-        } 
+        }
         else if (entry->d_type == DT_REG) {
             int name_len = strlen(entry->d_name);
             if (name_len > 4 && strcmp(entry->d_name + name_len - 4, ".smd") == 0) {
@@ -1378,9 +1329,17 @@ std::string lookupSMF(const std::string& folderPath) {
 
 	path += "_folder.ini";
 
-	std::string searchKey = "EN-US";
-	if (!overrideLanguage.empty()) searchKey = overrideLanguage;
-	return ult::parseValueFromIniSection(path, "_folder", searchKey);
+	FILE* file = fopen(path.c_str(), "r");
+	if (file) {
+		std::string searchKey = "EN-US";
+		if (overrideLanguage.length() != 0) searchKey = overrideLanguage;
+
+		std::string temp = parseValueFromIniSectionF(file, "_folder", searchKey);
+		fclose(file);
+		return temp;
+	}
+
+	return "";
 }
 
 std::string listToFlatList(const std::string& input) {

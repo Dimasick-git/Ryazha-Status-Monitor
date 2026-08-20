@@ -23,8 +23,6 @@ HidSixAxisSensorHandle sixaxisHandles[Controller_Max];
 #include "MemoryDebug.hpp"
 #endif
 
-static void ApplyRyazhaTheme();
-
 extern "C" {
 	//This is done to save some space as they have no practical use in our case
 	void* __real___cxa_throw();
@@ -57,7 +55,7 @@ extern "C" {
 
 class MainMenu : public tsl::Gui {
 public:
-    
+
     const std::string root_path = "sdmc:/config/status-monitor/modes/";
     std::string standard_path = root_path;
 	std::vector<Designs> filesChecked;
@@ -65,47 +63,6 @@ public:
 	std::string m_folderName;
 	std::string footerBackup;
 	bool isMainMenu = false;
-
-	// Ryazha quick-launch combos: a mode section in config.ini may define
-	// quick_combo=ZL+ZR+DUP — holding it in any menu jumps straight into
-	// that SMD file.
-	struct QuickCombo {
-		uint64_t mask;
-		std::string rel;
-	};
-	std::vector<QuickCombo> quickCombos;
-
-	void collectQuickCombos() {
-		for (const auto& [section, values] : config) {
-			if (section.size() < 4 || section.compare(section.size() - 4, 4, ".smd") != 0)
-				continue;
-			auto it = values.find("quick_combo");
-			if (it == values.end() || it->second.empty())
-				continue;
-			std::string combo = it->second;
-			removeSpaces(combo);
-			convertToUpper(combo);
-			uint64_t mask = MapButtons(combo);
-			if (mask != 0)
-				quickCombos.push_back({mask, section});
-		}
-	}
-
-	bool handleQuickCombos(uint64_t keysDown, uint64_t keysHeld) {
-		for (const auto& qc : quickCombos) {
-			if ((keysHeld & qc.mask) != qc.mask || !(keysDown & qc.mask))
-				continue;
-			struct stat st;
-			std::string full_path = root_path + qc.rel;
-			if (stat(full_path.c_str(), &st) != 0)
-				continue;
-			std::string args = "--file " + qc.rel + " --submenu";
-			tsl::setNextOverlay(filepath, args);
-			tsl::Overlay::get()->close();
-			return true;
-		}
-		return false;
-	}
 
 	bool FindConfigs(const char* data, size_t size) {
 		size_t lineStart = 0;
@@ -209,7 +166,6 @@ public:
             standard_path = rel_path;
         }
         find_smd_files(standard_path, filesChecked);
-		collectQuickCombos();
 		if (folderName.length() != 0) {
 			m_folderName = folderName;
 			defaultButtonView = locale["Footer"];
@@ -227,7 +183,7 @@ public:
     virtual tsl::elm::Element* createUI() override {
 
 		if (jumpImmediatelyToSingleSmd == true && filesChecked.size() == 1) {
-			if (filesChecked[0].is_directory == false && standard_path.compare(root_path) == 0) {		
+			if (filesChecked[0].is_directory == false && standard_path.compare(root_path) == 0) {
 				std::string full_path = standard_path + filesChecked[0].name;
 
 				smd::Document::PeekInfo info;
@@ -236,7 +192,8 @@ public:
 					std::string args = "--file " + filesChecked[0].name;
 					tsl::setNextOverlay(filepath, args);
 					tsl::Overlay::get()->close();
-						rootFrame = new tsl::elm::OverlayFrame("", "");
+					backgroundColor = 0x0000;
+					rootFrame = new tsl::elm::OverlayFrame("", "");
 					return rootFrame;
 				}
 			}
@@ -248,6 +205,10 @@ public:
 		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, version.c_str());
 		auto list = new tsl::elm::List();
 
+        std::string rel_dir = "";
+        if (standard_path.length() > root_path.length()) {
+            rel_dir = standard_path.substr(root_path.length());
+        }
 
         if (!filesChecked.empty()) {
             for (const auto& item : filesChecked) {
@@ -264,20 +225,20 @@ public:
 						#ifdef DEBUG
 						else if (keys & KEY_Y) {
 							tsl::changeTo<MemoryCheck>();
-							return true;							
+							return true;
 						}
 						#endif
-						else if (isMainMenu && (keys & KEY_PLUS)) {
+						else if (isMainMenu && (keys & KEY_DLEFT)) {
 							tsl::changeTo<ConfigurationMainMenu>();
 							return true;
 						}
                         return false;
                     });
                     list->addItem(folderItem);
-                } 
+                }
                 else {
                     std::string full_path = standard_path + item.name;
-                    
+
                     smd::Document::PeekInfo info;
                     smd::Document::Peek(full_path.c_str(), info, overrideLanguage.c_str());
 					FILE* file = fopen(full_path.c_str(), "rb");
@@ -302,14 +263,27 @@ public:
 					else {
 						if (customExitCombo) second = "\uE136";
 						if (doesHaveConfig) second += "\uE04F";
-					} 
+					}
                     auto fileItem = new tsl::elm::ListItem(info.name.empty() ? item.name : info.name, second.c_str(), info.name.empty() ? true : false);
-                    fileItem->setClickListener([this, info, full_path, doesHaveConfig](uint64_t keys) {
+                    fileItem->setClickListener([this, item, info, full_path, rel_dir, doesHaveConfig](uint64_t keys) {
 						if (info.name.empty() == false) {
 							if (keys & KEY_A) {
-								// SMD dimensions describe widget geometry only. Changing the
-								// canonical framebuffer or restarting the overlay per mode breaks
-								// compact layouts and their return/lifecycle path.
+								if (info.layerWidth != 0 && info.layerHeight != 0 && info.layerWidth != 448 && info.layerHeight != 720) {
+									smd::Document doc;
+									if (doc.LoadFromFile(full_path.c_str()) == false) {
+										tsl::changeTo<RenderingPipeline>(full_path);
+										return true;
+									}
+									BindAllPredefined(doc);
+									if (doc.Compile() == false) {
+										tsl::changeTo<RenderingPipeline>(full_path);
+										return true;
+									}
+									std::string args = "--file " + rel_dir + item.name + " --submenu";
+									tsl::setNextOverlay(filepath, args);
+									tsl::Overlay::get()->close();
+									return true;
+								}
 								tsl::changeTo<RenderingPipeline>(full_path);
 								return true;
 							}
@@ -317,7 +291,7 @@ public:
 								tsl::changeTo<Configuration>(full_path, info.name);
 								return true;
 							}
-							else if (isMainMenu && (keys & KEY_PLUS)) {
+							else if (isMainMenu && (keys & KEY_DLEFT)) {
 								tsl::changeTo<ConfigurationMainMenu>();
 								return true;
 							}
@@ -342,8 +316,6 @@ public:
 	virtual void update() override {}
 
 	virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
-		if (handleQuickCombos(keysDown, keysHeld))
-			return true;
 		if (keysDown & KEY_B) {
 			tsl::hlp::requestForeground(true);
 			tsl::goBack();
@@ -352,6 +324,8 @@ public:
 		return false;
 	}
 };
+
+static void applyRyazhaTheme();
 
 class MonitorOverlay : public tsl::Overlay {
 public:
@@ -383,7 +357,7 @@ public:
 			smseLoadFolder("sdmc:/config/status-monitor/extensions/");
 			smseExecuteAll();
 		});
-			Hinted = envIsSyscallHinted(0x6F);
+		Hinted = envIsSyscallHinted(0x6F);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_ProController], 1, HidNpadIdType_No1,      HidNpadStyleTag_NpadFullKey);
 		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_JoyConL], 2, HidNpadIdType_No1,      HidNpadStyleTag_NpadJoyDual);
 	}
@@ -410,10 +384,7 @@ public:
     virtual void onHide() override {}
 
 	virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
-		// `tsl::loop` has already parsed [ryazhahand] here. Refresh the theme
-		// bindings used by SMD after that canonical bootstrap, not only before it.
-		ApplyRyazhaTheme();
-
+		applyRyazhaTheme();
 		//Get actual time without using time service
 		remove("sdmc:/dddd.dddd");
 		FsFileSystem* filesystem = fsdevGetDeviceFileSystem("sdmc");
@@ -435,16 +406,11 @@ public:
     }
 };
 
-// Canonical libryazhahand owns theme loading. Status Monitor deliberately
-// keeps the mode background opaque so every SMD layout has a stable backdrop.
-static void ApplyRyazhaTheme() {
+// libryazhahand owns the canonical UI theme. Re-read it after tsl::loop has
+// completed its bootstrap, then make the same palette visible to SMD modes.
+static void applyRyazhaTheme() {
 	tsl::initializeTheme();
 	tsl::initializeThemeVars();
-	tsl::defaultBackgroundColor.a = 0xF;
-
-	// SMD mode colors must follow the *same loaded canonical colors* as the
-	// renderer. Reading raw INI values before `tsl::loop` parses [ryazhahand]
-	// leaves these bindings stale when the selected theme path changes.
 	ThemeData.TextColor_int     = tsl::defaultTextColor.rgba;
 	ThemeData.CategoryColor_int = tsl::highlightColor1.rgba;
 	ThemeData.AccentColor_int   = tsl::highlightColor2.rgba;
@@ -457,48 +423,37 @@ int main(int argc, char **argv) {
 	#endif
 
 	ParseIniFile();
-	ApplyRyazhaTheme();
-    
+
 	if (argc > 0) {
 		filename = argv[0];
 		filepath = folderpath + filename;
 	}
-	auto loadSmdFile = [](const char* smd_filename) {
-		std::string path = "sdmc:/config/status-monitor/modes/";
-		path += smd_filename;
-
-			struct stat filedata;
-			if (stat(path.c_str(), &filedata) == 0) {
-				file_to_load = path;
-			}
-	};
-
-	// Legacy Ryazha/Status-Monitor-Overlay mode arguments are mapped to the
-	// bundled SMD files so pre-Deux shortcuts keep working after the update.
-	auto legacySmdFor = [](const char* arg) -> const char* {
-		if (strcasecmp(arg, "-micro") == 0
-		 || strcasecmp(arg, "--microOverlay") == 0
-		 || strcasecmp(arg, "--microOverlay_") == 0) return "03.Micro.smd";
-		if (strcasecmp(arg, "-mini") == 0)             return "02.Mini.smd";
-		if (strcasecmp(arg, "-full") == 0)             return "01.Full.smd";
-		if (strcasecmp(arg, "-fps_graph") == 0)        return "FPS/01.FPSGraph.smd";
-		if (strcasecmp(arg, "-fps_counter") == 0)      return "FPS/02.FPSCounter.smd";
-		if (strcasecmp(arg, "-game_resolutions") == 0) return "Other/03.GameResolutions.smd";
-		return nullptr;
-	};
-
 	int arg = 1;
 	while (arg < argc) {
 		if (strcasecmp(argv[arg], "--file") == 0) {
 			if (arg + 1 < argc) {
-				loadSmdFile(argv[arg+1]);
+				const char* smd_filename = argv[arg+1];
+				std::string path = "sdmc:/config/status-monitor/modes/";
+				path += smd_filename;
+
+				struct stat filedata;
+				if (stat(path.c_str(), &filedata) == 0) {
+					smd::Document doc;
+					if (doc.LoadFromFile(path.c_str()) == true) {
+						doc.Free();
+						smd::Document::PeekInfo peek;
+						smd::Document::Peek(path.c_str(), peek);
+						if (peek.layerWidth != 0 && peek.layerHeight != 0) {
+							framebufferWidth = peek.layerWidth;
+							framebufferHeight = peek.layerHeight;
+						}
+					}
+					file_to_load = path;
+				}
 			}
 		}
 		else if (strcasecmp(argv[arg], "--submenu") == 0) {
 			tsl::setNextOverlay(filepath, "");
-		}
-		else if (const char* legacy = legacySmdFor(argv[arg])) {
-			loadSmdFile(legacy);
 		};
 		arg++;
 	}

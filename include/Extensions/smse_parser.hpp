@@ -219,7 +219,7 @@ static ParseResult parseFile(const std::string& path) {
             if (typeStr == "buffer" || typeStr == "struct") {
                 cmd.isBuffer = (typeStr == "buffer");
                 cmd.isInlineStruct = (typeStr == "struct");
-                
+
                 if (parts.size() < 5)
                     return SmseError::make(SmseErrorCode::ParseMalformedLine,
                                            path, fmt("Bad complex cmd: %s", std::string(line).c_str()));
@@ -275,7 +275,7 @@ static ParseResult parseFile(const std::string& path) {
             if (parenClose == std::string_view::npos)
                 return SmseError::make(SmseErrorCode::ParseMalformedLine,
                                        path, fmt("Bad assert: %s", std::string(line).c_str()));
-            
+
             std::string cmdName(sv.substr(0, parenClose));
             sv = trim(sv.substr(parenClose + 2));
 
@@ -285,7 +285,7 @@ static ParseResult parseFile(const std::string& path) {
             // 1. Look up the command to determine its return type
             auto cmdIt = std::find_if(out.cmds.begin(), out.cmds.end(),
                                       [&](const SmseCommandDesc& c) { return c.name == cmdName; });
-            
+
             if (cmdIt == out.cmds.end()) {
                 return SmseError::make(SmseErrorCode::AssertUnknownCommand,
                                        path, fmt("Assert references unknown command: %s", cmdName.c_str()));
@@ -310,7 +310,7 @@ static ParseResult parseFile(const std::string& path) {
             } else {
                 // -- Numeric Assertions --
                 size_t opLen = 0;
-                
+
                 // Check 2-character ops first
                 if (sv.starts_with(">="))      { ad.op = SmseAssertOp::GE; opLen = 2; }
                 else if (sv.starts_with("<=")) { ad.op = SmseAssertOp::LE; opLen = 2; }
@@ -329,7 +329,7 @@ static ParseResult parseFile(const std::string& path) {
                 if (!v)
                     return SmseError::make(SmseErrorCode::ParseMalformedLine,
                                            path, fmt("Bad numeric assert value: %s", std::string(numStr).c_str()));
-                
+
                 ad.numericValue = *v;
             }
 

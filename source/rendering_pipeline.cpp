@@ -114,30 +114,16 @@ void RenderingPipeline::RecordCallback(smd::RenderCommand& cmd, void* user) {
 			m_renderer->drawRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height, m_renderer->a(cmd.color));
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
-		case smd::RenderCmdType::RoundedBox: {
-			const auto radius = static_cast<s32>(std::max(
-				std::max(cmd.roundnessTl, cmd.roundnessTr),
-				std::max(cmd.roundnessBl, cmd.roundnessBr)
-			));
-			m_renderer->drawRoundedRect(
-				static_cast<s32>(COMMON_MARGIN + cmd.x), static_cast<s32>(cmd.y),
-				static_cast<s32>(cmd.width), static_cast<s32>(cmd.height),
-				radius, m_renderer->a(cmd.color)
-			);
+		case smd::RenderCmdType::RoundedBox:
+			m_renderer->drawRoundRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height, cmd.roundnessTl, cmd.roundnessTr, cmd.roundnessBl, cmd.roundnessBr, m_renderer->a(cmd.color));
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
-		}
 		case smd::RenderCmdType::EmptyBox:
 			m_renderer->drawEmptyRect(COMMON_MARGIN + cmd.x, cmd.y, cmd.width, cmd.height, m_renderer->a(cmd.color));
 			TrackRect(COMMON_MARGIN + orig_x, orig_y, cmd.width, cmd.height);
 			break;
 		case smd::RenderCmdType::DashedLine: {
-			m_renderer->drawDashedLine(
-				static_cast<s32>(COMMON_MARGIN + cmd.x), static_cast<s32>(cmd.y),
-				static_cast<s32>(cmd.x2), static_cast<s32>(cmd.y2),
-				static_cast<s32>(std::max<int64_t>(1, cmd.dashOn)),
-				m_renderer->a(cmd.color)
-			);
+			m_renderer->drawDashedLine(COMMON_MARGIN + cmd.x, cmd.y, cmd.x2, cmd.y2, cmd.dashOn, cmd.dashOff, m_renderer->a(cmd.color));
 
 			int64_t a = COMMON_MARGIN + orig_x, b = orig_x2;
 			int64_t c = orig_y,                 d = orig_y2;
@@ -201,35 +187,17 @@ void RenderingPipeline::DryRunCallback(smd::RenderCommand& cmd, void* user) {
 
 // ─── Private non-static method ───────────────────────────────────────────────
 
-bool RenderingPipeline::IsInsideTouchRange(int64_t screen_x, int64_t screen_y, int64_t pad) const {
+bool RenderingPipeline::IsInsideTouchRange(int64_t screen_x, int64_t screen_y) const {
 	if (screen_x < 0 || screen_y < 0) return false;
 
 	int64_t lx = screen_x - (m_layer_pos_x_window * 2 / 3) - m_obj_offset_x_screen;
 	int64_t ly = screen_y - (m_layer_pos_y_window * 2 / 3) - m_obj_offset_y_screen;
-	if (lx < -pad || ly < -pad) return false;
-	// Relocation may only start from a rendered monitor widget. This remains true
-	// even though every mode now uses an opaque background.
+	if (lx < 0 || ly < 0) return false;
+	if (backgroundColor != 0x0000)
+		return lx < tsl::cfg::FramebufferWidth && ly < tsl::cfg::FramebufferHeight;
 	for (const auto& r : s_rects)
-		if (lx >= r.x-pad && ly >= r.y-pad && lx < r.x+r.w+pad && ly < r.y+r.h+pad) return true;
+		if (lx >= r.x && ly >= r.y && lx < r.x+r.w && ly < r.y+r.h) return true;
 	return false;
-}
-
-bool RenderingPipeline::isExitComboHeld(uint64_t keysHeld, uint64_t comboBitmask, uint64_t holdDurationNs) {
-	const uint64_t physicalKeys = keysHeld & ALL_KEYS_MASK;
-	const bool comboMatches = comboBitmask != 0
-		&& (physicalKeys & comboBitmask) == comboBitmask
-		&& (physicalKeys & ~comboBitmask) == 0;
-	if (!comboMatches) {
-		m_exitComboHoldStartedNs = 0;
-		return false;
-	}
-
-	const uint64_t nowNs = armTicksToNs(svcGetSystemTick());
-	if (m_exitComboHoldStartedNs == 0) {
-		m_exitComboHoldStartedNs = nowNs;
-		return false;
-	}
-	return nowNs - m_exitComboHoldStartedNs >= holdDurationNs;
 }
 
 inline uint64_t get_current_heap_position() {
@@ -244,32 +212,12 @@ size_t RenderingPipeline::getFreeHeapMemory() const {
 	return (info.addr+info.size) - heap_pos;
 }
 
-void RenderingPipeline::persistMovablePosition() {
-	if (!Movable || !saveAndLoadMovableOverlayPosition || rel_filepath.empty()) return;
-
-	const uint32_t savedX = reachedMaxX ? 1280U : m_base_x;
-	const uint32_t savedY = reachedMaxY ? 720U : m_base_y;
-	char hashBuffer[10] = {};
-	auto [hashEnd, hashError] = std::to_chars(
-		&hashBuffer[0], &hashBuffer[sizeof(hashBuffer)], smd_hash, 16
-	);
-	if (hashError != std::errc{}) return;
-
-	setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "x", std::to_string(savedX), "");
-	setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "y", std::to_string(savedY), "");
-	setIniFile(
-		"sdmc:/config/status-monitor/config.ini", rel_filepath, "hash",
-		std::string(hashBuffer, hashEnd), ""
-	);
-}
-
 // ─── Constructor ─────────────────────────────────────────────────────────────
 
 RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 	footerBackup = defaultButtonView;
 	defaultButtonView = locale["Footer"];
 	m_double_back = double_back;
-	m_menuBackgroundColor = tsl::defaultBackgroundColor;
 	leftJoyconMotionMappedButtons   = MapButtons(leftJoyconMotionKeyCombo);
 	rightJoyconMotionMappedButtons  = MapButtons(rightJoyconMotionKeyCombo);
 	proControllerMotionMappedButtons = MapButtons(proControllerMotionKeyCombo);
@@ -277,7 +225,7 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 	m_layer_pos_y_window  = 0;
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
-	tsl::gfx::Renderer::get().setLayerPos(0, 0);
+	tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
 	if (SaltySD) {
 		uintptr_t base = (uintptr_t)shmemGetAddr(&_sharedmemory);
 		if (base) displayRefreshRate = (uint8_t*)(base + 1);
@@ -336,9 +284,6 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 		m_saved_base_y = (int64_t)saved_y_pos;
 		if (saved_x_pos == 1280) reachedMaxX = true;
 		if (saved_y_pos == 720) reachedMaxY = true;
-
-
-
 	}
 	HeaderText = doc.GetConfigBool("HeaderText", true);
 	FooterText = doc.GetConfigBool("FooterText", true);
@@ -391,23 +336,9 @@ RenderingPipeline::RenderingPipeline(std::string filepath, bool double_back) {
 			}
 		}
 	}
-	const bool useCanonicalTheme = doc.GetConfigBool("User_UseTheme", true);
-	if (useCanonicalTheme) {
-		// `m_menuBackgroundColor` was captured before mode setup, after the
-		// canonical [ryazhahand] parser loaded the active theme.ini. Retain that
-		// exact background instead of replacing it with each SMD's historical
-		// transparent BackgroundColor=0x0000.
-		tsl::defaultBackgroundColor = m_menuBackgroundColor;
-	} else {
-		auto customBackground = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
-		const uint16_t modeBackground = static_cast<uint16_t>(
-			customBackground == 0xFFFFFF ? doc.GetConfigInt("BackgroundColor", 0xD000) : customBackground
-		);
-		tsl::defaultBackgroundColor = tsl::Color(modeBackground);
-	}
-	// Every monitor mode must retain a visible backdrop, independent of the
-	// active theme's transparency preference.
-	tsl::defaultBackgroundColor.a = 0xF;
+	auto test = doc.GetConfigInt("User_BackgroundColor", 0xFFFFFF);
+	if (test == 0xFFFFFF) backgroundColor = (uint16_t)doc.GetConfigInt("BackgroundColor", 0xD000);
+	else backgroundColor = (uint16_t)test;
 	ClampToLayerRight  = doc.GetConfigBool("ClampToLayerRight",  false);
 	ClampToLayerBottom = doc.GetConfigBool("ClampToLayerBottom", false);
 	if (Movable && motionControl) {
@@ -446,17 +377,33 @@ RenderingPipeline::~RenderingPipeline() {
 	defaultButtonView = footerBackup;
 	svcSignalToAddress(&threadexit2, SignalType_SignalAndIncrementIfEqual, 0, 4);
 	leventSignal(&threadexit);
-	persistMovablePosition();
+	if (Movable && saveAndLoadMovableOverlayPosition) {
+		char buffer[10] = {0};
+		char buffer2[10] = {0};
+		char buffer3[10] = {0};
+		if (reachedMaxX == true) m_base_x = 1280;
+		if (reachedMaxY == true) m_base_y = 720;
+		auto [ptr, ec] = std::to_chars(&buffer[0], &buffer[sizeof(buffer)], m_base_x, 10);
+		std::string value = buffer;
+		auto [ptr2, ec2] = std::to_chars(&buffer2[0], &buffer2[sizeof(buffer2)], m_base_y, 10);
+		std::string value2 = buffer2;
+		auto [ptr3, ec3] = std::to_chars(&buffer3[0], &buffer3[sizeof(buffer3)], smd_hash, 16);
+		std::string value3 = buffer3;
+		if (ec == std::errc{} && ec2 == std::errc{} && ec3 == std::errc{}) {
+			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "x", value, "");
+			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "y", value2, "");
+			setIniFile("sdmc:/config/status-monitor/config.ini", rel_filepath, "hash", value3, "");
+		}
+	}
 	m_obj_offset_x_screen = 0;
 	m_obj_offset_y_screen = 0;
-	tsl::gfx::Renderer::get().setLayerPos(0, 0);
+	tsl::gfx::Renderer::getRenderer().setLayerPos(0, 0);
 	if (Movable & motionControl) {
 		hidStopSixAxisSensor(sixaxisHandles[Controller_ProController]);
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConL]);
 		hidStopSixAxisSensor(sixaxisHandles[Controller_JoyConR]);
 	}
-	tsl::defaultBackgroundColor = m_menuBackgroundColor;
-	tsl::defaultBackgroundColor.a = 0xF;
+	backgroundColor = 0xD000;
 	deactivateOriginalFooter = false;
 	FullMode = true;
 	tsl::hlp::requestForeground(true);
@@ -517,7 +464,7 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 						m_obj_offset_y_screen = std::clamp(raw_obj_y, obj_min_y, obj_max_y >= obj_min_y ? obj_max_y : obj_min_y);
 						reachedMaxX = (m_obj_offset_x_screen + mxx >= layer_w);
 						reachedMaxY = (m_obj_offset_y_screen + mxy >= layer_h);
-						tsl::gfx::Renderer::get().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
+						tsl::gfx::Renderer::getRenderer().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
 						touch_pos_x = -1;
 						touch_pos_y = -1;
 						m_saved_base_x = -1;
@@ -533,8 +480,7 @@ tsl::elm::Element* RenderingPipeline::createUI() {
 				error = doc.LastError();
 			}
 		}
-			if (deactivateOriginalFooter == true && FullMode == true)
-				renderer->drawString(ComboButtonFooter.c_str(), false, 30, 693, 23, renderer->a(tsl::defaultTextColor));
+		if (deactivateOriginalFooter == true && FullMode == true) renderer->drawString(ComboButtonFooter.c_str(), false, 30, 693, 23, a(rootFrame->defaultTextColor));
 	});
 
 	rootFrame->setContent(Status);
@@ -549,12 +495,12 @@ void RenderingPipeline::update() {
 		smseExecuteAll();
 		last_tick = tick;
 	}
-	SystemData.OverlayRenderingFrameTimeInNs = 0;
+	SystemData.OverlayRenderingFrameTimeInNs = frameTimeInNS;
 	SystemData.OverlayMemoryLeftInB =  getFreeHeapMemory();
 	if (error.length() != 0) return;
 	s_rects.clear();
 	doc.Reset(changingPos);
-	SystemData.IsDocked = appletGetOperationMode() != AppletOperationMode_Handheld;
+	SystemData.IsDocked = isDocked;
 	if (displayRefreshRate) {
 		SystemData.DisplayRefreshRate_int = *displayRefreshRate;
 	}
@@ -582,7 +528,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 	}
 
 	if (error.length() != 0) {
-		if (isExitComboHeld(keysHeld, mappedButtons, 100'000'000)) [[unlikely]] {
+		if (isKeyComboPressed(keysHeld, keysDown, mappedButtons, 20'000'000)) [[unlikely]] {
 			tsl::goBack();
 			if (m_double_back == true) tsl::goBack();
 			return true;
@@ -644,7 +590,7 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 
 		reachedMaxX = (m_obj_offset_x_screen + mxx >= layer_w);
 		reachedMaxY = (m_obj_offset_y_screen + mxy >= layer_h);
-		tsl::gfx::Renderer::get().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
+		tsl::gfx::Renderer::getRenderer().setLayerPos((uint32_t)m_layer_pos_x_window, (uint32_t)m_layer_pos_y_window);
 	};
 
 	bool m_touchScreen = touchScreen;
@@ -676,123 +622,29 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 			}
 			(void)changed;
 		}
-			constexpr uint64_t kDragHoldNs = 500'000'000ULL;
-			constexpr int64_t kTouchDragThresholdPx = 8;
-			const uint64_t nowNs = armTicksToNs(svcGetSystemTick());
-			const bool touchDetected = m_touchScreen && *touchInput.delta_time != 0;
-
-			if (touchDetected && !sixaxisChangingPos) [[unlikely]] {
-				const int64_t currentTouchX = *touchInput.x;
-				const int64_t currentTouchY = *touchInput.y;
-				if (!m_touchContactActive) {
-					m_touchContactActive = true;
-					m_touchOriginValid = IsInsideTouchRange(currentTouchX, currentTouchY, 24);
-					m_touchHoldStartedNs = m_touchOriginValid ? nowNs : 0;
-					m_touchDragActive = false;
-					m_touchDragExceededThreshold = false;
-				}
-
-				if (m_touchOriginValid && !m_touchDragActive
-					&& nowNs - m_touchHoldStartedNs >= kDragHoldNs) {
-					m_touchDragActive = true;
+		if (m_touchScreen && sixaxisChangingPos == false) [[unlikely]] {
+			if (!changingPos && *touchInput.delta_time != 0) {
+				if (IsInsideTouchRange(*touchInput.x, *touchInput.y)) {
 					changingPos = true;
-					m_touchDragOriginX = currentTouchX;
-					m_touchDragOriginY = currentTouchY;
-					m_anchor_offset_x = currentTouchX - static_cast<int64_t>(m_base_x);
-					m_anchor_offset_y = currentTouchY - static_cast<int64_t>(m_base_y);
-					triggerOnFeedback();
-				}
-
-				if (m_touchDragActive) {
-					const int64_t deltaX = currentTouchX - m_touchDragOriginX;
-					const int64_t deltaY = currentTouchY - m_touchDragOriginY;
-					if (!m_touchDragExceededThreshold
-						&& std::abs(deltaX) + std::abs(deltaY) >= kTouchDragThresholdPx) {
-						m_touchDragExceededThreshold = true;
-					}
-					if (m_touchDragExceededThreshold) {
-						touch_pos_x = currentTouchX;
-						touch_pos_y = currentTouchY;
-						applyDrag();
-					}
+					m_anchor_offset_x = (int64_t)*touchInput.x - (int64_t)m_base_x;
+					m_anchor_offset_y = (int64_t)*touchInput.y - (int64_t)m_base_y;
 				}
 			}
-			else if (m_touchContactActive) {
-				if (m_touchDragActive) {
-					if (m_touchDragExceededThreshold) persistMovablePosition();
-					triggerOffFeedback(true);
-					changingPos = false;
-				}
-				m_touchContactActive = false;
-				m_touchOriginValid = false;
-				m_touchHoldStartedNs = 0;
-				m_touchDragActive = false;
-				m_touchDragExceededThreshold = false;
+			else if (changingPos && *touchInput.delta_time == 0) {
 				touch_pos_x = -1;
 				touch_pos_y = -1;
-			}
-
-			const bool plusHeldAlone = (keysHeld & KEY_PLUS)
-				&& !(keysHeld & ~KEY_PLUS & ALL_KEYS_MASK);
-			if (plusHeldAlone && !sixaxisChangingPos) {
-				if (m_joystickHoldStartedNs == 0) m_joystickHoldStartedNs = nowNs;
-				if (!m_joystickDragActive && nowNs - m_joystickHoldStartedNs >= kDragHoldNs) {
-					m_joystickDragActive = true;
-					changingPos = true;
-					m_anchor_offset_x = 0;
-					m_anchor_offset_y = 0;
-					m_joystickDragResidualX = 0.0f;
-					m_joystickDragResidualY = 0.0f;
-					triggerOnFeedback();
-				}
-
-				if (m_joystickDragActive) {
-					const int64_t leftMagnitude = static_cast<int64_t>(leftJoyStick.x) * leftJoyStick.x
-						+ static_cast<int64_t>(leftJoyStick.y) * leftJoyStick.y;
-					const int64_t rightMagnitude = static_cast<int64_t>(rightJoyStick.x) * rightJoyStick.x
-						+ static_cast<int64_t>(rightJoyStick.y) * rightJoyStick.y;
-					const auto& activeStick = rightMagnitude > leftMagnitude ? rightJoyStick : leftJoyStick;
-					constexpr int kJoystickDeadzone = 20;
-					if (std::abs(activeStick.x) > kJoystickDeadzone || std::abs(activeStick.y) > kJoystickDeadzone) {
-						const float magnitude = std::sqrt(static_cast<float>(
-							static_cast<int64_t>(activeStick.x) * activeStick.x
-							+ static_cast<int64_t>(activeStick.y) * activeStick.y
-						));
-						const float normalizedMagnitude = magnitude / 32767.0f;
-						const float sensitivity = 0.00008f
-							+ (0.0005f - 0.00008f) * std::pow(normalizedMagnitude, 8.0f);
-						m_joystickDragResidualX += static_cast<float>(activeStick.x) * sensitivity;
-						m_joystickDragResidualY -= static_cast<float>(activeStick.y) * sensitivity;
-						const int64_t deltaX = static_cast<int64_t>(m_joystickDragResidualX);
-						const int64_t deltaY = static_cast<int64_t>(m_joystickDragResidualY);
-						m_joystickDragResidualX -= static_cast<float>(deltaX);
-						m_joystickDragResidualY -= static_cast<float>(deltaY);
-						if (deltaX != 0 || deltaY != 0) {
-							touch_pos_x = static_cast<int64_t>(m_base_x) + deltaX;
-							touch_pos_y = static_cast<int64_t>(m_base_y) + deltaY;
-							applyDrag();
-						}
-					}
-				}
-			}
-			else if (m_joystickDragActive) {
-				persistMovablePosition();
-				triggerOffFeedback(true);
-				m_joystickDragActive = false;
-				m_joystickHoldStartedNs = 0;
-				m_joystickDragResidualX = 0.0f;
-				m_joystickDragResidualY = 0.0f;
 				changingPos = false;
 			}
-			else {
-				m_joystickHoldStartedNs = 0;
+			if (changingPos) {
+				touch_pos_x = *touchInput.x;
+				touch_pos_y = *touchInput.y;
+				applyDrag();
 			}
-
-			if (m_motionControl == true && !m_touchDragActive && !m_joystickDragActive
-				&& (changingPos == false || sixaxisChangingPos == true)) [[unlikely]] {
+		}
+		if (m_motionControl == true && (changingPos == false || sixaxisChangingPos == true)) [[unlikely]] {
 			HidSixAxisSensorState sixaxis = {0};
 			s32 id = -1;
-			u64 style_set = hidGetNpadStyleSet(HidNpadIdType_No1);
+			u64 style_set = padGetStyleSet(&pad);
 			if (style_set & HidNpadStyleTag_NpadJoyDual) {
 				if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) id = Controller_JoyConL;
 				else if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) id = Controller_JoyConR;
@@ -839,23 +691,46 @@ bool RenderingPipeline::handleInput(uint64_t keysDown, uint64_t keysHeld, touchP
 			}
 		}
 	}
-        if (!changingPos) {
-            // Never wait inside handleInput: it stalls canonical navigation, footer
-            // processing and the exit hold timer. Mode refresh rate is handled by the
-            // data threads; input must be processed on every framework callback.
-
-            if (isExitComboHeld(
-                keysHeld, mappedButtons,
-                UseCustomExitCombo ? static_cast<uint64_t>(keyComboTimeDelay) : 100'000'000
-            )) [[unlikely]] {
-                triggerExitFeedback();
-                tsl::goBack();
-                if (m_double_back == true) tsl::goBack();
-                return true;
-            }
-
-            m_last_time = armTicksToNs(svcGetSystemTick());
-        }
+	if (!changingPos) {
+		uint64_t new_time = armTicksToNs(svcGetSystemTick());
+		do {
+			if (Movable == true) {
+				if (m_touchScreen == true) {
+					HidTouchScreenState state = {0};
+					if (hidGetTouchScreenStates(&state, 1) && state.count && IsInsideTouchRange(state.touches[0].x, state.touches[0].y)) {
+						break;
+					}
+				}
+				if (m_motionControl == true) {
+					u64 style_set = padGetStyleSet(&pad);
+					if (style_set & HidNpadStyleTag_NpadJoyDual) {
+						if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) break;
+						else if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) break;
+					}
+					else if (style_set & HidNpadStyleTag_NpadJoyLeft) {
+						if ((keysHeld & leftJoyconMotionMappedButtons) == leftJoyconMotionMappedButtons) break;
+					}
+					else if (style_set & HidNpadStyleTag_NpadJoyRight) {
+						if ((keysHeld & rightJoyconMotionMappedButtons) == rightJoyconMotionMappedButtons) break;
+					}
+					else if (style_set & HidNpadStyleTag_NpadFullKey) {
+						if ((keysHeld & proControllerMotionMappedButtons) == proControllerMotionMappedButtons) break;
+					}
+				}
+			}
+			if (isKeyComboPressed(keysHeld, keysDown, mappedButtons, UseCustomExitCombo ? keyComboTimeDelay : 20'000'000)) [[unlikely]] {
+				tsl::goBack();
+				if (m_double_back == true) tsl::goBack();
+				return true;
+			}
+			padUpdate(&pad);
+			keysHeld = padGetButtons(&pad);
+			keysDown = padGetButtonsDown(&pad);
+			svcSleepThread(1000000);
+			new_time = armTicksToNs(svcGetSystemTick());
+		} while (new_time - m_last_time < timeout);
+		m_last_time = new_time;
+	}
 	SystemData.KeysHeld_int = keysHeld;
 	SystemData.KeysDown_int = keysDown;
 	return false;

@@ -121,9 +121,9 @@ public:
 		if (m_configs.find("pro_controller_motion_key_combo") == m_configs.end()) m_configs["pro_controller_motion_key_combo"] = "ZR+R+RSTICK";
 		if (m_configs.find("jump_immediately_to_single_smd") == m_configs.end()) m_configs["jump_immediately_to_single_smd"] = "true";
 		if (m_configs.find("save_and_load_movable_overlay_position") == m_configs.end()) m_configs["save_and_load_movable_overlay_position"] = "true";
-		if (m_configs.find("override_language") == m_configs.end()) m_configs["override_language"] = "true";
-		if (m_configs.find("override_language_ietf_code") == m_configs.end()) m_configs["override_language_ietf_code"] = "RU-RU";
-		if (m_configs.find("key_combo_time_delay_ms") == m_configs.end()) m_configs["key_combo_time_delay_ms"] = "100";
+		if (m_configs.find("override_language") == m_configs.end()) m_configs["override_language"] = "false";
+		if (m_configs.find("override_language_ietf_code") == m_configs.end()) m_configs["override_language_ietf_code"] = "EN-US";
+		if (m_configs.find("key_combo_time_delay_ms") == m_configs.end()) m_configs["key_combo_time_delay_ms"] = "200";
 	}
 
 	~ConfigurationMainMenu() {
@@ -138,20 +138,18 @@ public:
 	}
 
 	virtual tsl::elm::Element* createUI() override {
-					rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, locale["Settings"]);
-			auto list = new tsl::elm::List();
-			list->addItem(new tsl::elm::CategoryHeader(locale["section_exit"]));
+		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, locale["Settings"]);
+		auto list = new tsl::elm::List();
 
-			{
-
-				auto Item = new tsl::elm::ListItem(locale["key_combo"]);
+		{
+			auto Item = new tsl::elm::ListItem(locale["key_combo"]);
 			Item->setClickListener([this](uint64_t keys) {
 				if (keys & KEY_A) {
 					tsl::changeTo<EditConfigKeyCombo>(true, "key_combo", m_configs["key_combo"], locale["key_combo"], &m_configs, &keyCombo);
 					return true;
 				}
 				return false;
-			});		
+			});
 			list->addItem(Item);
 		}
 
@@ -159,17 +157,16 @@ public:
 			auto Item = new tsl::elm::ListItem(locale["key_combo_time_delay"], m_configs["key_combo_time_delay_ms"]);
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
-					tsl::changeTo<EditConfigInt>("key_combo_time_delay_ms", m_configs["key_combo_time_delay_ms"], "20", "1000", "100", Item, locale["key_combo_time_delay"], "int", &keyComboTimeDelay, &m_configs, 10);
+					tsl::changeTo<EditConfigInt>("key_combo_time_delay_ms", m_configs["key_combo_time_delay_ms"], "20", "1000", "200", Item, locale["key_combo_time_delay"], "int", &keyComboTimeDelay, &m_configs, 10);
 					return true;
 				}
 				return false;
 			});
-				list->addItem(Item);
-			}
+			list->addItem(Item);
+		}
 
-			list->addItem(new tsl::elm::CategoryHeader(locale["section_battery"]));
-			{
-				auto Item = new tsl::elm::ToggleListItem(locale["battery_avg_iir_filter"], m_configs["battery_avg_iir_filter"] == "false" ? false : true);
+		{
+			auto Item = new tsl::elm::ToggleListItem(locale["battery_avg_iir_filter"], m_configs["battery_avg_iir_filter"] == "false" ? false : true);
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
 					BoardData.IsBatteryFiltered = Item->getState();
@@ -177,7 +174,7 @@ public:
 					return true;
 				}
 				return false;
-			});		
+			});
 			list->addItem(Item);
 		}
 
@@ -190,12 +187,11 @@ public:
 				}
 				return false;
 			});
-				list->addItem(Item);
-			}
+			list->addItem(Item);
+		}
 
-			list->addItem(new tsl::elm::CategoryHeader(locale["section_controls"]));
-			{
-				auto Item = new tsl::elm::ToggleListItem(locale["touch_screen"], m_configs["touch_screen"] == "false" ? false : true);
+		{
+			auto Item = new tsl::elm::ToggleListItem(locale["touch_screen"], m_configs["touch_screen"] == "false" ? false : true);
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
 					touchScreen = Item->getState();
@@ -216,7 +212,22 @@ public:
 					return true;
 				}
 				return false;
-			});		
+			});
+			list->addItem(Item);
+		}
+
+		{
+			auto Item = new tsl::elm::ToggleListItem(
+				locale["save_and_load_movable_overlay_position"],
+				m_configs["save_and_load_movable_overlay_position"] != "false");
+			Item->setClickListener([this, Item](uint64_t keys) {
+				if (keys & KEY_A) {
+					saveAndLoadMovableOverlayPosition = Item->getState();
+					m_configs["save_and_load_movable_overlay_position"] = Item->getState() ? "true" : "false";
+					return true;
+				}
+				return false;
+			});
 			list->addItem(Item);
 		}
 
@@ -228,7 +239,7 @@ public:
 					return true;
 				}
 				return false;
-			});		
+			});
 			list->addItem(Item);
 		}
 
@@ -240,7 +251,7 @@ public:
 					return true;
 				}
 				return false;
-			});		
+			});
 			list->addItem(Item);
 		}
 
@@ -252,13 +263,12 @@ public:
 					return true;
 				}
 				return false;
-			});		
-				list->addItem(Item);
-			}
+			});
+			list->addItem(Item);
+		}
 
-			list->addItem(new tsl::elm::CategoryHeader(locale["section_behavior"]));
-			{
-				auto Item = new tsl::elm::ToggleListItem(locale["jump_immediately_to_single_smd"], m_configs["jump_immediately_to_single_smd"] == "false" ? false : true);
+		{
+			auto Item = new tsl::elm::ToggleListItem(locale["jump_immediately_to_single_smd"], m_configs["jump_immediately_to_single_smd"] == "false" ? false : true);
 			Item->setClickListener([this, Item](uint64_t keys) {
 				if (keys & KEY_A) {
 					jumpImmediatelyToSingleSmd = Item->getState();
@@ -266,33 +276,19 @@ public:
 					return true;
 				}
 				return false;
-			});		
-				list->addItem(Item);
-			}
+			});
+			list->addItem(Item);
+		}
 
-			{
-				auto Item = new tsl::elm::ToggleListItem(locale["save_and_load_movable_overlay_position"], m_configs["save_and_load_movable_overlay_position"] == "false" ? false : true);
-				Item->setClickListener([this, Item](uint64_t keys) {
-					if (keys & KEY_A) {
-						saveAndLoadMovableOverlayPosition = Item->getState();
-						m_configs["save_and_load_movable_overlay_position"] = Item->getState() ? "true" : "false";
-						return true;
-					}
-					return false;
-				});
-				list->addItem(Item);
-			}
-
-			list->addItem(new tsl::elm::CategoryHeader(locale["section_system"]));
-			{
-				auto Item = new tsl::elm::ListItem(locale["override_language"]);
+		{
+			auto Item = new tsl::elm::ListItem(locale["override_language"]);
 			Item->setClickListener([this](uint64_t keys) {
 				if (keys & KEY_A) {
 					tsl::changeTo<EditConfigLanguage>(&skipConfigSaving);
 					return true;
 				}
 				return false;
-			});		
+			});
 			list->addItem(Item);
 		}
 
@@ -308,7 +304,7 @@ public:
 					return true;
 				}
 				return false;
-			});		
+			});
 			list->addItem(Item);
 		}
 
@@ -320,7 +316,7 @@ public:
 					return true;
 				}
 				return false;
-			});		
+			});
 			list->addItem(Item);
 		}
 

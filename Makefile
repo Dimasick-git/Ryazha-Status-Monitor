@@ -37,7 +37,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-APP_TITLE	:=	Ryazha-Status-Monitor
+APP_TITLE	:=	Ryazha Status Monitor
 APP_VERSION	:=	1.5.0
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
@@ -50,6 +50,7 @@ ifeq ($(wildcard $(RYAZHAHAND_MK)),)
 $(error Missing $(RYAZHAHAND_MK). Initialise libryazhahand submodule first.)
 endif
 include $(RYAZHAHAND_MK)
+
 NO_ICON		:=	1
 #ROMFS		:=	romfs
 
@@ -61,8 +62,7 @@ ARCH		:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -flto=auto
 CFLAGS	:=	-g -Wall -Werror -Os -ffunction-sections -fdata-sections -ffast-math -fno-asynchronous-unwind-tables -fno-unwind-tables \
 			$(ARCH) $(DEFINES)
 
-CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\"" \
-			-DIS_STATUS_MONITOR_DIRECTIVE=1
+CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\""
 
 CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++26
 
@@ -87,7 +87,7 @@ LDFLAGS     += -Wl,--wrap,__cxa_pure_virtual \
 			-Wl,--wrap,_ZSt20__throw_length_errorPKc \
 			-Wl,--wrap,_ZNSt11logic_errorC2EPKc
 
-LIBS		:=	-lcurl -lpng -lz -lmbedtls -lmbedx509 -lmbedcrypto -lnx
+LIBS		:=	-lnx
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
@@ -222,11 +222,9 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 all	:	 $(OUTPUT).ovl
 
-$(OUTPUT).ovl		:	$(OUTPUT).elf $(OUTPUT).nacp 
+$(OUTPUT).ovl		:	$(OUTPUT).elf $(OUTPUT).nacp
 	@elf2nro $< $@ $(NROFLAGS)
 	@echo "built ... $(notdir $(OUTPUT).ovl)"
-	@printf 'RYZH' >> $@
-	@printf "Ryazhahand signature has been added.\n"
 
 $(OUTPUT).elf	:	$(OFILES)
 

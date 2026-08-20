@@ -1,5 +1,5 @@
 [status-monitor]
-key_combo=L+R+DUP
+key_combo=L+DDOWN+RSTICK
 battery_avg_iir_filter=false
 battery_time_left_refreshrate=10
 touch_screen=true
@@ -10,6 +10,4 @@ pro_controller_motion_key_combo=ZR+R+RSTICK
 jump_immediately_to_single_smd=true
 override_language=true
 override_language_ietf_code=RU-RU
-key_combo_time_delay_ms=100
-[01.Full.smd]
-quick_combo=L+R+DUP
+key_combo_time_delay_ms=200

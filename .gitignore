@@ -1,13 +1,8 @@
 build/
 build-tests/
 out/
-
 *.ovl
-
-*.elf
-
-*.nacp
-
 *.nro
-
+*.elf
+*.map
 *.zip

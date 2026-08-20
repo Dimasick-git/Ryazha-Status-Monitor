@@ -1,7 +1,7 @@
 Name = Battery/Charger
 NAME_LOCALE{"PL-PL", "Ładowarka/Bateria"}
 NAME_LOCALE{"DE-DE", "Akku/Ladegerät"}
-NAME_LOCALE{"RU-RU", "Батарея/Зарядка"}
+NAME_LOCALE{"RU-RU", "Батарея и зарядка"}
 VERSION = 1
 
 Text01Format = IETF{"Battery Actual Capacity: %.0f mAh\n"}
@@ -49,21 +49,6 @@ IETF_LOCALE{Text12Format, "DE-DE", "Ladegerät-Maximalstrom: %u mA\n"}
 IETF_LOCALE{Avg5s,        "DE-DE", " (5s Durchschnitt)"}
 IETF_LOCALE{Title,        "DE-DE", "Akku-/Ladegerät-Statistiken:"}
 
-IETF_LOCALE{Text01Format, "RU-RU", "Фактическая ёмкость батареи: %.0f мАч\n"}
-IETF_LOCALE{Text02Format, "RU-RU", "Заявленная ёмкость батареи: %.0f мАч\n"}
-IETF_LOCALE{Text03Format, "RU-RU", "Температура батареи: %.1f°C\n"}
-IETF_LOCALE{Text04Format, "RU-RU", "Сырой заряд батареи: %.1f%%\n"}
-IETF_LOCALE{Text05Format, "RU-RU", "Возраст батареи: %.1f%%\n"}
-IETF_LOCALE{Text06Format, "RU-RU", "Напряжение батареи (ср. за %dс): %.0f мВ\n"}
-IETF_LOCALE{Text07Format, "RU-RU", "Ток батареи (ср. за %sс): %+.0f мА\n"}
-IETF_LOCALE{Text08Format, "RU-RU", "Поток мощности батареи%s: %+.3f Вт\n"}
-IETF_LOCALE{Text09Format, "RU-RU", "Оставшееся время работы: %s\n"}
-IETF_LOCALE{Text10Format, "RU-RU", "Тип зарядного устройства: %u\n"}
-IETF_LOCALE{Text11Format, "RU-RU", "Макс. напряжение зарядного устройства: %u мВ\n"}
-IETF_LOCALE{Text12Format, "RU-RU", "Макс. ток зарядного устройства: %u мА\n"}
-IETF_LOCALE{Avg5s,        "RU-RU", " (ср. за 5с)"}
-IETF_LOCALE{Title,        "RU-RU", "Статистика батареи/зарядки:"}
-
 EnableBoard = true ; powerConsumption_float, batTimeEstimateInMinutes_int, SOC_temperature_float, PCB_temperature_float, skin_temperaturemiliC_int, Rotation_Duty_float, actualFullBatCapacity_float, designedFullBatCapacity_float, temperature_celcius_float, battery_charge_percentage_float, battery_age_percentage_float, batVoltageAvg_float, batCurrentAvg_float, isBatteryFiltered, ChargerConnected_int, ChargerVoltageLimit_int, ChargerCurrentLimit_int
 Text1: {IETF_GET{Text01Format}, Board_ActualFullBatteryCapacity_float}
 Text2: {IETF_GET{Text02Format}, Board_DesignedFullBatteryCapacity_float}
@@ -79,12 +64,20 @@ Text11: {IETF_GET{Text11Format}, Board_ChargerVoltageLimit_int}
 Text12: {IETF_GET{Text12Format}, Board_ChargerCurrentLimit_int}
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-User_UseTheme = true
-;;User_UseTheme_Description = Use Ryazhahand theme colors (theme.ini) for this mode.
-;;User_UseTheme_Description_RU-RU = Использовать цвета темы Ryazhahand (theme.ini) для этого режима.
-;;User_UseTheme_Name = Use theme colors
-;;User_UseTheme_Name_RU-RU = Цвета из темы
-;;User_UseTheme_DefaultValue = true
+IETF_LOCALE{Text01Format, "RU-RU", "Фактическая ёмкость батареи: %.0f мА·ч\n"}
+IETF_LOCALE{Text02Format, "RU-RU", "Расчётная ёмкость батареи: %.0f мА·ч\n"}
+IETF_LOCALE{Text03Format, "RU-RU", "Температура батареи: %.1f°C\n"}
+IETF_LOCALE{Text04Format, "RU-RU", "Сырой заряд батареи: %.1f%%\n"}
+IETF_LOCALE{Text05Format, "RU-RU", "Износ батареи: %.1f%%\n"}
+IETF_LOCALE{Text06Format, "RU-RU", "Напряжение батареи (%ds среднее): %.0f мВ\n"}
+IETF_LOCALE{Text07Format, "RU-RU", "Ток батареи (%ss среднее): %+.0f мА\n"}
+IETF_LOCALE{Text08Format, "RU-RU", "Поток питания батареи%s: %+.3f Вт\n"}
+IETF_LOCALE{Text09Format, "RU-RU", "Осталось работы батареи: %s\n"}
+IETF_LOCALE{Text10Format, "RU-RU", "Тип зарядного устройства: %u\n"}
+IETF_LOCALE{Text11Format, "RU-RU", "Максимальное напряжение ЗУ: %u мВ\n"}
+IETF_LOCALE{Text12Format, "RU-RU", "Максимальный ток ЗУ: %u мА\n"}
+IETF_LOCALE{Avg5s, "RU-RU", " (среднее за 5 с)"}
+IETF_LOCALE{Title, "RU-RU", "Состояние батареи и зарядки:"}
 
 Start:
 TEXT{0, 120, 20, 0xFFFF, true, IETF_GET{Title}}

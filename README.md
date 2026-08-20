@@ -1,126 +1,96 @@
-# Ryazha-Status-Monitor Overlay
-Мониторинг вашего оборудования в реальном времени!
-
-Это оверлейное домашнее приложение (homebrew), созданное специально для Nintendo Switch.
-Для использования необходимо установить среду Tesla.
-
-Начиная с версии **1.4.4** Ryazha-Status-Monitor построен на движке
-[Status-Monitor-Deux](https://github.com/masagrator/Status-Monitor-Deux) от MasaGratoR —
-следующем поколении Status Monitor Overlay. Вместо жёстко зашитых режимов
-каждый режим теперь — это скрипт-файл с расширением `.smd`, а поддержка
-дополнительных сервисов добавляется файлами `.smse`. Свои оверлеи можно
-создавать вообще без перекомпиляции!
-
-# Что показывают встроенные SMD-файлы:
-- Использование CPU для каждого ядра (ядра `#0`-`#2` используются приложениями/играми, ядро `#3` используется ОС, фоновыми процессами и оверлеями Tesla)
-- Загрузка GPU
-- Целевые частоты CPU, GPU и RAM (также реальные частоты + загрузка RAM, если установлен [sys-clk 2.0.0_rc4+](https://github.com/retronx-team/sys-clk/releases) или [Horizon OC 2.2.0+](https://github.com/Horizon-OC/Horizon-OC/releases), используйте только официальный релиз RetroNX для надёжных результатов)
-- Использование RAM, разделённое на категории: (не поддерживается прошивками <5.0.0)
-  - Всего
-  - Приложение
-  - Аплет
-  - Система
-  - Небезопасная система
-- Температуры SoC, PCB и корпуса (температура корпуса не поддерживается прошивками <5.0.0)
-- Уровень вращения вентилятора
-- PFPS, FPS, разрешения, скорость чтения игры (отображается только если установлен [форк SaltyNX от MasaGratoR](https://github.com/masagrator/SaltyNX/releases))
-- Температура батареи, сырой заряд, возраст, среднее напряжение, средний ток и средняя мощность
-- Тип зарядного устройства, максимальное напряжение и максимальный ток
-- Использование DSP (только для прошивок старше 17.0.0)
-- Частоты NVDEC, NVENC и NVJPG
-- Тип сети + пароль Wi-Fi
-
-# Возможности движка:
-- Символ Ⓨ рядом с именем режима означает, что режим настраивается прямо из оверлея кнопкой Y: какие данные показывать и как именно.
-- Глобальные настройки открываются кнопкой «влево» на крестовине в главном меню.
-- Символ Joy-Con рядом с именем режима означает кастомную комбинацию выхода (видна и меняется в Глобальные настройки → Комбинация выхода).
-- Поддерживаемые оверлеи можно перемещать по экрану сенсором или гироскопом.
-- Мультиязычность без перекомпиляции — язык подхватывается из системы (поддерживаются все алфавиты, которые есть во встроенных шрифтах Switch).
-- Поддержку дополнительных сервисов можно добавить своим `.smse`-файлом (примеры для `hoc:clk` и `sys:clk` уже включены).
-- Свои оверлеи: смотрите папку `modes` и формат в [docs/SMD_FORMAT.md](docs/SMD_FORMAT.md).
+# Ryazha Status Monitor
+Monitor Your hardware in real time!<br>
+This is an overlay homebrew dedicated to Nintendo Switch.<br>
+You need to have installed Tesla environment to use it.
 
 > [!NOTE]
-> Реализованные языки:
-> - **Русский** (эксклюзив Ryazha-форка!)
-> - Американский английский
-> - Польский
-> - Немецкий
+> This README was written to convey only basics of tool.
 
-Все дополнительные файлы хранятся в `config/status-monitor` (сторонние SMD-файлы,
-например из [репозитория SMD-Files](https://github.com/masagrator/SMD-Files),
-работают — просто положите их в нашу папку `modes`):
-- папка `modes` — SMD-файлы режимов. Если найден только один SMD-файл, оверлей сразу открывает его (отключается в глобальных настройках).
-- папка `extensions` — SMSE-файлы дополнительных сервисов.
-- `config.ini` — глобальные настройки и настройки каждого режима (создаётся автоматически при первом запуске).
-- `locale.ini` — локализация, не относящаяся к SMD-файлам.
+This is the next iteration of Status Monitor Overlay that changes structurally how it works.<br>
+Instead of hardcoding each mode now they are stored as script files with filetype `.smd`.<br>
+Any additional service can be added by creating `.smse` file.
 
-# Требования:
-- Atmosphere CFW (SX OS и другие CFW не поддерживаются)
-- Ryazhahand Overlay, Ultrahand или Tesla Menu (версия >=1.2.3)
+# Data shown in included SMD files
+- CPU Usage for each core (Cores `#0`-`#2` are used by apps/games, Core `#3` is used by OS, background processes and also Tesla overlays)
+- GPU Load
+- CPU, GPU & RAM target frequencies (also real frequencies + RAM Load if [sys-clk 2.0.0_rc4+](https://github.com/retronx-team/sys-clk/releases) or [Horizon OC 2.2.0+](https://github.com/Horizon-OC/Horizon-OC/releases) is installed, use only official releases for reliable results)
+- Used RAM categorized to: (not supported by FWs <5.0.0)
+  - Total
+  - Application
+  - Applet
+  - System
+  - System Unsafe
+- SoC, PCB & Skin temperatures (Skin temperature not supported by FWs <5.0.0)
+- Fan Rotation Level
+- PFPS, FPS, resolutions, game read speed (shows only if [my fork of SaltyNX](https://github.com/masagrator/SaltyNX/releases) is installed)
+- Battery temperature, raw charge, age, average voltage, average current flow and average power flow
+- Charger type, max voltage, and max current
+- DSP usage (only for FW older than 17.0.0)
+- NVDEC, NVENC and NVJPG clock rates
+- Network type + Wi-fi password
 
-Как настроить всё: [ЗДЕСЬ](https://gist.github.com/masagrator/65fcbd5ad09243399268d145aaab899b)
+# Functionality:
+- If you can see Ⓨ next to mode name, it means you can configure it by pressing Y button which shows up list of possible things to tweak for current mode like which data should be shown, how they should be shown.
+- Global settings are available by pressing Left D-Pad button in Main Menu.
+- If you can see joycon symbol next to mode name, it means it's using custom exit key combo. To see how it looks like you can go to Global settings -> Exit key combo, you can change it too.
+- You can move supported overlays on screen with touch screen or sixaxis (for which buttons enable sixaxis you can see in main menu settings)
+- Mutlilanguage support that doesn't need recompiling to work, it supports all languages as long as Switch builtin fonts are supporting your alphabet
+- If you want to implement support for additional services to make them available from status monitor, you can create your own .smse file. It supports only `Out` functions. Already included are extensions for `hoc:clk` and `sys:clk` if you want to see examples.
+- You can create your own overlays, you can look in `modes` folder for seeing how all of them are implemented. Format is explained [here](docs/SMD_FORMAT.md)
 
-> [!IMPORTANT]
-> Устанавливайте **полный zip-дистрибутив** из релизов (`Ryazha-Status-Monitor.zip`):
-> кроме `.ovl` он содержит папку `config` с SMD-режимами и SMSE-расширениями.
-> Без них меню оверлея будет пустым.
+> [!NOTE]
+> Currently implemented languages:
+> - American English
+> - Polish
+> - German
+>
+> If you want to add new language, send in issues those two translated files: [FILE 1](config/status-monitor/locale.ini), [FILE 2](docs/toTranslate.ini)
 
-## Интеграция с Ryazhahand
-- **Темы**: оверлей читает `/config/ryazhahand/theme.ini` (ключи `text_color`, `clock_color`, `battery_color`, `highlight_color_1`, `highlight_color_2`, `bg_color`, `bg_alpha`); если файла нет — фолбэк на `/config/ultrahand/theme.ini`. Тема применяется к меню автоматически, а **во всех встроенных SMD-режимах** есть переключатель «Цвета из темы» в Y-меню. При выключении переключателя режим использует собственную настраиваемую RGBA4444-палитру, совместимую с возможностями официального Status Monitor Overlay. Переменные `Theme_*` также доступны собственным SMD-файлам.
-- **Звуки**: портирован звуковой движок libryazhahand — звуки навигации/входа/выхода играются из общего пака `/config/ryazhahand/.loaded_sounds/` (его распаковывает меню Ryazhahand). Управление в `/config/ryazhahand/config.ini`, секция `[ryazhahand]`: `sound_effects` (мастер-переключатель), `sound_volume` (0–100), `sound_navigation`, `sound_enter`, `sound_exit`.
-- **Вибрация**: портирована хаптика libryazhahand — короткий «клик» на навигацию/подтверждение/выход (Joy-Con в портативе и контроллер игрока 1). Отключается ключом `haptic_feedback=false` в той же секции.
-- **Язык**: берётся из настройки Ryazhahand (`default_lang` в `/config/ryazhahand/config.ini`), затем из языка системы; если перевода нет — **по умолчанию русский**. Принудительный выбор по-прежнему доступен в настройках оверлея.
-- Сигнатура `RYZH` в конце `.ovl` сохранена для загрузчика Ryazhahand.
+All additional files are stored in `config/status-monitor`, including:
+- `modes` folder - stores SMD files used for rendering. If there is only one SMD file detected, overlay jumps automatically into detected file (this can be turned off in Global settings). Each SMD file stores its own texts and localization must be implemented inside them.
+- `extensions` folder - stores SMSE files which store informations about additional services and how their variables should be named. For functions without buffers function name is used as reference to variable it outputs.
+- `config.ini` - stores global settings and settings for each mode. It's automatically created on first boot if it doesn't exist.
+- `locale.ini` - stores localization info unrelated to SMD files.
 
-## Эксклюзивы Ryazha-форка
-- **Щипок-резайз**: перемещаемые оверлеи (Micro, Mini, счётчики FPS и т.д.) теперь можно не только таскать пальцем, но и **растягивать/сжимать двумя пальцами** (pinch) от 35% до 200% — масштаб запоминается для каждого режима отдельно. Зона захвата увеличена, чтобы за маленькие оверлеи было легко зацепиться, а после щипка случайное перетаскивание блокируется до отпускания пальцев.
-- **Классическая комбинация L+R+ВВЕРХ**: в меню она мгновенно запускает Полный режим, внутри режима — выходит из него (как в старом Ryazha-Status-Monitor). Меняется через `key_combo` и `quick_combo` в `config/status-monitor/config.ini`.
-- **Часы и батарея в Полном режиме**: текущее время и заряд в правом верхнем углу (отключается в Y-меню).
-- **Цвет по FPS** в счётчике FPS: зелёный/жёлтый/красный относительно частоты экрана (включается в Y-меню).
-- **Режим RyazhaStatus** (`modes/FPS/03.RyazhaStatus.smd`) — перемещаемый счётчик FPS + Гц с **EMA-сглаживанием** и цветовой индикацией (зелёный — полная частота экрана, жёлтый — половина, красный — ниже). Сила сглаживания, цвета и шрифты настраиваются кнопкой Y.
-- **Быстрые комбо запуска режимов**: в `config/status-monitor/config.ini` в секции нужного режима добавьте `quick_combo=ZL+ZR+DUP` (любое сочетание кнопок) — удержание этой комбинации в меню оверлея мгновенно открывает режим. Пример:
-  ```ini
-  [FPS/03.RyazhaStatus.smd]
-  quick_combo=ZL+ZR+DUP
-  ```
-- Полная русская локализация всех режимов и меню.
+# How to setup everything:
 
-## Совместимость с прежними версиями Ryazha-Status-Monitor (≤1.4.3)
-- Legacy-аргументы запуска `-mini`, `-micro`, `-full`, `-fps_graph`, `-fps_counter`, `-game_resolutions`, а также `--microOverlay`/`--microOverlay_` по-прежнему работают: они автоматически открывают соответствующий SMD-файл, так что старые ярлыки и интеграции не сломаются.
-- Новый штатный способ — аргумент `--file <имя файла>.smd`.
+Atmosphere CFW is required. SX OS and other CFWs are not supported.
+It's advised to use Atmosphere's USB Transfer Tool homebrew to transfer files. If you use Hekate's USB Mass Storage and you will be putting files using any other Operating System than Windows, you must run Hekate's Archive Bit Fixer after putting all files.
+This tutorial is only for Atmosphere 1.8.0+ users
 
-# Для разработчиков
-- Синхронизация с upstream: `./sync-upstream.sh` (теперь следит за [masagrator/Status-Monitor-Deux](https://github.com/masagrator/Status-Monitor-Deux), ветка `main`).
-- Тесты SMD-парсера запускаются локально без devkitPro: `cmake -S . -B build-tests && cmake --build build-tests && ctest --test-dir build-tests`. Они же гоняются в CI на каждый push.
-- Подсветка синтаксиса SMD для VS Code: `.vscode/extensions/statusmonitor-smd`.
-- Формат SMD: [docs/SMD_FORMAT.md](docs/SMD_FORMAT.md), внутренности парсера: [docs/SMD_PARSER_INTERNALS.md](docs/SMD_PARSER_INTERNALS.md), файл для переводчиков: [docs/toTranslate.ini](docs/toTranslate.ini).
+1. Download newest `SaltyNX` release from [HERE](https://github.com/masagrator/SaltyNX/releases), unpack zip file, copy both folders (`SaltySD` and `atmosphere`) to the root of your sdcard, accept any popup about overwriting folders.
+2. Download newest `Ultrahand` release (sdout.zip) from [HERE](https://github.com/ppkantorski/Ultrahand-Overlay/releases), unpack it, copy all unpacked folders to the root of sdcard, accept any popup about overwriting folders.
+3. Download `Ryazha Status Monitor` release from [HERE](https://github.com/masagrator/Status-Monitor-Deux/releases), copy folders `switch` and `config` to root of sdcard. It may not be visible in USB Mass Storage, but it's there.
+4. Restart Switch, now you can access overlays by pressing all 3 buttons at once: `L`, `D-pad down` and `R-stick` (aka pressing it).
+
+# Extras
+
+Syntax highlighting for VS Code<br>
+https://github.com/masagrator/Status-Monitor-Deux/tree/main/.vscode/extensions/statusmonitor-smd
+
+Repository storing other SMD files than stored in this repository:<br>
+https://github.com/masagrator/SMD-Files
 
 ---
 
-# Благодарности:
-- MasaGratoR за Status Monitor Overlay и Status-Monitor-Deux
-- Каналу RetroNX за помощь в вопросах программирования
-- SunTheCourier за sys-clk-Overlay, из которого я научился создавать свои собственные Tesla homebrew
-- Herbaciarz за предоставление скриншотов с HDMI Grabber
-- KazushiMe за написание кода для чтения регистров чипа max17050
-- CTCaer за Hekate, из которого взяты max17050.h и формулы расчёта для чтения статистики батареи с чипа max17050
-- ChanseyIsTheBest за тестирование меню разрешений игр
-- Lightos за немецкий перевод
+# Thanks to:
+- KazushiMe for writing code to read registers from max17050 chip
+- CTCaer for Hekate from which I took max17050.h and calculation formulas for reading battery stats from max17050 chip
+- Lightos for providing German translation
 
-# FAQ:
-Вопрос: Этот homebrew как-то влияет на игры?
+Huge part of new code relative to Status Monitor Overlay was written with Claude. SMD and SMSE files design is 100% my own.
 
-Ответ: Незначительно, вы не заметите разницы. Почти всё выполняется на ядре `#3`, использование других ядер при частоте обновления 1 FPS остаётся около 0.005% или ниже.
+# Troubleshooting:
 
-# Устранение неполадок:
+> [!IMPORTANT]
+> Q: When opening Full or Mini mode, overlay is showing that Core #3 usage is at 100% while everything else is showing 0, eventually leading to crash. Why this happens?
 
-Вопрос: При открытии режима Full или Mini оверлей показывает, что использование ядра #3 составляет 100%, в то время как всё остальное показывает 0, что в конечном итоге приводит к сбою. Почему это происходит?
+A: There are few possible explanations:
+1. You're using nifm services connection test patches (in short `nifm ctest patches`) that are included in various packs. Those patches allow to connect to network that has no internet connection. But they cause nifm to randomly rampage when connected to network. Find any folder in `atmosphere/exefs_patches` that has in folder name `nifm`, `nfim` and/or `ctest`, delete this folder and restart Switch (if you are using `sys-patch`, turn off `nifm` patching). If you must use it, only solution is to use this overlay only in airplane mode.
+2. You're using some untested custom sysmodule that has no proper thread sleeping implemented. Find out in atmosphere/contents any sysmodule that you don't need, delete it and restart Switch.
+3. Your Switch is using sigpatches, is not a primary device, is using linked account, and is connected to network. Delete sigpatches, change your Switch to primary device, unlink account, or disable Wi-Fi.
 
-Ответ: Есть несколько возможных объяснений:
-1. Вы используете патчи теста подключения служб nifm (вкратце `nifm ctest patches`), которые включены в различные пакеты. Эти патчи позволяют подключаться к сети без доступа в интернет. Но они вызывают случайные сбои nifm при подключении к сети. Найдите любую папку в `atmosphere/exefs_patches`, в названии которой есть `nifm`, `nfim` и/или `ctest`, удалите эту папку и перезагрузите Switch (если вы используете `sys-patch`, отключите патчинг `nifm`). Если вы должны его использовать, единственное решение — использовать этот оверлей только в режиме полёта.
-2. Вы используете какой-то непроверенный кастомный sysmodule, в котором не реализована правильная блокировка потоков. Найдите в atmosphere/contents любой sysmodule, который вам не нужен, удалите его и перезагрузите Switch.
-3. Ваш Switch использует sigpatches, не является основным устройством, использует привязанную учётную запись и подключён к сети. Удалите sigpatches, измените ваш Switch на основное устройство, отвяжите учётную запись или отключите Wi-Fi.
+> [!IMPORTANT]
+> Q: When I open overlay, nothing is listed.
 
-Вопрос: Я открываю оверлей, а список режимов пустой. Что делать?
-
-Ответ: Это значит, что папка `status-monitor` не скопирована в `sdmc:/config/` (или была удалена). Скачайте полный zip-дистрибутив из последнего релиза и скопируйте все файлы из него.
+A: It means you have removed or didn't copy `status-monitor` folder from/to `sdmc:/config/`. Download newest release and be sure to copy all files in release zip.

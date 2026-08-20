@@ -1,6 +1,6 @@
 # SMD Syntax Highlighting for VS Code
 
-Syntax highlighting for Status Monitor Design (`.smd`) files — the overlay format used by Status Monitor Deux.
+Syntax highlighting for Status Monitor Design (`.smd`) files — the overlay format used by Ryazha Status Monitor.
 
 Highlights:
 

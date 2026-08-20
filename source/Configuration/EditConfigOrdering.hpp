@@ -23,7 +23,7 @@ public:
 		}
 		if (defaultValue.starts_with("LIST")) {
 			defaultValue = listToFlatList(defaultValue);
-		}		
+		}
 		auto parts = value | std::views::split('+');
 		auto defaultParts = defaultValue | std::views::split('+');
 		for (auto&& part : defaultParts) {
@@ -77,20 +77,18 @@ public:
 					toRender[i] = std::make_pair(key, Item->getState());
 					return true;
 				}
-					if (keys & KEY_ZL) {
-						if (i > 0) {
-							std::swap(toRender[i], toRender[i - 1]);
-							list->setFocusedIndex(static_cast<u32>(i));
-						}
-						return true;
-					}
-					else if (keys & KEY_ZR) {
-						if (i + 1 < listSize) {
-							std::swap(toRender[i], toRender[i + 1]);
-							list->setFocusedIndex(static_cast<u32>(i + 2));
-						}
-						return true;
-					}
+				if (keys & KEY_ZL) {
+					size_t cdx = list->getCurrentFocus();
+					if (cdx > 0) std::swap(toRender[cdx], toRender[cdx-1]);
+					list->moveUp();
+					return true;
+				}
+				else if (keys & KEY_ZR) {
+					size_t cdx = list->getCurrentFocus();
+					if (cdx+1 < listSize) std::swap(toRender[cdx], toRender[cdx+1]);
+					list->moveDown();
+					return true;
+				}
 				return false;
 			});
 			list->addItem(Item, 40);

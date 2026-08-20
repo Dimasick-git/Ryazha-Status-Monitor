@@ -36,7 +36,7 @@ Result SaltySD_Term()
 
 	ret = ipcDispatch(saltysd_orig);
 
-	if (R_SUCCEEDED(ret)) 
+	if (R_SUCCEEDED(ret))
 	{
 		IpcParsedCommand r;
 		ipcParse(&r);
@@ -48,7 +48,7 @@ Result SaltySD_Term()
 
 		ret = resp->result;
 	}
-	
+
 	// Session terminated works too.
     svcCloseHandle(saltysd_orig);
 	if (ret == 0xf601) return 0;
@@ -91,13 +91,13 @@ Result SaltySD_CheckIfSharedMemoryAvailable(ptrdiff_t *offset, u64 size)
 		} *resp = r.Raw;
 
 		ret = resp->result;
-		
+
 		if (!ret)
 		{
 			*offset = resp->offset;
 		}
 	}
-	
+
 	return ret;
 }
 
@@ -134,13 +134,13 @@ Result SaltySD_GetSharedMemoryHandle(Handle *retrieve)
 		} *resp = r.Raw;
 
 		ret = resp->result;
-		
+
 		if (!ret)
 		{
 			*retrieve = r.Handles[0];
 		}
 	}
-	
+
 	return ret;
 }
 
@@ -180,13 +180,13 @@ Result SaltySD_GetDisplayRefreshRate(uint8_t* refreshRate)
 		} *resp = r.Raw;
 
 		ret = resp->result;
-		
+
 		if (!ret)
 		{
 			*refreshRate = (uint8_t)(resp->refreshRate);
 		}
 	}
-	
+
 	return ret;
 }
 
@@ -226,6 +226,6 @@ Result SaltySD_SetDisplayRefreshRate(uint8_t refreshRate)
 
 		ret = resp->result;
 	}
-	
+
 	return ret;
 }
