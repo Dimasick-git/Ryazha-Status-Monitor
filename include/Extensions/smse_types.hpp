@@ -128,11 +128,11 @@ struct SmseCommandDesc {
 // Assert descriptor
 // ---------------------------------------------------------------------------
 
-enum class SmseAssertOp {
+enum class SmseAssertOp { 
     // Numeric
-    EQ, NE, LT, LE, GT, GE,
+    EQ, NE, LT, LE, GT, GE, 
     // Regex
-    EQ_REGEX, NE_REGEX
+    EQ_REGEX, NE_REGEX 
 };
 
 struct SmseAssertDesc {

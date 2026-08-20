@@ -358,8 +358,8 @@ static inline Result ipcDispatch(Handle session) {
 
 /// IPC parsed command (response) structure.
 typedef struct {
-    IpcCommandType CommandType;               ///< Type of the command
-
+    IpcCommandType CommandType;               ///< Type of the command  
+    
     bool HasPid;                              ///< true if the 'Pid' field is filled out.
     u64  Pid;                                 ///< PID included in the response (only if HasPid is true)
 
@@ -373,7 +373,7 @@ typedef struct {
     u32    InThisObjectId;                    ///< Object ID to call the command on (for domain messages).
     size_t InNumObjectIds;                    ///< Number of object IDs (for domain messages).
     u32    InObjectIds[IPC_MAX_OBJECTS];      ///< Object IDs (for domain messages).
-
+    
     bool   IsDomainResponse;                  ///< true if the the message is a Domain response.
     size_t OutNumObjectIds;                   ///< Number of object IDs (for domain responses).
     u32    OutObjectIds[IPC_MAX_OBJECTS];     ///< Object IDs (for domain responses).
@@ -388,7 +388,7 @@ typedef struct {
     void*  Statics[IPC_MAX_BUFFERS];          ///< Pointers to the statics.
     size_t StaticSizes[IPC_MAX_BUFFERS];      ///< Sizes of the statics.
     u8     StaticIndices[IPC_MAX_BUFFERS];    ///< Indices of the statics.
-
+    
     size_t NumStaticsOut;                     ///< Number of output statics available in the response.
 
     void*  Raw;                               ///< Pointer to the raw embedded data structure in the response.
@@ -406,7 +406,7 @@ static inline Result ipcParse(IpcParsedCommand* r) {
     u32 ctrl0 = *buf++;
     u32 ctrl1 = *buf++;
     size_t i;
-
+    
     r->IsDomainRequest = false;
     r->IsDomainResponse = false;
 
@@ -414,7 +414,7 @@ static inline Result ipcParse(IpcParsedCommand* r) {
     r->HasPid = false;
     r->RawSize = (ctrl1 & 0x1ff) * 4;
     r->NumHandles = 0;
-
+    
     r->NumStaticsOut = (ctrl1 >> 10) & 15;
     if (r->NumStaticsOut >> 1) r->NumStaticsOut--; // Value 2  -> Single descriptor
     if (r->NumStaticsOut >> 1) r->NumStaticsOut--; // Value 3+ -> (Value - 2) descriptors
@@ -719,7 +719,7 @@ static inline Result ipcParseDomainResponse(IpcParsedCommand* r, size_t sizeof_r
     object_ids = (u32*)(((uintptr_t) r->Raw) + sizeof_raw);//Official sw doesn't align this.
 
     r->IsDomainResponse = true;
-
+    
     r->OutNumObjectIds = hdr->NumObjectIds > 8 ? 8 : hdr->NumObjectIds;
     if ((uintptr_t)object_ids + sizeof(u32) * r->OutNumObjectIds - (uintptr_t)armGetTls() >= 0x100) {
         return MAKERESULT(Module_Libnx, LibnxError_DomainMessageTooManyObjectIds);

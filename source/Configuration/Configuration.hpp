@@ -59,7 +59,7 @@ private:
 				configs[sub_key].localNameWasFound = false;
 				configs[sub_key].localDescriptionWasFound = false;
 				configs[sub_key].value = rest;
-
+				
 				// Deduce type from value prefix if explicit _Range was not provided
 				if (configs[sub_key].type.empty()) {
 					if (rest.starts_with("COLOR")) {
@@ -90,7 +90,7 @@ private:
 			if (trimmedRaw.starts_with(";;User_")) {
 				size_t sep = std::string::npos;
 				int depth = 0; bool inStr = false;
-
+				
 				for (size_t j = 0; j < trimmedRaw.size(); ++j) {
 					char c = trimmedRaw[j];
 					if (inStr) {
@@ -105,7 +105,7 @@ private:
 				}
 
 				if (sep != std::string::npos) {
-					std::string metaKey = trim(trimmedRaw.substr(2, sep - 2));
+					std::string metaKey = trim(trimmedRaw.substr(2, sep - 2)); 
 					std::string rest = trim(trimmedRaw.substr(sep + 1));
 
 					std::string localNameSearch = "_Name_" + overrideLanguage;
@@ -113,10 +113,10 @@ private:
 
 					if (metaKey.ends_with("_Range")) {
 						std::string sub_key = metaKey.substr(5, metaKey.size() - strlen("User_") - strlen("_Range"));
-
+						
 						if (!rest.empty() && rest.front() == '{') rest = rest.substr(1);
 						if (!rest.empty() && rest.back() == '}') rest.pop_back();
-
+						
 						size_t c1 = rest.find(',');
 						if (c1 != std::string::npos) {
 							size_t c2 = rest.find(',', c1 + 1);
@@ -128,7 +128,7 @@ private:
 								}
 							}
 						}
-					}
+					} 
 					else if (metaKey.ends_with("_DefaultValue")) {
 						std::string sub_key = metaKey.substr(5, metaKey.size() - strlen("User_") - strlen("_DefaultValue"));
 						if (configs.find(sub_key) != configs.end())
@@ -163,7 +163,7 @@ private:
 						}
 					}
 				}
-				continue;
+				continue; 
 			}
 		}
 
@@ -368,7 +368,7 @@ public:
 				configs.clear();
 				return;
 			}
-
+			
 			for (size_t i = 0; i < keys_to_convert.size(); i++) {
 				auto it = configs.find(keys_to_convert[i]);
 				if (it != configs.end()) {
@@ -448,7 +448,7 @@ public:
 			}
 			return false;
 		});
-		list->addItem(Item);
+		list->addItem(Item);		
 
 		rootFrame->setContent(list);
 		return rootFrame;

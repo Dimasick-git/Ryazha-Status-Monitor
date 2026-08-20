@@ -59,7 +59,7 @@ public:
 					return true;
 				}
 				return false;
-			});
+			});		
 			list->addItem(Item);
 		}
 
@@ -75,7 +75,7 @@ public:
 				return true;
 			}
 			return false;
-		});
+		});		
 		list->addItem(Item);
 
 		rootFrame->setContent(list);

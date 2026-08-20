@@ -78,12 +78,13 @@ public:
 				transparency += 0x1000;
 				renderer->drawRect(position_x-13, square_position_y+(i * (square_size+2)), square_size, square_size, predefinedColors[i]);
 			}
-
+			
 			const double cycleDuration = 1.0;  // 1 second for one full sine wave
 			u64 delta_tick = svcGetSystemTick() - start_tick;
 			double seconds = (double)delta_tick / (double)systemtickfrequency;
 			double timeCounter = fmod(seconds, cycleDuration);
-			float progress = (std::sin(2 * M_PI * timeCounter / cycleDuration) + 1) / 2;
+			constexpr double kPi = 3.14159265358979323846;
+			float progress = (std::sin(2.0 * kPi * timeCounter / cycleDuration) + 1.0) / 2.0;
 
 			tsl::gfx::Color highlightColor1 = tsl::gfx::Color(0xFC82);
 			tsl::gfx::Color highlightColor2 = tsl::gfx::Color(0xFFF8);
@@ -106,7 +107,7 @@ public:
 
 			if (selected_predefined >= 0) {
 				renderer->drawEmptyRect(position_x-14, square_position_y+(selected_predefined * (square_size+2))-1, square_size + 2, square_size + 2, highlightColor);
-				renderer->drawEmptyRect(position_x-15, square_position_y+(selected_predefined * (square_size+2))-2, square_size + 4, square_size + 4, highlightColor);
+				renderer->drawEmptyRect(position_x-15, square_position_y+(selected_predefined * (square_size+2))-2, square_size + 4, square_size + 4, highlightColor);				
 			}
 
 			renderer->drawEmptyRect(position_x+60 + (row * 80), square_position_y-9, 40, (square_size+3) * 16, highlightColor);
@@ -140,7 +141,7 @@ public:
 		}
 		else if (keysDown & KEY_DDOWN) {
 			switch(row) {
-				case -1:
+				case -1: 
 					if (selected_predefined < 15) {
 						selected_predefined++;
 						m_color = predefinedColors[selected_predefined];
@@ -168,7 +169,7 @@ public:
 		}
 		else if (keysDown & KEY_DUP) {
 			switch(row) {
-				case -1:
+				case -1: 
 					if (selected_predefined > 0) {
 						selected_predefined--;
 						m_color = predefinedColors[selected_predefined];

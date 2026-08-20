@@ -88,7 +88,7 @@ public:
 			renderer->drawString("\uE023", false, (tsl::cfg::FramebufferWidth - separatorSize.first) / 2 - 2, m_height+60, fontsize, renderer->a(0xFFFF));
 
 			renderer->drawString("\uE091      \uE090", false, (tsl::cfg::FramebufferWidth - arrowsSize.first) / 2, m_height+36, fontsize, renderer->a(0xFFFF));
-
+			
 			renderer->drawString(min_str.c_str(), false, left_offset - 20 - minSize.first, m_height+60, fontsize, renderer->a(0xFFFF));
 			renderer->drawString("\uE0A4", false, left_offset - 20 - minSize.first + m_offset_l, m_height+60+fontsize, fontsize, renderer->a(0xFFFF));
 			renderer->drawString(max_str.c_str(), false, right_offset + 20, m_height+60, fontsize, renderer->a(0xFFFF));

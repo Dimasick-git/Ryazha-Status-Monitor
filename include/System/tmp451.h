@@ -78,7 +78,7 @@ inline Result Tmp451GetSocTemp(float* temperature) {
     rc = Tmp451ReadReg(TMP451_SOC_TEMP_DEC_REG, &decimals);
     if (R_FAILED(rc))
         return rc;
-
+    
     decimals = ((u16)(decimals >> 4) * 625) / 100;
     *temperature = (float)(integer) + ((float)(decimals) / 100);
     return rc;
@@ -94,7 +94,7 @@ inline Result Tmp451GetPcbTemp(float* temperature) {
     rc = Tmp451ReadReg(TMP451_PCB_TEMP_DEC_REG, &decimals);
     if (R_FAILED(rc))
         return rc;
-
+    
     decimals = ((u16)(decimals >> 4) * 625) / 100;
     *temperature = (float)(integer) + ((float)(decimals) / 100);
     return rc;

@@ -191,6 +191,7 @@ const char* TypeName(smd::RenderCmdType t) {
     switch (t) {
         case smd::RenderCmdType::Text:          return "Text";
         case smd::RenderCmdType::Box:           return "Box";
+        case smd::RenderCmdType::RoundedBox:    return "RoundedBox";
         case smd::RenderCmdType::EmptyBox:      return "EmptyBox";
         case smd::RenderCmdType::DashedLine:    return "DashedLine";
         case smd::RenderCmdType::GetDimensions: return "GetDimensions";
