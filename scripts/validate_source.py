@@ -52,10 +52,20 @@ def main() -> None:
         content = (ROOT / "source" / "modes" / name).read_text(encoding="utf-8")
         require("hidGetTouchScreenStates(&rawTouchState, 1)" in content,
                 f"{name} must read touchscreen state directly")
-    for name in ("Mini.hpp", "FPS_Counter.hpp"):
+    for name in ("Mini.hpp", "FPS_Counter.hpp", "FPS_Graph.hpp", "Resolutions.hpp"):
         content = (ROOT / "source" / "modes" / name).read_text(encoding="utf-8")
         require("rawTouchState.count >= 2" in content,
                 f"{name} must support two-finger pinch scaling")
+
+    mini = (ROOT / "source" / "modes" / "Mini.hpp").read_text(encoding="utf-8")
+    require("Initialized = false;" in mini,
+            "Mini must invalidate its geometry cache after pinch scaling")
+    full = (ROOT / "source" / "modes" / "Full.hpp").read_text(encoding="utf-8")
+    for title in ("ЦПУ", "ГПУ", "ОЗУ", "Игра", "Плата и питание"):
+        require(f'drawCard(' in full and f'"{title}"' in full,
+                f"Full card layout is missing {title}")
+    require("makeSwitch2Wheel(" in full,
+            "Full card layout must use the Ryazha-clk dynamic border palette")
 
     print("Ryazha Status Monitor source validation passed.")
 

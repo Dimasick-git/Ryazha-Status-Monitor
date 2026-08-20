@@ -344,6 +344,27 @@ public:
 
         auto* Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
 
+            // Persistent two-finger scale applies to the entire graph card.
+            const float uiScale = std::clamp(settings.touchScalePercent / 100.0f, 0.70f, 1.50f);
+            const s16 nativeGraphHeight = (refreshRate && refreshRate < 240) ? refreshRate : 60;
+            rectangle_width = (s16)std::clamp<int>(std::lround(180.0f * uiScale), 126, 270);
+            rectangle_height = (s16)std::clamp<int>(std::lround(nativeGraphHeight * uiScale), 42, 240);
+            rectangle_x = (s16)std::lround(((refreshRate < 100) ? 15.0f : 22.0f) * uiScale);
+            rectangle_y = (s16)std::lround(5.0f * uiScale);
+            rectangle_range_max = nativeGraphHeight;
+            y_30FPS = rectangle_y + (rectangle_height / 2);
+            y_60FPS = rectangle_y;
+            range = std::abs(rectangle_range_max - rectangle_range_min) + 1;
+            if (refreshRate < 100) {
+                legend_max[0] = 0x30 + (refreshRate / 10);
+                legend_max[1] = 0x30 + (refreshRate % 10);
+                legend_max[2] = 0;
+            } else {
+                legend_max[0] = 0x30 + (refreshRate / 100);
+                legend_max[1] = 0x30 + ((refreshRate / 10) % 10);
+                legend_max[2] = 0x30 + (refreshRate % 10);
+            }
+
             // Calculate content dimensions (what goes inside the border)
             const s16 refresh_rate_offset = (refreshRate < 100) ? 21 : 28;
             const s16 info_width = settings.showInfo ? (6 + rectangle_width/2 - 4) : 6;
@@ -367,24 +388,7 @@ public:
             actualTotalWidth = totalWidth;
             actualTotalHeight = totalHeight;
 
-            if (refreshRate && refreshRate < 240) {
-                rectangle_height = refreshRate;
-                rectangle_range_max = refreshRate;
-                if (refreshRate < 100) {
-                    rectangle_x = 15;
-                    legend_max[0] = 0x30 + (refreshRate / 10);
-                    legend_max[1] = 0x30 + (refreshRate % 10);
-                    legend_max[2] = 0;
-                }
-                else {
-                    rectangle_x = 22;
-                    legend_max[0] = 0x30 + (refreshRate / 100);
-                    legend_max[1] = 0x30 + ((refreshRate / 10) % 10);
-                    legend_max[2] = 0x30 + (refreshRate % 10);
-                }
-                y_30FPS = rectangle_y+(rectangle_height / 2);
-                range = std::abs(rectangle_range_max - rectangle_range_min) + 1;
-            };
+
 
             int _frameOffsetX;
             int posX, posY;
@@ -471,7 +475,7 @@ public:
             const int final_base_x = posX + border + bExpand;
             const int final_base_y = posY + border + bExpand;
 
-            const s16 size = (refreshRate > 60 || !refreshRate) ? 63 : (s32)(63.0/(60.0/refreshRate));
+            const s16 size = (s16)std::clamp<int>(std::lround(((refreshRate > 60 || !refreshRate) ? 63.0f : (63.0f / (60.0f / refreshRate))) * uiScale), 18, 96);
             const auto width = renderer->getTextDimensions(FPSavg_c, false, size).first;
 
             const s16 pos_y = size + final_base_y + rectangle_y + ((rectangle_height - size) / 2);
@@ -577,7 +581,7 @@ public:
             if (settings.showInfo) {
                 const s16 info_x = final_base_x+rectangle_width+rectangle_x + 6 +8 +1; // +1: follow the 1px-wider border
                 const s16 info_y = final_base_y + 3;
-                const s16 fontSize = 11;
+                const s16 fontSize = (s16)std::clamp<int>(std::lround(11.0f * uiScale), 8, 24);
                 
                 // Get line height from font size (we'll use the actual rendered height)
                 const auto testDimensions = renderer->getTextDimensions("A", false, fontSize);
@@ -729,6 +733,29 @@ public:
         HidTouchScreenState rawTouchState = {};
         const bool currentTouchDetected = hidGetTouchScreenStates(&rawTouchState, 1) > 0 && rawTouchState.count > 0;
         const HidTouchState& activeTouchPos = currentTouchDetected ? rawTouchState.touches[0] : touchPos;
+
+        // Two fingers resize the graph card; the setting persists across starts.
+        static bool pinchActive = false;
+        static uint8_t pinchStartPercent = 100;
+        static float pinchStartDistance = 0.0f;
+        const bool pinchDetected = currentTouchDetected && rawTouchState.count >= 2;
+        if (pinchDetected) {
+            const float dx = static_cast<float>(rawTouchState.touches[1].x) - static_cast<float>(rawTouchState.touches[0].x);
+            const float dy = static_cast<float>(rawTouchState.touches[1].y) - static_cast<float>(rawTouchState.touches[0].y);
+            const float distance = std::sqrt(dx * dx + dy * dy);
+            if (!pinchActive || pinchStartDistance < 1.0f) {
+                pinchActive = true;
+                pinchStartDistance = std::max(distance, 1.0f);
+                pinchStartPercent = settings.touchScalePercent;
+            } else {
+                const float gestureScale = std::clamp(distance / pinchStartDistance, 0.70f, 1.30f);
+                settings.touchScalePercent = (uint8_t)std::clamp<int>(std::lround(pinchStartPercent * gestureScale), 70, 150);
+            }
+            buttonState.touchDragActive.store(false, std::memory_order_release);
+        } else if (pinchActive) {
+            ult::setIniFileValue(configIniPath, "fps-graph", "touch_scale", std::to_string(settings.touchScalePercent));
+            pinchActive = false;
+        }
         
         static bool clearOnRelease = false;
         
@@ -778,7 +805,7 @@ public:
         const bool touchDragReady = buttonState.touchDragActive.load(std::memory_order_acquire);
         static bool oldTouchDragReady = false;
         
-        if (currentTouchDetected && !isDragging && touchDragReady && !oldTouchDragReady) {
+        if (!pinchDetected && currentTouchDetected && !isDragging && touchDragReady && !oldTouchDragReady) {
             // Poll thread confirmed 500ms in-bounds hold — start drag now
             isDragging = true;
             triggerOnFeedback();
@@ -786,7 +813,7 @@ public:
             initialTouchPos = activeTouchPos;
             initialFrameOffsetX = frameOffsetX;
             initialFrameOffsetY = frameOffsetY;
-        } else if (currentTouchDetected && isDragging && !currentPlusHeld) {
+        } else if (!pinchDetected && currentTouchDetected && isDragging && !currentPlusHeld) {
             // Continue touch dragging
             const int touchX = activeTouchPos.x;
             const int touchY = activeTouchPos.y;
@@ -808,7 +835,7 @@ public:
 
                 updateLayerPos();
             }
-        } else if (!currentTouchDetected && oldTouchDetected && isDragging && !currentPlusHeld) {
+        } else if (!pinchDetected && !currentTouchDetected && oldTouchDetected && isDragging && !currentPlusHeld) {
             // Touch just released
             if (hasMoved) {
                 // Save position when touch drag ends

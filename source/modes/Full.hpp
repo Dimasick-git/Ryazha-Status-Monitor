@@ -282,291 +282,162 @@ public:
     uint8_t resolutionLookup = 0;
 
     virtual tsl::elm::Element* createUI() override {
-        
-
         auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
-            //static auto targetFreqWidth = renderer->getTextDimensions("Target Frequency", false, 15).first;
-            //static auto realFreqWidth = renderer->getTextDimensions("Real Frequency", false, 15).first;
-            //static auto freqWidth = std::max(targetFreqWidth, realFreqWidth);
+            // Full-mode card layout. Keep every live metric in a bounded cell:
+            //  CPU | GPU
+            //  RAM | Game
+            //  Board and power (full width)
+            static const std::vector<std::string> specialChars = {""};
 
-            //static auto batteryLabelWidth = renderer->getTextDimensions("Battery Power Flow", false, 15).first;
-            //static auto fanLabelWidth = renderer->getTextDimensions("Fan Rotation Level", false, 15).first;
-            //static auto boardWidth = std::max(batteryLabelWidth, fanLabelWidth);
+            constexpr int outerX = 14;
+            constexpr int outerW = 420;
+            constexpr int gap = 10;
+            constexpr int cardW = (outerW - gap) / 2;
+            constexpr int topY = 102;
+            constexpr int topH = 164;
+            constexpr int middleY = topY + topH + gap;
+            constexpr int middleH = 158;
+            constexpr int boardY = middleY + middleH + gap;
+            constexpr int boardH = 188;
+            constexpr int leftX = outerX;
+            constexpr int rightX = outerX + cardW + gap;
+            constexpr int labelInset = 12;
+            constexpr int valueInset = 84;
+            constexpr int lineH = 15;
 
-            static constexpr size_t valueOffset = 150+10;
-            static constexpr size_t deltaOffset = 246+10;
-            static constexpr size_t ramPercentageOffset = 350+10;
+            const tsl::Color cardFill(1, 2, 7, 0xF);
+            const tsl::Color titleColor(15, 13, 4, 0xF);
+            const tsl::Color labelColor(15, 15, 14, 0xF);
+            const tsl::Color textColor(14, 14, 15, 0xF);
+            const tsl::Color warmBorder(15, 11, 2, 0xF);
+            const tsl::Color redAccent(15, 4, 6, 0xF);
+            const auto ryazhaWheel = tsl::makeSwitch2Wheel(
+                tsl::Color(15, 9, 2, 0xF),   // gold
+                tsl::Color(15, 15, 14, 0xF), // white
+                titleColor,                  // bright gold
+                tsl::Color(10, 5, 1, 0xF),   // deep amber
+                redAccent,                   // red/pink accent
+                tsl::Color(10, 1, 4, 0xF),   // deep crimson
+                5.4f
+            );
 
-            //Print strings
-            ///CPU
+            const auto drawCard = [&](int cx, int cy, int cw, int ch, const char* title) {
+                renderer->drawRoundedRectSingleThreaded(cx + 2, cy + 2, cw - 4, ch - 4, 15, cardFill);
+                renderer->drawBorderedRoundedRect(cx, cy, cw, ch, 2, 16, warmBorder, &ryazhaWheel);
+                renderer->drawString(title, false, cx + labelInset, cy + 26, 18, titleColor);
+            };
+            const auto drawRow = [&](int cx, int baseline, const char* label, const char* value, int font = 13) {
+                renderer->drawString(label, false, cx + labelInset, baseline, font, labelColor);
+                renderer->drawString(value, false, cx + valueInset, baseline, font, textColor);
+            };
+            const auto firstLine = [](const char* value) {
+                std::string compact(value ? value : "--");
+                const auto newline = compact.find('\n');
+                if (newline != std::string::npos) compact.resize(newline);
+                return compact;
+            };
+
+            drawCard(leftX, topY, cardW, topH, "ЦПУ");
+            const int cpuY = topY + 51;
             if (R_SUCCEEDED(clkrstCheck) || R_SUCCEEDED(pcvCheck)) {
-
-                uint32_t height_offset = 155;
-                if (realCPU_Hz && settings.showRealFreqs) {
-                    height_offset = 162;
-                }
-                renderer->drawString("CPU Usage", false, COMMON_MARGIN, 120, 20, (settings.catColor1));
-                if (settings.showTargetFreqs) {
-                    //static auto targetFreqWidth = renderer->getTextDimensions("Target Frequency: ", false, 15).first;
-                    renderer->drawString("Target Frequency", false, COMMON_MARGIN, height_offset, 15, (settings.catColor2));
-                    renderer->drawString(CPU_Hz_c, false, COMMON_MARGIN + valueOffset, height_offset, 15, (settings.textColor));
-                }
-                if (realCPU_Hz && settings.showRealFreqs) {
-                    //static auto realFreqWidth = renderer->getTextDimensions("Real Frequency: ", false, 15).first;
-                    renderer->drawString("Real Frequency", false, COMMON_MARGIN, height_offset - 15, 15, (settings.catColor2));
-                    renderer->drawString(RealCPU_Hz_c, false, COMMON_MARGIN + valueOffset, height_offset - 15, 15, (settings.textColor));
-                    if (settings.showDeltas && settings.showTargetFreqs) {
-                        renderer->drawString(DeltaCPU_c, false, COMMON_MARGIN +  deltaOffset, height_offset - 7, 15, (settings.textColor));
-                    }
-                    else if (settings.showDeltas && !settings.showTargetFreqs) {
-                        renderer->drawString(DeltaCPU_c, false, COMMON_MARGIN +  deltaOffset, height_offset - 15, 15, (settings.textColor));
-                    }
-                }
-                else if (realCPU_Hz && settings.showDeltas && (settings.showRealFreqs || settings.showTargetFreqs)) {
-                    renderer->drawString(DeltaCPU_c, false, COMMON_MARGIN +  deltaOffset, height_offset, 15, (settings.textColor));
-                }
-                
-                // CPU Core labels and values
-                static auto core0Width = renderer->getTextDimensions("Core 0  ", false, 15).first;
-                static auto core1Width = renderer->getTextDimensions("Core 1  ", false, 15).first;
-                static auto core2Width = renderer->getTextDimensions("Core 2  ", false, 15).first;
-                static auto core3Width = renderer->getTextDimensions("Core 3  ", false, 15).first;
-                
-                const uint32_t core_height = height_offset + 30;
-                renderer->drawString("Core 0  ", false, COMMON_MARGIN, core_height, 15, (settings.catColor2));
-                renderer->drawString(CPU_Core0_c, false, COMMON_MARGIN + core0Width, core_height, 15, (settings.textColor));
-                
-                renderer->drawString("Core 1  ", false, COMMON_MARGIN, core_height + 15, 15, (settings.catColor2));
-                renderer->drawString(CPU_Core1_c, false, COMMON_MARGIN + core1Width, core_height + 15, 15, (settings.textColor));
-                
-                renderer->drawString("Core 2  ", false, COMMON_MARGIN, core_height + 30, 15, (settings.catColor2));
-                renderer->drawString(CPU_Core2_c, false, COMMON_MARGIN + core2Width, core_height + 30, 15, (settings.textColor));
-                
-                renderer->drawString("Core 3  ", false, COMMON_MARGIN, core_height + 45, 15, (settings.catColor2));
-                renderer->drawString(CPU_Core3_c, false, COMMON_MARGIN + core3Width, core_height + 45, 15, (settings.textColor));
+                if (realCPU_Hz && settings.showRealFreqs)
+                    drawRow(leftX, cpuY, "Реал.", RealCPU_Hz_c);
+                if (settings.showTargetFreqs)
+                    drawRow(leftX, cpuY + lineH, "Цель", CPU_Hz_c);
+                if (settings.showDeltas && (settings.showRealFreqs || settings.showTargetFreqs))
+                    drawRow(leftX, cpuY + lineH * 2, "Δ", DeltaCPU_c);
+                const int coreY = cpuY + lineH * 4;
+                drawRow(leftX, coreY, "Ядро 0", CPU_Core0_c, 12);
+                drawRow(leftX, coreY + 13, "Ядро 1", CPU_Core1_c, 12);
+                drawRow(leftX, coreY + 26, "Ядро 2", CPU_Core2_c, 12);
+                drawRow(leftX, coreY + 39, "Ядро 3", CPU_Core3_c, 12);
+            } else {
+                drawRow(leftX, cpuY, "Статус", "н/д");
             }
-            
-            ///GPU
+
+            drawCard(rightX, topY, cardW, topH, "ГПУ");
+            const int gpuY = topY + 51;
             if (R_SUCCEEDED(clkrstCheck) || R_SUCCEEDED(pcvCheck) || R_SUCCEEDED(nvCheck)) {
-                
-                uint32_t height_offset = 306;
-                if (realGPU_Hz && settings.showRealFreqs) {
-                    height_offset = 313;
-                }
-
-                renderer->drawString("GPU Usage", false, COMMON_MARGIN, 271, 20, (settings.catColor1));
-                if (R_SUCCEEDED(clkrstCheck) || R_SUCCEEDED(pcvCheck)) {
-                    if (settings.showTargetFreqs) { 
-                        //static auto targetFreqWidth = renderer->getTextDimensions("Target Frequency: ", false, 15).first;
-                        renderer->drawString("Target Frequency", false, COMMON_MARGIN, height_offset, 15, (settings.catColor2));
-                        renderer->drawString(GPU_Hz_c, false, COMMON_MARGIN + valueOffset, height_offset, 15, (settings.textColor));
-                    }
-                    if (realCPU_Hz && settings.showRealFreqs) {
-                        //static auto realFreqWidth = renderer->getTextDimensions("Real Frequency: ", false, 15).first;
-                        renderer->drawString("Real Frequency", false, COMMON_MARGIN, height_offset - 15, 15, (settings.catColor2));
-                        renderer->drawString(RealGPU_Hz_c, false, COMMON_MARGIN + valueOffset, height_offset - 15, 15, (settings.textColor));
-                        if (settings.showDeltas && settings.showTargetFreqs) {
-                            renderer->drawString(DeltaGPU_c, false, COMMON_MARGIN +  deltaOffset, height_offset - 7, 15, (settings.textColor));
-                        }
-                        else if (settings.showDeltas && !settings.showTargetFreqs) {
-                            renderer->drawString(DeltaGPU_c, false, COMMON_MARGIN +  deltaOffset, height_offset - 15, 15, (settings.textColor));
-                        }
-                    }
-                    else if (realGPU_Hz && settings.showDeltas && (settings.showRealFreqs || settings.showTargetFreqs)) {
-                        renderer->drawString(DeltaGPU_c, false, COMMON_MARGIN +  deltaOffset, height_offset, 15, (settings.textColor));
-                    }
-                }
-                if (R_SUCCEEDED(nvCheck)) {
-                    //static auto loadWidth = renderer->getTextDimensions("Load: ", false, 15).first;
-                    renderer->drawString("Load", false, COMMON_MARGIN, height_offset + 15, 15, (settings.catColor2));
-                    renderer->drawString(GPU_Load_c, false, COMMON_MARGIN + valueOffset, height_offset + 15, 15, (settings.textColor));
-                }
-                
+                if (realGPU_Hz && settings.showRealFreqs)
+                    drawRow(rightX, gpuY, "Реал.", RealGPU_Hz_c);
+                if (settings.showTargetFreqs)
+                    drawRow(rightX, gpuY + lineH, "Цель", GPU_Hz_c);
+                if (settings.showDeltas && (settings.showRealFreqs || settings.showTargetFreqs))
+                    drawRow(rightX, gpuY + lineH * 2, "Δ", DeltaGPU_c);
+                if (R_SUCCEEDED(nvCheck))
+                    drawRow(rightX, gpuY + lineH * 3, "Загр.", GPU_Load_c);
+            } else {
+                drawRow(rightX, gpuY, "Статус", "н/д");
             }
 
-            static std::vector<std::string> specialChars = {""};
-            
-            ///RAM
+            drawCard(leftX, middleY, cardW, middleH, "ОЗУ");
+            const int ramY = middleY + 51;
             if (R_SUCCEEDED(clkrstCheck) || R_SUCCEEDED(pcvCheck) || R_SUCCEEDED(Hinted)) {
-                
-                uint32_t height_offset = 397;
-                if (realRAM_Hz && settings.showRealFreqs) {
-                    height_offset += 7;
-                }
-
-                renderer->drawString("RAM Usage", false, COMMON_MARGIN, 362, 20, (settings.catColor1));
-                if (R_SUCCEEDED(clkrstCheck) || R_SUCCEEDED(pcvCheck)) {
-                    if (settings.showTargetFreqs) {
-                        //static auto targetFreqWidth = renderer->getTextDimensions("Target Frequency: ", false, 15).first;
-                        renderer->drawString("Target Frequency", false, COMMON_MARGIN, height_offset, 15, (settings.catColor2));
-                        renderer->drawString(RAM_Hz_c, false, COMMON_MARGIN + valueOffset, height_offset, 15, (settings.textColor));
-                    }
-                    if (realRAM_Hz && settings.showRealFreqs) {
-                        //static auto realFreqWidth = renderer->getTextDimensions("Real Frequency: ", false, 15).first;
-                        renderer->drawString("Real Frequency", false, COMMON_MARGIN, height_offset - 15, 15, (settings.catColor2));
-                        renderer->drawString(RealRAM_Hz_c, false, COMMON_MARGIN + valueOffset, height_offset - 15, 15, (settings.textColor));
-                        if (settings.showDeltas && settings.showTargetFreqs) {
-                            renderer->drawString(DeltaRAM_c, false, COMMON_MARGIN +  deltaOffset, height_offset - 7, 15, (settings.textColor));
-                        }
-                        else if (settings.showDeltas && !settings.showTargetFreqs) {
-                            renderer->drawString(DeltaRAM_c, false, COMMON_MARGIN +  deltaOffset, height_offset - 15, 15, (settings.textColor));
-                        }
-                    }
-                    else if (realRAM_Hz && settings.showDeltas && (settings.showRealFreqs || settings.showTargetFreqs)) {
-                        renderer->drawString(DeltaRAM_c, false, COMMON_MARGIN +  deltaOffset, height_offset, 15, (settings.textColor));
-                    }
-                    {
-                        static std::vector<std::string> ramLoadColoredChars = {"CPU", "GPU"};
-                        //static auto loadLabelWidth = renderer->getTextDimensions("Load: ", false, 15).first;
-                        renderer->drawString("Load", false, COMMON_MARGIN, height_offset+15, 15, (settings.catColor2));
-                        renderer->drawStringWithColoredSections(RAM_load_c, false, ramLoadColoredChars, COMMON_MARGIN + valueOffset, height_offset+15, 15, (settings.textColor), settings.catColor2);
-                    }
-                }
-                if (R_SUCCEEDED(Hinted)) {
-                    //static auto textWidth = renderer->getTextDimensions("Total \nApplication \nApplet \nSystem \nSystem Unsafe ", false, 15).first;
-                    renderer->drawString("Total\nApplication\nApplet\nSystem\nSystem Unsafe", false, COMMON_MARGIN, height_offset + 40, 15, (settings.catColor2));
-                    renderer->drawString(RAM_var_compressed_c, false, COMMON_MARGIN + valueOffset, height_offset + 40, 15, (settings.textColor));
-                    renderer->drawString(RAM_percentage_var_compressed_c, false, ramPercentageOffset, height_offset + 40, 15, (settings.textColor));
-                }
+                if (realRAM_Hz && settings.showRealFreqs)
+                    drawRow(leftX, ramY, "Реал.", RealRAM_Hz_c);
+                if (settings.showTargetFreqs)
+                    drawRow(leftX, ramY + lineH, "Цель", RAM_Hz_c);
+                drawRow(leftX, ramY + lineH * 2, "Загр.", RAM_load_c, 11);
+                const std::string totalRam = firstLine(RAM_var_compressed_c);
+                if (!totalRam.empty())
+                    drawRow(leftX, ramY + lineH * 4, "Всего", totalRam.c_str(), 11);
+            } else {
+                drawRow(leftX, ramY, "Статус", "н/д");
             }
-            
-            ///Thermal
-            if (R_SUCCEEDED(i2cCheck) || R_SUCCEEDED(tcCheck) || R_SUCCEEDED(pwmCheck)) {
-                renderer->drawString("Board", false, 20, 536+2, 20, (settings.catColor1));
-                if (R_SUCCEEDED(i2cCheck)) {
-                    renderer->drawString("Battery Power Flow", false, COMMON_MARGIN, 561+2, 15, (settings.catColor2));
-                    renderer->drawStringWithColoredSections(BatteryDraw_c, false, specialChars, COMMON_MARGIN + valueOffset, 561+2, 15, (settings.textColor), settings.separatorColor);
-                }
-                if (R_SUCCEEDED(pwmCheck)) {
-                    renderer->drawString("Fan Rotation Level", false, COMMON_MARGIN, 576+2, 15, (settings.catColor2));
-                    renderer->drawString(Rotation_SpeedLevel_c, false, COMMON_MARGIN + valueOffset, 576+2, 15, (settings.textColor));
-                }
-                if (R_SUCCEEDED(i2cCheck) || R_SUCCEEDED(tcCheck)) {
-                    // Pre-measure label widths for column alignment
-                    static auto lbl_cpu  = renderer->getTextDimensions("CPU  ", false, 15).first;
-                    static auto lbl_gpu  = renderer->getTextDimensions("GPU  ", false, 15).first;
-                    static auto lbl_mem  = renderer->getTextDimensions("MEM  ", false, 15).first;
-                    static auto lbl_soc  = renderer->getTextDimensions("SOC  ", false, 15).first;
-                    static auto lbl_pcb  = renderer->getTextDimensions("PCB  ", false, 15).first;
-                    static auto lbl_skin = renderer->getTextDimensions("Skin  ", false, 15).first;
 
-                    // Per-column label width: align CPU/SOC, GPU/PCB, MEM/Skin
-                    const auto col1_lbl = std::max(lbl_cpu, lbl_soc);
-                    const auto col2_lbl = std::max(lbl_gpu, lbl_pcb);
-                    const auto col3_lbl = std::max(lbl_mem, lbl_skin);
-
-                    // Value width — use SOC as reference (all values similar width)
-                    const auto val_w   = renderer->getTextDimensions(SOC_temperature_c, false, 15).first;
-                    const uint32_t col_gap = 14;  // gap between value end and next column label
-
-                    // Total grid width, then compute centered start_x
-                    const uint32_t total_w = col1_lbl + val_w + col_gap
-                                           + col2_lbl + val_w + col_gap
-                                           + col3_lbl + val_w;
-                    const uint32_t start_x = (448 - total_w) / 2;
-
-                    const uint32_t col1_x = start_x;
-                    const uint32_t col2_x = col1_x + col1_lbl + val_w + col_gap;
-                    const uint32_t col3_x = col2_x + col2_lbl + val_w + col_gap;
-
-                    // Temperatures label moves up with the Board section;
-                    // grid rows are hardcoded so they stay fixed in place
-                    const uint32_t temp_label_y = 591 + 2;
-                    const uint32_t row1_y = 620-2-1;  // fixed: CPU / GPU / MEM
-                    const uint32_t row2_y = 635-2+1;  // fixed: SOC / PCB / Skin
-
-                    // Gradient colors for board temps
-                    const tsl::Color socColor  = settings.useDynamicColors ? tsl::GradientColor(SOC_temperatureF) : settings.textColor;
-                    const tsl::Color pcbColor  = settings.useDynamicColors ? tsl::GradientColor(PCB_temperatureF) : settings.textColor;
-                    const tsl::Color skinColor = settings.useDynamicColors ? tsl::GradientColor(static_cast<float>(skin_temperaturemiliC) / 1000.0f) : settings.textColor;
-
-                    // Gradient colors for component die temps
-                    const tsl::Color cpuColor = settings.useDynamicColors ? tsl::GradientColor(componentCPU_mC / 1000.0f, tsl::DEFAULT_TEMP_RANGE_HIGH) : settings.textColor;
-                    const tsl::Color gpuColor = settings.useDynamicColors ? tsl::GradientColor(componentGPU_mC / 1000.0f, tsl::DEFAULT_TEMP_RANGE_HIGH) : settings.textColor;
-                    const tsl::Color memColor = settings.useDynamicColors ? tsl::GradientColor(componentRAM_mC / 1000.0f, tsl::DEFAULT_TEMP_RANGE_HIGH) : settings.textColor;
-
-                    renderer->drawString("Temperatures", false, COMMON_MARGIN, temp_label_y, 15, settings.catColor2);
-
-                    // --- Row 1: CPU | GPU | MEM ---
-                    renderer->drawString("CPU  ", false, col1_x, row1_y, 15, settings.catColor2);
-                    renderer->drawString(CPU_temp_c,   false, col1_x + col1_lbl, row1_y, 15, cpuColor);
-
-                    renderer->drawString("GPU  ", false, col2_x, row1_y, 15, settings.catColor2);
-                    renderer->drawString(GPU_temp_c,   false, col2_x + col2_lbl, row1_y, 15, gpuColor);
-
-                    renderer->drawString("MEM  ", false, col3_x, row1_y, 15, settings.catColor2);
-                    renderer->drawString(MEM_temp_c,   false, col3_x + col3_lbl, row1_y, 15, memColor);
-
-                    // --- Row 2: SOC | PCB | Skin ---
-                    renderer->drawString("SOC  ", false, col1_x, row2_y, 15, settings.catColor2);
-                    renderer->drawString(SOC_temperature_c, false, col1_x + col1_lbl, row2_y, 15, socColor);
-
-                    renderer->drawString("PCB  ", false, col2_x, row2_y, 15, settings.catColor2);
-                    renderer->drawString(PCB_temperature_c, false, col2_x + col2_lbl, row2_y, 15, pcbColor);
-
-                    renderer->drawString("Skin  ", false, col3_x, row2_y, 15, settings.catColor2);
-                    renderer->drawString(skin_temperature_c, false, col3_x + col3_lbl, row2_y, 15, skinColor);
-                }
-            }
-            
-            ///FPS
+            drawCard(rightX, middleY, cardW, middleH, "Игра");
+            const int gameY = middleY + 52;
             if (GameRunning) {
-                const uint32_t width_offset = valueOffset;
-                if (settings.showFPS || settings.showRES || settings.showRDSD) {
-                    renderer->drawString("Game", false, COMMON_MARGIN + width_offset, 185+12-1, 20, (settings.catColor1));
+                if (settings.showFPS) {
+                    drawRow(rightX, gameY, "PFPS", PFPS_value_c);
+                    drawRow(rightX, gameY + lineH, "FPS", FPS_value_c);
                 }
-                uint32_t height = 210+12+1;
-                if (settings.showFPS == true) {
-                    static auto pfpsWidth = renderer->getTextDimensions("PFPS  ", false, 15).first;
-                    static auto fpsWidth = renderer->getTextDimensions("FPS  ", false, 15).first;
-                    
-                    renderer->drawString("PFPS  ", false, COMMON_MARGIN + width_offset, height, 15, (settings.catColor2));
-                    renderer->drawString(PFPS_value_c, false, COMMON_MARGIN + width_offset + pfpsWidth, height, 15, (settings.textColor));
-                    
-                    // Calculate position for "FPS " label - add some spacing
-                    const uint32_t fps_x_offset = COMMON_MARGIN + width_offset + pfpsWidth + renderer->getTextDimensions(PFPS_value_c, false, 15).first + 15;
-                    renderer->drawString("FPS  ", false, fps_x_offset, height, 15, (settings.catColor2));
-                    renderer->drawString(FPS_value_c, false, fps_x_offset + fpsWidth, height, 15, (settings.textColor));
-                    
-                    height += 15;
+                if (settings.showRES && NxFps && SharedMemoryUsed && (NxFps->API >= 1)) {
+                    drawRow(rightX, gameY + lineH * 3, "Разр.", Resolutions_c, 11);
                 }
-                if ((settings.showRES == true) && NxFps && SharedMemoryUsed && (NxFps -> API >= 1)) {
-                    static auto resLabelWidth = renderer->getTextDimensions("Resolutions  ", false, 15).first;
-                    renderer->drawString("Resolutions  ", false, COMMON_MARGIN + width_offset, height, 15, (settings.catColor2));
-                    
-                    renderer->drawStringWithColoredSections(Resolutions_c, false, specialChars, COMMON_MARGIN + width_offset + resLabelWidth, height, 15, (settings.textColor), settings.separatorColor);
-                    height += 15;
+                if (settings.showRDSD) {
+                    drawRow(rightX, gameY + lineH * 4, "Чтение", readSpeed_c, 11);
                 }
-                if (settings.showRDSD == true) {
-                    static auto readLabelWidth = renderer->getTextDimensions("Read Speed  ", false, 15).first;
-                    renderer->drawString("Read Speed  ", false, COMMON_MARGIN + width_offset, height, 15, (settings.catColor2));
-                    renderer->drawString(readSpeed_c, false, COMMON_MARGIN + width_offset + readLabelWidth, height, 15, (settings.textColor));
-                }
+            } else {
+                renderer->drawString("Игра не запущена", false, rightX + labelInset, gameY + 8, 13, labelColor);
             }
-            
-            //renderer->drawStringWithColoredSections(message, false, KEY_SYMBOLS, 30, 693, 23,  a(tsl::bottomTextColor), a(tsl::buttonColor));
-            
 
-            static const auto pressWidth = renderer->getTextDimensions("Press ", false, 23).first;
-            static const auto keyComboWidth = renderer->getTextDimensions(formattedKeyCombo.c_str(), false, 23).first;
-            
-            static constexpr u16 baseX = 30;
-            static constexpr u16 baseY = 693;
-            static constexpr u8 fontSize = 23;
+            drawCard(outerX, boardY, outerW, boardH, "Плата и питание");
+            const int boardX = outerX;
+            drawRow(boardX, boardY + 53, "Батарея", BatteryDraw_c);
+            drawRow(boardX, boardY + 70, "Вент.", Rotation_SpeedLevel_c);
+            renderer->drawString("Температуры", false, boardX + labelInset, boardY + 96, 13, titleColor);
 
-            // Draw "Press "
-            renderer->drawString("Press ", false, baseX, baseY, fontSize, (tsl::bottomTextColor));
-            
-            // Draw formatted key combo with colored sections
-            renderer->drawStringWithColoredSections(formattedKeyCombo, false, KEY_SYMBOLS, baseX + pressWidth, baseY, fontSize, (tsl::bottomTextColor), (tsl::buttonColor));
-            
-            // Draw " to Exit"
-            renderer->drawString(" to Exit", false, baseX + pressWidth + keyComboWidth, baseY, fontSize, (tsl::bottomTextColor));
+            const int tempLabelY = boardY + 119;
+            const int tempValueY = boardY + 136;
+            renderer->drawString("ЦПУ", false, boardX + 16, tempLabelY, 12, labelColor);
+            renderer->drawString(CPU_temp_c, false, boardX + 16, tempValueY, 12,
+                                 settings.useDynamicColors ? tsl::GradientColor(componentCPU_mC / 1000.0f, tsl::DEFAULT_TEMP_RANGE_HIGH) : textColor);
+            renderer->drawString("ГПУ", false, boardX + 87, tempLabelY, 12, labelColor);
+            renderer->drawString(GPU_temp_c, false, boardX + 87, tempValueY, 12,
+                                 settings.useDynamicColors ? tsl::GradientColor(componentGPU_mC / 1000.0f, tsl::DEFAULT_TEMP_RANGE_HIGH) : textColor);
+            renderer->drawString("ОЗУ", false, boardX + 158, tempLabelY, 12, labelColor);
+            renderer->drawString(MEM_temp_c, false, boardX + 158, tempValueY, 12,
+                                 settings.useDynamicColors ? tsl::GradientColor(componentRAM_mC / 1000.0f, tsl::DEFAULT_TEMP_RANGE_HIGH) : textColor);
+            renderer->drawString("SoC", false, boardX + 229, tempLabelY, 12, labelColor);
+            renderer->drawString(SOC_temperature_c, false, boardX + 229, tempValueY, 12,
+                                 settings.useDynamicColors ? tsl::GradientColor(SOC_temperatureF) : textColor);
+            renderer->drawString("Плата", false, boardX + 292, tempLabelY, 12, labelColor);
+            renderer->drawString(PCB_temperature_c, false, boardX + 292, tempValueY, 12,
+                                 settings.useDynamicColors ? tsl::GradientColor(PCB_temperatureF) : textColor);
+            renderer->drawString("Корпус", false, boardX + 355, tempLabelY, 12, labelColor);
+            renderer->drawString(skin_temperature_c, false, boardX + 355, tempValueY, 12,
+                                 settings.useDynamicColors ? tsl::GradientColor(static_cast<float>(skin_temperaturemiliC) / 1000.0f) : textColor);
+
+            static const auto pressWidth = renderer->getTextDimensions("Нажмите ", false, 20).first;
+            static const auto keyComboWidth = renderer->getTextDimensions(formattedKeyCombo.c_str(), false, 20).first;
+            renderer->drawString("Нажмите ", false, 24, 690, 20, tsl::bottomTextColor);
+            renderer->drawStringWithColoredSections(formattedKeyCombo, false, KEY_SYMBOLS, 24 + pressWidth, 690, 20, tsl::bottomTextColor, tsl::buttonColor);
+            renderer->drawString(" для выхода", false, 24 + pressWidth + keyComboWidth, 690, 20, tsl::bottomTextColor);
         });
-        
-        auto rootFrame = new tsl::elm::HeaderOverlayFrame("Status Monitor", APP_VERSION);
-        rootFrame->setContent(Status);
 
+        auto rootFrame = new tsl::elm::HeaderOverlayFrame("Ряжа-Монитор", APP_VERSION);
+        rootFrame->setContent(Status);
         return rootFrame;
     }
 

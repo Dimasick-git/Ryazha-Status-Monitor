@@ -2827,6 +2827,7 @@ struct FpsGraphSettings {
     int frameOffsetX;
     int frameOffsetY;
     size_t framePadding;
+    uint8_t touchScalePercent; // persisted two-finger scale, 70–150
     uint16_t touchMoveDelayMs;
     uint16_t buttonMoveDelayMs;
     // Configurable Switch 2 frame border. borderColor (declared above) is reused
@@ -2861,6 +2862,7 @@ struct ResolutionSettings {
     int frameOffsetX;
     int frameOffsetY;
     size_t framePadding;
+    uint8_t touchScalePercent; // persisted two-finger scale, 70–150
     uint16_t touchMoveDelayMs;
     uint16_t buttonMoveDelayMs;
     // Configurable Switch 2 frame border (see MiniSettings for field semantics).
@@ -4250,6 +4252,7 @@ ALWAYS_INLINE void GetConfigSettings(FpsGraphSettings* settings) {
     settings->frameOffsetX = 0;
     settings->frameOffsetY = 0;
     settings->framePadding = 0;
+    settings->touchScalePercent = 100;
     settings->touchMoveDelayMs = 500;
     settings->buttonMoveDelayMs = 1000;
     initBorderDefaults(settings);
@@ -4359,6 +4362,11 @@ ALWAYS_INLINE void GetConfigSettings(FpsGraphSettings* settings) {
     it = section.find("frame_padding");
     if (it != section.end()) {
         settings->framePadding = atol(it->second.c_str());
+    }
+
+    it = section.find("touch_scale");
+    if (it != section.end()) {
+        settings->touchScalePercent = (uint8_t)std::clamp(atol(it->second.c_str()), 70L, 150L);
     }
 
     // Process corner_radius (tenths of a space; converted to px at draw time)
@@ -4621,6 +4629,7 @@ ALWAYS_INLINE void GetConfigSettings(ResolutionSettings* settings) {
     settings->frameOffsetX = 0;
     settings->frameOffsetY = 0;
     settings->framePadding = 0;
+    settings->touchScalePercent = 100;
     settings->touchMoveDelayMs = 500;
     settings->buttonMoveDelayMs = 1000;
     initBorderDefaults(settings);
@@ -4720,6 +4729,11 @@ ALWAYS_INLINE void GetConfigSettings(ResolutionSettings* settings) {
     it = section.find("frame_padding");
     if (it != section.end()) {
         settings->framePadding = atol(it->second.c_str());
+    }
+
+    it = section.find("touch_scale");
+    if (it != section.end()) {
+        settings->touchScalePercent = (uint8_t)std::clamp(atol(it->second.c_str()), 70L, 150L);
     }
 
     it = section.find("touch_move_delay");

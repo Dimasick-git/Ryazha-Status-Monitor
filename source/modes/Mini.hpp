@@ -5119,6 +5119,9 @@ public:
             iniData["mini"]["docked_font_size"] = std::to_string(settings.dockedFontSize);
             iniData["mini"]["docked_1080p_font_size"] = std::to_string(settings.docked1080pFontSize);
             ult::saveIniFileData(configIniPath, iniData);
+            // Font size now differs from the cached card geometry. Force the
+            // next draw to rebuild width, height, glyph metrics and VI bounds.
+            Initialized = false;
             boundsNeedUpdate = true;
             pinchActive = false;
         }

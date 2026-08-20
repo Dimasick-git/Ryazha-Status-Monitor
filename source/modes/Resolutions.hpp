@@ -256,14 +256,15 @@ public:
             int base_x = 0;
             int clippingOffsetX = 0, clippingOffsetY = 0;
         
-            int total_width = 360 - 20;
-            int total_height = 200;
+            const float uiScale = std::clamp(settings.touchScalePercent / 100.0f, 0.70f, 1.50f);
+            int total_width = std::clamp<int>(std::lround((360 - 20) * uiScale), 238, 510);
+            int total_height = std::clamp<int>(std::lround(200 * uiScale), 140, 300);
 
             // Space width at fixed reference size — used for both borderThicknessPx and
             // cornerRadius below, so we compute it once here before bExpand.
             const float _crSpW = (float)renderer->getTextDimensions(" ", false, 16).first;
             const float _crSpace = (_crSpW > 0.5f) ? _crSpW : 4.0f;
-            const int borderThicknessPx = std::max(1, (int)(_crSpace * (float)settings.borderThickness / 10.0f + 0.5f));
+            const int borderThicknessPx = std::max(1, (int)(_crSpace * (float)settings.borderThickness / 10.0f * uiScale + 0.5f));
 
             // Expand the rounded rect by borderThicknessPx on each side when the
             // border is on, so the border stroke never overlaps interior content.
@@ -336,19 +337,25 @@ public:
             const int borderOffset = settings.useBorder ? 1 : 0;
             // Corner radius in sp (tenths of a space) -> px. _crSpace is already
             // computed above (reused from the borderThicknessPx calculation).
-            const int cornerRadius = (int)(_crSpace * (float)settings.cornerRadiusSp / 10.0f + 0.5f);
+            const int cornerRadius = (int)(_crSpace * (float)settings.cornerRadiusSp / 10.0f * uiScale + 0.5f);
             // Game detected
             if (gameStart && NxFps && NxFps->API >= 1 && (Resolutions_c[0] != '\0' && Resolutions2_c[0] != '\0')) {
                 lastGameSeenTick = curTick;
                 waitingForGame = true; // reset waiting state so next missing cycle shows "Checking..."
                 renderer->drawRoundedRectSingleThreaded(final_base_x + borderOffset, final_base_y + borderOffset, total_width - (2*borderOffset), total_height - (2*borderOffset), cornerRadius, aWithOpacity(bgColor));
         
-                int xOffset = 10;
-                int yOffset = 10 + bExpand; // shift down by bExpand to stay clear of expanded top border
-                renderer->drawString("Глубина", false, xOffset + final_base_x + 20, yOffset + final_base_y + 20, 20, settings.catColor);
-                renderer->drawString(Resolutions_c, false, xOffset + final_base_x + 20, yOffset + final_base_y + 55, 18, settings.textColor);
-                renderer->drawString("Область вывода", false, xOffset + final_base_x + 180, yOffset + final_base_y + 20, 20, settings.catColor);
-                renderer->drawString(Resolutions2_c, false, xOffset + final_base_x + 180, yOffset + final_base_y + 55, 18, settings.textColor);
+                const int xOffset = std::lround(10.0f * uiScale);
+                const int yOffset = std::lround(10.0f * uiScale) + bExpand;
+                const int titleFont = std::clamp<int>(std::lround(20.0f * uiScale), 14, 30);
+                const int valueFont = std::clamp<int>(std::lround(18.0f * uiScale), 12, 27);
+                const int leftX = xOffset + final_base_x + std::lround(20.0f * uiScale);
+                const int rightX = xOffset + final_base_x + total_width / 2 + std::lround(10.0f * uiScale);
+                const int titleY = yOffset + final_base_y + std::lround(20.0f * uiScale);
+                const int valueY = yOffset + final_base_y + std::lround(55.0f * uiScale);
+                renderer->drawString("Глубина", false, leftX, titleY, titleFont, settings.catColor);
+                renderer->drawString(Resolutions_c, false, leftX, valueY, valueFont, settings.textColor);
+                renderer->drawString("Область вывода", false, rightX, titleY, titleFont, settings.catColor);
+                renderer->drawString(Resolutions2_c, false, rightX, valueY, valueFont, settings.textColor);
             }
             // Game not detected
             else {
@@ -366,11 +373,12 @@ public:
                     waitingForGame = false;
                 }
         
-                const auto [textWidth, textHeight] = renderer->getTextDimensions(msg, false, 20);
+                const int msgFont = std::clamp<int>(std::lround(20.0f * uiScale), 14, 30);
+                const auto [textWidth, textHeight] = renderer->getTextDimensions(msg, false, msgFont);
                 const int text_x = final_base_x + (total_width - textWidth) / 2;
                 const int text_y = final_base_y + (total_height) / 2;
                 
-                renderer->drawString(msg, false, text_x, (under100ms && waitingForGame) ? text_y+textHeight/2 : text_y, 20, (under100ms && waitingForGame) ? 0xFFFF : 0xF00F);
+                renderer->drawString(msg, false, text_x, (under100ms && waitingForGame) ? text_y+textHeight/2 : text_y, msgFont, (under100ms && waitingForGame) ? 0xFFFF : 0xF00F);
             }
 
             if (settings.useBorder) {
@@ -483,6 +491,29 @@ public:
         HidTouchScreenState rawTouchState = {};
         const bool currentTouchDetected = hidGetTouchScreenStates(&rawTouchState, 1) > 0 && rawTouchState.count > 0;
         const HidTouchState& activeTouchPos = currentTouchDetected ? rawTouchState.touches[0] : touchPos;
+
+        // Two fingers resize the complete resolution card and persist the scale.
+        static bool pinchActive = false;
+        static uint8_t pinchStartPercent = 100;
+        static float pinchStartDistance = 0.0f;
+        const bool pinchDetected = currentTouchDetected && rawTouchState.count >= 2;
+        if (pinchDetected) {
+            const float dx = static_cast<float>(rawTouchState.touches[1].x) - static_cast<float>(rawTouchState.touches[0].x);
+            const float dy = static_cast<float>(rawTouchState.touches[1].y) - static_cast<float>(rawTouchState.touches[0].y);
+            const float distance = std::sqrt(dx * dx + dy * dy);
+            if (!pinchActive || pinchStartDistance < 1.0f) {
+                pinchActive = true;
+                pinchStartDistance = std::max(distance, 1.0f);
+                pinchStartPercent = settings.touchScalePercent;
+            } else {
+                const float gestureScale = std::clamp(distance / pinchStartDistance, 0.70f, 1.30f);
+                settings.touchScalePercent = (uint8_t)std::clamp<int>(std::lround(pinchStartPercent * gestureScale), 70, 150);
+            }
+            buttonState.touchDragActive.store(false, std::memory_order_release);
+        } else if (pinchActive) {
+            ult::setIniFileValue(configIniPath, "game_resolutions", "touch_scale", std::to_string(settings.touchScalePercent));
+            pinchActive = false;
+        }
         
         static bool clearOnRelease = false;
 
@@ -537,7 +568,7 @@ public:
         const bool touchDragReady = buttonState.touchDragActive.load(std::memory_order_acquire);
         static bool oldTouchDragReady = false;
         
-        if (currentTouchDetected && !isDragging && touchDragReady && !oldTouchDragReady) {
+        if (!pinchDetected && currentTouchDetected && !isDragging && touchDragReady && !oldTouchDragReady) {
             // Poll thread confirmed 500ms in-bounds hold — start drag now
             isDragging = true;
             triggerOnFeedback();
@@ -545,7 +576,7 @@ public:
             initialTouchPos = activeTouchPos;
             initialFrameOffsetX = frameOffsetX;
             initialFrameOffsetY = frameOffsetY;
-        } else if (currentTouchDetected && isDragging && !currentPlusHeld) {
+        } else if (!pinchDetected && currentTouchDetected && isDragging && !currentPlusHeld) {
             // Continue touch dragging
             const int touchX = activeTouchPos.x;
             const int touchY = activeTouchPos.y;
@@ -572,7 +603,7 @@ public:
 
                 boundsNeedUpdate = true;
             }
-        } else if (!currentTouchDetected && oldTouchDetected && isDragging && !currentPlusHeld) {
+        } else if (!pinchDetected && !currentTouchDetected && oldTouchDetected && isDragging && !currentPlusHeld) {
             // Touch just released
             if (hasMoved) {
                 // Save position when touch drag ends
