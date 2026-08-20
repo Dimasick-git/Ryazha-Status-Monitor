@@ -325,8 +325,6 @@ public:
 	}
 };
 
-static void applyRyazhaTheme();
-
 class MonitorOverlay : public tsl::Overlay {
 public:
 
@@ -384,7 +382,6 @@ public:
     virtual void onHide() override {}
 
 	virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
-		applyRyazhaTheme();
 		//Get actual time without using time service
 		remove("sdmc:/dddd.dddd");
 		FsFileSystem* filesystem = fsdevGetDeviceFileSystem("sdmc");
@@ -405,17 +402,6 @@ public:
 		}
     }
 };
-
-// libryazhahand owns the canonical UI theme. Re-read it after tsl::loop has
-// completed its bootstrap, then make the same palette visible to SMD modes.
-static void applyRyazhaTheme() {
-	tsl::initializeTheme();
-	tsl::initializeThemeVars();
-	ThemeData.TextColor_int     = tsl::defaultTextColor.rgba;
-	ThemeData.CategoryColor_int = tsl::highlightColor1.rgba;
-	ThemeData.AccentColor_int   = tsl::highlightColor2.rgba;
-	ThemeData.BoxColor_int      = tsl::defaultBackgroundColor.rgba;
-}
 
 int main(int argc, char **argv) {
 	#if !defined(__SWITCH__) && !defined(__OUNCE__)
@@ -444,8 +430,8 @@ int main(int argc, char **argv) {
 						smd::Document::PeekInfo peek;
 						smd::Document::Peek(path.c_str(), peek);
 						if (peek.layerWidth != 0 && peek.layerHeight != 0) {
-							framebufferWidth = peek.layerWidth;
-							framebufferHeight = peek.layerHeight;
+framebufferWidth = peek.layerWidth;
+								framebufferHeight = peek.layerHeight;
 						}
 					}
 					file_to_load = path;

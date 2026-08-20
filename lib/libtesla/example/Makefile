@@ -37,55 +37,40 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-APP_TITLE	:=	Ryazha Status Monitor
-APP_VERSION	:=	1.5.0
-TARGET		:=	Ryazha-Status-Monitor
+
+APP_TITLE			:=		AAAExample
+APP_VERSION 	:= 		1.3.0
+
+TARGET		:=	$(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/libtesla/source lib/slre
-INCLUDES	:=	include lib/libtesla/include lib/tinyexpr include/Extensions lib/slre
-NO_ICON		:=	1
-#ROMFS		:=	romfs
+SOURCES		:=	source
+DATA		:=	data
+INCLUDES	:=	../include
+
+NO_ICON		:=  1
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH		:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -flto=auto
+ARCH	:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
-CFLAGS	:=	-g -Wall -Werror -Os -ffunction-sections -fdata-sections -ffast-math -fno-asynchronous-unwind-tables -fno-unwind-tables \
+CFLAGS	:=	-g -Wall -O2 -ffunction-sections \
 			$(ARCH) $(DEFINES)
 
-CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\""
+CFLAGS	+=	$(INCLUDE) -D__SWITCH__
 
-CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++23
+CXXFLAGS	:= $(CFLAGS) -fno-exceptions -std=c++20
 
-ifdef DEBUG
-    CXXFLAGS += -DDEBUG
-endif
+ASFLAGS	:=	-g $(ARCH)
+LDFLAGS	=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-ASFLAGS		:=	-g $(ARCH)
-LDFLAGS		=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-LDFLAGS     += -Wl,--wrap,__cxa_pure_virtual \
-			-Wl,--wrap,__cxa_throw \
-			-Wl,--wrap,__cxa_rethrow \
-			-Wl,--wrap,__cxa_allocate_exception \
-			-Wl,--wrap,__cxa_free_exception \
-			-Wl,--wrap,__cxa_begin_catch \
-			-Wl,--wrap,__cxa_end_catch \
-			-Wl,--wrap,__cxa_call_unexpected \
-			-Wl,--wrap,__cxa_call_terminate \
-			-Wl,--wrap,__gxx_personality_v0 \
-			-Wl,--wrap,_Unwind_Resume \
-			-Wl,--wrap,_ZSt19__throw_logic_errorPKc \
-			-Wl,--wrap,_ZSt20__throw_length_errorPKc \
-			-Wl,--wrap,_ZNSt11logic_errorC2EPKc
-
-LIBS		:=	-lnx
+LIBS	:= -lnx
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS		:=	$(PORTLIBS) $(LIBNX)
+LIBDIRS	:= $(PORTLIBS) $(LIBNX)
 
 
 #---------------------------------------------------------------------------------
@@ -184,25 +169,12 @@ all: $(BUILD)
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
 	@$(MAKE) --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
-	@rm -rf out/
-	@mkdir -p out/switch/.overlays/
-	@cp -a $(CURDIR)/config out/
-	@cp -a $(CURDIR)/modes out/config/status-monitor/
-	@cp -a $(CURDIR)/extensions out/config/status-monitor/
-	@cp $(CURDIR)/$(TARGET).ovl out/switch/.overlays/$(TARGET).ovl
 
 #---------------------------------------------------------------------------------
 clean:
-	@echo "Cleanning ... $(TARGET)"
 	@rm -fr $(BUILD) $(TARGET).ovl $(TARGET).nro $(TARGET).nacp $(TARGET).elf
-	@rm -rf out/
-	@rm -f $(TARGET).zip
 
-#---------------------------------------------------------------------------------
-dist: all
-	@echo making dist ...
-	@rm -f $(TARGET).zip
-	@cd out; zip -r ../$(TARGET).zip ./*; cd ../
+
 #---------------------------------------------------------------------------------
 else
 .PHONY:	all
@@ -214,7 +186,7 @@ DEPENDS	:=	$(OFILES:.o=.d)
 #---------------------------------------------------------------------------------
 all	:	 $(OUTPUT).ovl
 
-$(OUTPUT).ovl		:	$(OUTPUT).elf $(OUTPUT).nacp
+$(OUTPUT).ovl		:	$(OUTPUT).elf $(OUTPUT).nacp 
 	@elf2nro $< $@ $(NROFLAGS)
 	@echo "built ... $(notdir $(OUTPUT).ovl)"
 
