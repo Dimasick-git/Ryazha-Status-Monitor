@@ -157,13 +157,18 @@ public:
         tsl::hlp::requestForeground(false);
         deactivateOriginalFooter = true;
         if (settings.disableScreenshots) tsl::gfx::Renderer::get().removeScreenshotStacks();
-        mutexInit(&mutex_Misc);
-        mutexInit(&mutex_BatteryChecker);
-        StartThreads();
+        // A 4 MB loader heap has a 448 px-wide layer and cannot show two panels.
+        // In that case createUI presents an explicit one-tap upgrade screen instead
+        // of starting sensor threads for a cropped interface.
+        if (!ult::limitedMemory) {
+            mutexInit(&mutex_Misc);
+            mutexInit(&mutex_BatteryChecker);
+            StartThreads();
+        }
     }
 
     ~SecuritySpacificateOverlay() {
-        CloseThreads();
+        if (!ult::limitedMemory) CloseThreads();
         tsl::defaultBackgroundColor = originalBackgroundColor;
         ult::useRightAlignment = originalUseRightAlignment;
         if (settings.disableScreenshots) tsl::gfx::Renderer::get().addScreenshotStacks();
@@ -173,6 +178,28 @@ public:
     }
 
     virtual tsl::elm::Element* createUI() override {
+        if (ult::limitedMemory) {
+            auto* list = new tsl::elm::List();
+            list->addItem(new tsl::elm::CategoryHeader("Security-Spacificate"));
+            list->addItem(new tsl::elm::ListItem("Для двух панелей нужен широкий слой"));
+            auto* enableWideLayer = new tsl::elm::ListItem("Включить 8 МБ и перезапустить");
+            enableWideLayer->setClickListener([](uint64_t keys) {
+                if (keys & KEY_A) {
+                    if (ult::setOverlayHeapSize(ult::OverlayHeapSize::Size_8MB)) {
+                        tsl::setNextOverlay(filepath, "-security_spacificate --direct");
+                        skipClosingExitFeedback = true;
+                        tsl::Overlay::get()->close();
+                    }
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(enableWideLayer);
+            auto* rootFrame = new tsl::elm::HeaderOverlayFrame("Ряжа-Монитор", "Подготовка экрана");
+            rootFrame->setContent(list);
+            return rootFrame;
+        }
+
         auto* status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer* renderer, u16, u16, u16, u16) {
             const float requestedScale = std::clamp(settings.touchScalePercent / 100.0f, 0.70f, 1.50f);
             // A 4 MB Tesla layer is only 448 px wide. Keep the diagnostic view usable
@@ -302,6 +329,7 @@ public:
     }
 
     virtual void update() override {
+        if (ult::limitedMemory) return;
         const uint64_t now = armGetSystemTick();
         const uint64_t interval = systemtickfrequency / std::max<uint8_t>(settings.sampleRate, 1);
         if (now - lastDataUpdateTick >= interval) {
@@ -324,6 +352,13 @@ public:
     }
 
     virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState&, HidAnalogStickState, HidAnalogStickState) override {
+        if (ult::limitedMemory) {
+            if (isKeyComboPressed(keysHeld, keysDown)) {
+                tsl::Overlay::get()->close();
+                return true;
+            }
+            return false;
+        }
         // Read the physical panel directly: framework coordinates can lag behind
         // while a movable Tesla layer is repositioned.
         HidTouchScreenState rawTouchState = {};

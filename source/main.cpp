@@ -212,13 +212,16 @@ public:
         });
         list->addItem(Full);
 
-        auto* securitySpacificate = new tsl::elm::ListItem("Security-Spacificate");
+        // Security-Spacificate needs its own overlay process. Swapping inside the
+        // menu would retain ovlmenu's narrow framebuffer and crop the second panel.
+        auto* securitySpacificate = new tsl::elm::SilentListItem("Security-Spacificate");
         securitySpacificate->enableShortHoldKey();
         securitySpacificate->disableClickAnimation();
         securitySpacificate->setClickListener([](uint64_t keys) {
             if (keys & KEY_A) {
-                lastMode = "security_spacificate";
-                tsl::swapTo<SecuritySpacificateOverlay>();
+                tsl::setNextOverlay(filepath, directSession ? "-security_spacificate --direct" : "-security_spacificate");
+                if (directSession) launchComboHasTriggered.store(true, std::memory_order_release);
+                tsl::Overlay::get()->close();
                 return true;
             }
             if (keys & KEY_PLUS) {
