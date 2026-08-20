@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   tests:
-    name: SMD parser tests
+    name: Source validation
     runs-on: ubuntu-latest
 
     steps:
@@ -28,14 +28,8 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Configure
-        run: cmake -S . -B build-tests -DSMD_BUILD_TESTS=ON
-
-      - name: Build tests
-        run: cmake --build build-tests -j$(nproc)
-
-      - name: Run tests
-        run: ctest --test-dir build-tests --output-on-failure
+      - name: Validate ppkantorski source integration
+        run: python3 scripts/validate_source.py
 
   build:
     name: Build
@@ -62,8 +56,8 @@ jobs:
           path: Ryazha-Status-Monitor.ovl
           if-no-files-found: error
 
-      # out/ holds the full install layout (switch/.overlays + config with
-      # SMD modes and SMSE extensions) — without it the overlay menu is empty.
+      # out/ holds the complete installation layout (overlay plus configuration)
+      # and must remain intact for a correct SD-card installation.
       # include-hidden-files is required: upload-artifact v4 silently drops
       # hidden directories like .overlays by default.
       - name: Upload dist artifact

@@ -1,8 +1,10 @@
+
 build/
-build-tests/
-out/
+
 *.ovl
-*.nro
+
 *.elf
-*.map
-*.zip
+
+*.nacp
+
+*.nro

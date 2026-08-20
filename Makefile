@@ -37,63 +37,67 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   of a homebrew executable (.nro). This is intended to be used for sysmodules.
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
-APP_TITLE	:=	Ryazha-Status-Monitor
+APP_TITLE	:=	Ryazha Status Monitor
 APP_VERSION	:=	1.5.0
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
-SOURCES		:=	source lib/tinyexpr source/System source/Extensions lib/slre
-INCLUDES	:=	include lib/tinyexpr include/Extensions lib/slre
+SOURCES		:=	source
+INCLUDES	:=	include lib/Atmosphere-libs/libstratosphere/source/dmnt lib/Atmosphere-libs/libstratosphere/source
+NO_ICON		:=  1
+#ROMFS       :=  romfs
 
-RYAZHAHAND_DIR ?= $(TOPDIR)/lib/libryazhahand
-RYAZHAHAND_MK  := $(RYAZHAHAND_DIR)/ryazhahand.mk
-ifeq ($(wildcard $(RYAZHAHAND_MK)),)
-$(error Missing $(RYAZHAHAND_MK). Initialise libryazhahand submodule first.)
-endif
-include $(RYAZHAHAND_MK)
-NO_ICON		:=	1
-#ROMFS		:=	romfs
+# Ryazhenka overlay library. This is intentionally libryazhahand, not libultrahand.
+include ${TOPDIR}/lib/libryazhahand/ryazhahand.mk
+
 
 #---------------------------------------------------------------------------------
 # options for code generation
 #---------------------------------------------------------------------------------
-ARCH		:=	-march=armv8-a+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE -flto=auto
+ARCH	:=	-march=armv8-a+simd+crc+crypto -mtune=cortex-a57 -mtp=soft -fPIE
 
-CFLAGS	:=	-g -Wall -Werror -Os -ffunction-sections -fdata-sections -ffast-math -fno-asynchronous-unwind-tables -fno-unwind-tables \
+CFLAGS	:=	-g -Wall -Wno-address-of-packed-member -O3 -ffunction-sections -ffast-math -fno-finite-math-only -flto -fomit-frame-pointer \
+            -fuse-linker-plugin -finline-small-functions \
+            -fno-strict-aliasing -frename-registers -falign-functions=16 \
 			$(ARCH) $(DEFINES)
 
-CFLAGS		+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\"" -DAPP_TITLE="\"$(APP_TITLE)\"" \
-			-DIS_STATUS_MONITOR_DIRECTIVE=1
+# For compiling Ultrahand Overlay only
+CFLAGS += -DIS_STATUS_MONITOR_DIRECTIVE=1
 
-CXXFLAGS	:=	$(CFLAGS) -fno-exceptions -std=c++26
+# Enable appearance overriding
+UI_OVERRIDE_PATH := /config/status-monitor/
+CFLAGS += -DUI_OVERRIDE_PATH="\"$(UI_OVERRIDE_PATH)\""
 
-ifdef DEBUG
-    CXXFLAGS += -DDEBUG
-endif
+# Exception wrap utilization (for smaller compilation size)
+CFLAGS += -DUSE_EXCEPTION_WRAP=1
 
-ASFLAGS		:=	-g $(ARCH)
-LDFLAGS		=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
-LDFLAGS     += -Wl,--wrap,__cxa_pure_virtual \
-			-Wl,--wrap,__cxa_throw \
-			-Wl,--wrap,__cxa_rethrow \
-			-Wl,--wrap,__cxa_allocate_exception \
-			-Wl,--wrap,__cxa_free_exception \
-			-Wl,--wrap,__cxa_begin_catch \
-			-Wl,--wrap,__cxa_end_catch \
-			-Wl,--wrap,__cxa_call_unexpected \
-			-Wl,--wrap,__cxa_call_terminate \
-			-Wl,--wrap,__gxx_personality_v0 \
-			-Wl,--wrap,_Unwind_Resume \
-			-Wl,--wrap,_ZSt19__throw_logic_errorPKc \
-			-Wl,--wrap,_ZSt20__throw_length_errorPKc \
-			-Wl,--wrap,_ZNSt11logic_errorC2EPKc
+# Requires USE_EXCEPTION_WRAP and inclusion of exception_wrap.hpp in main
+LDFLAGS += -Wl,-wrap,__cxa_throw \
+           -Wl,-wrap,_Unwind_Resume \
+           -Wl,-wrap,__gxx_personality_v0
 
-LIBS		:=	-lcurl -lpng -lz -lmbedtls -lmbedx509 -lmbedcrypto -lnx
+
+CFLAGS	+=	$(INCLUDE) -D__SWITCH__ -DAPP_VERSION="\"$(APP_VERSION)\""
+
+CXXFLAGS	:= $(CFLAGS) -std=c++23 -Wno-dangling-else -fno-unwind-tables -fno-asynchronous-unwind-tables
+
+ASFLAGS	:=	-g $(ARCH)
+LDFLAGS	+=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
+
+LIBS := -lnx
+
+CXXFLAGS += -fno-exceptions -ffunction-sections -fdata-sections -fno-rtti
+LDFLAGS += -Wl,--gc-sections -Wl,--as-needed
+
+
+# For Ensuring Parallel LTRANS Jobs w/ GCC, make -j6
+CXXFLAGS += -flto -fuse-linker-plugin -flto=6
+LDFLAGS += -flto=6
 
 #---------------------------------------------------------------------------------
 # list of directories containing libraries, this must be the top level containing
 # include and lib
 #---------------------------------------------------------------------------------
-LIBDIRS		:=	$(PORTLIBS) $(LIBNX)
+LIBDIRS	:= $(PORTLIBS) $(LIBNX)
 
 
 #---------------------------------------------------------------------------------
@@ -195,8 +199,6 @@ $(BUILD):
 	@rm -rf out/
 	@mkdir -p out/switch/.overlays/
 	@cp -a $(CURDIR)/config out/
-	@cp -a $(CURDIR)/modes out/config/status-monitor/
-	@cp -a $(CURDIR)/extensions out/config/status-monitor/
 	@cp $(CURDIR)/$(TARGET).ovl out/switch/.overlays/$(TARGET).ovl
 
 #---------------------------------------------------------------------------------
@@ -225,8 +227,8 @@ all	:	 $(OUTPUT).ovl
 $(OUTPUT).ovl		:	$(OUTPUT).elf $(OUTPUT).nacp 
 	@elf2nro $< $@ $(NROFLAGS)
 	@echo "built ... $(notdir $(OUTPUT).ovl)"
-	@printf 'RYZH' >> $@
-	@printf "Ryazhahand signature has been added.\n"
+	@printf 'ULTR' >> $@
+	@printf "Overlay compatibility signature has been added.\n"
 
 $(OUTPUT).elf	:	$(OFILES)
 

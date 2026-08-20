@@ -1,509 +1,1501 @@
 #define TESLA_INIT_IMPL
+
+#include <exception_wrap.hpp>
 #include <tesla.hpp>
 #include "Utils.hpp"
-#include <malloc.h>
-#include <set>
-#include "Extensions/smse.hpp"
 #include <cstdlib>
+#include <ctime>
 
-std::list<ServiceExtensions> serviceExt;
+//static tsl::elm::HeaderOverlayFrame* rootFrame = nullptr;
+static bool skipMain = false;
+static std::string lastSelectedItem;
+// Sticky "direct session" flag. True when this Status Monitor process is part of a
+// direct/combo flow: i.e. launched into a mode via combo, or relaunched into the menu
+// via the combo-return (--direct + --lastSelectedItem). When true, choosing a mode from
+// the menu launches it in direct mode too, so the whole flow stays direct and pressing
+// back keeps unwinding toward ovlmenu. A normal ovlmenu-open of Status Monitor (no
+// --lastSelectedItem) is NOT a direct session even though ovlmenu passes --direct.
+inline bool directSession = false;
+inline std::string originalLaunchArgs; // flattened argv[1..] minus --silentLaunch; used by Mini for silent dock-transition relaunch
 
-tsl::elm::OverlayFrame* rootFrame = nullptr;
+#include "modes/FPS_Counter.hpp"
+#include "modes/FPS_Graph.hpp"
+#include "modes/Full.hpp"
+#include "modes/Mini.hpp"
+#include "modes/Micro.hpp"
+#include "modes/Battery.hpp"
+#include "modes/Misc.hpp"
+#include "modes/Resolutions.hpp"
+#include "modes/Configurator.hpp" 
 
-std::string file_to_load = "";
-HidSixAxisSensorHandle sixaxisHandles[Controller_Max];
 
-#include "rendering_pipeline.hpp"
-#include "DataTypes.hpp"
-#include "Configuration/EditConfigInt.hpp"
-#include "Configuration/ConfigurationMainMenu.hpp"
-#include "Configuration/Configuration.hpp"
-#include "RenderingPipelineDummy.hpp"
-#ifdef DEBUG
-#include "MemoryDebug.hpp"
-#endif
 
-static void ApplyRyazhaTheme();
+//Graphs
+//class GraphsMenu : public tsl::Gui {
+//public:
+//    GraphsMenu() {}
+//
+//    virtual tsl::elm::Element* createUI() override {
+//        
+//        auto* list = new tsl::elm::List();
+//
+//        list->addItem(new tsl::elm::CategoryHeader("FPS"));
+//
+//        auto* comFPSGraph = new tsl::elm::ListItem("Graph");
+//        comFPSGraph->setClickListener([](uint64_t keys) {
+//            if (keys & KEY_A) {
+//                tsl::swapTo<com_FPSGraph>();
+//                return true;
+//            }
+//            return false;
+//        });
+//        list->addItem(comFPSGraph);
+//
+//        auto* comFPSCounter = new tsl::elm::ListItem("Counter");
+//        comFPSCounter->setClickListener([](uint64_t keys) {
+//            if (keys & KEY_A) {
+//                tsl::swapTo<com_FPS>();
+//                return true;
+//            }
+//            return false;
+//        });
+//        list->addItem(comFPSCounter);
+//
+//        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Status Monitor", "Modes");
+//        rootFrame->setContent(list);
+//
+//        return rootFrame;
+//    }
+//
+//    virtual void update() override {
+//        if (fixForeground) {
+//            fixForeground = false;
+//            tsl::hlp::requestForeground(true);
+//        }
+//    }
+//
+//    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState joyStickPosLeft, HidAnalogStickState joyStickPosRight) override {
+//        if (disableJumpTo)
+//            disableJumpTo = false;
+//        if (fixHiding) {
+//            if (isKeyComboPressed2(keysDown, keysHeld)) {
+//                tsl::Overlay::get()->hide();
+//                fixHiding = false;
+//                return true;
+//            }
+//        }
+//
+//        if (keysDown & KEY_B) {
+//            tsl::goBack();
+//            return true;
+//        }
+//        return false;
+//    }
+//};
 
-extern "C" {
-	//This is done to save some space as they have no practical use in our case
-	void* __real___cxa_throw();
-	void* __real___cxa_rethrow();
-	void* __real___cxa_allocate_exception();
-	void* __real___cxa_free_exception();
-	void* __real___cxa_begin_catch();
-	void* __real___cxa_end_catch();
-	void* __real___cxa_call_unexpected();
-	void* __real___cxa_call_terminate();
-	void* __real__ZSt19__throw_logic_errorPKc();
-	void* __real__ZSt20__throw_length_errorPKc();
-	void* __real__ZNSt11logic_errorC2EPKc();
-	void* __real__Unwind_Resume();
-	void* __real___gxx_personality_v0();
-	void __wrap___cxa_throw() {__builtin_unreachable();}
-	void __wrap___cxa_rethrow() {__builtin_unreachable();}
-	void __wrap___cxa_allocate_exception() {__builtin_unreachable();}
-	void __wrap___cxa_free_exception() {__builtin_unreachable();}
-	void __wrap___cxa_begin_catch() {__builtin_unreachable();}
-	void __wrap___cxa_end_catch() {__builtin_unreachable();}
-	void __wrap___cxa_call_unexpected() {__builtin_unreachable();}
-	void __wrap___cxa_call_terminate() {__builtin_unreachable();}
-	void __wrap__ZSt19__throw_logic_errorPKc() {__builtin_unreachable();}
-	void __wrap__ZSt20__throw_length_errorPKc() {__builtin_unreachable();}
-	void __wrap__ZNSt11logic_errorC2EPKc() {__builtin_unreachable();}
-	void __wrap__Unwind_Resume() {__builtin_unreachable();}
-	void __wrap___gxx_personality_v0() {__builtin_unreachable();}
-}
-
-class MainMenu : public tsl::Gui {
+//Other
+class OtherMenu : public tsl::Gui {
 public:
-    
-    const std::string root_path = "sdmc:/config/status-monitor/modes/";
-    std::string standard_path = root_path;
-	std::vector<Designs> filesChecked;
-	std::string formattedKeyCombo;
-	std::string m_folderName;
-	std::string footerBackup;
-	bool isMainMenu = false;
-
-	// Ryazha quick-launch combos: a mode section in config.ini may define
-	// quick_combo=ZL+ZR+DUP — holding it in any menu jumps straight into
-	// that SMD file.
-	struct QuickCombo {
-		uint64_t mask;
-		std::string rel;
-	};
-	std::vector<QuickCombo> quickCombos;
-
-	void collectQuickCombos() {
-		for (const auto& [section, values] : config) {
-			if (section.size() < 4 || section.compare(section.size() - 4, 4, ".smd") != 0)
-				continue;
-			auto it = values.find("quick_combo");
-			if (it == values.end() || it->second.empty())
-				continue;
-			std::string combo = it->second;
-			removeSpaces(combo);
-			convertToUpper(combo);
-			uint64_t mask = MapButtons(combo);
-			if (mask != 0)
-				quickCombos.push_back({mask, section});
-		}
-	}
-
-	bool handleQuickCombos(uint64_t keysDown, uint64_t keysHeld) {
-		for (const auto& qc : quickCombos) {
-			if ((keysHeld & qc.mask) != qc.mask || !(keysDown & qc.mask))
-				continue;
-			struct stat st;
-			std::string full_path = root_path + qc.rel;
-			if (stat(full_path.c_str(), &st) != 0)
-				continue;
-			std::string args = "--file " + qc.rel + " --submenu";
-			tsl::setNextOverlay(filepath, args);
-			tsl::Overlay::get()->close();
-			return true;
-		}
-		return false;
-	}
-
-	bool FindConfigs(const char* data, size_t size) {
-		size_t lineStart = 0;
-		for (size_t i = 0; i < size; ++i) {
-			if (data[i] != '\n') continue;
-
-			// Slice the current line [lineStart, i), peeling off a trailing \r.
-			size_t end = i;
-			while (end > lineStart && data[end - 1] == '\r') --end;
-			std::string rawLine(data + lineStart, end - lineStart);
-			lineStart = i + 1;
-
-			std::string trimmedRaw = trim(rawLine);
-
-			// 2. Standard configuration line processing
-			std::string line = StripLineComment(rawLine);
-			line = trim(line);
-			if (line.empty()) continue;
-
-			if (line == "Start:" || line == "Start: ") break;
-
-			size_t sep = std::string::npos;
-			{
-				int depth = 0; bool inStr = false;
-				for (size_t j = 0; j < line.size(); ++j) {
-					char c = line[j];
-					if (inStr) {
-						if (c == '\\' && j + 1 < line.size()) { ++j; continue; }
-						if (c == '"') inStr = false;
-						continue;
-					}
-					if (c == '"') { inStr = true; continue; }
-					if (c == '{') ++depth;
-					else if (c == '}') --depth;
-					else if (depth == 0 && c == '=') { sep = j; break; }
-				}
-			}
-			if (sep == std::string::npos) continue;
-
-			std::string key  = trim(line.substr(0, sep));
-			std::string rest = trim(line.substr(sep + 1));
-
-			if (key.starts_with("User_") == true) return true;
-		}
-
-		return false;
-	}
-
-	bool itHasCustomExitCombo(const char* data, size_t size) {
-		size_t lineStart = 0;
-		for (size_t i = 0; i < size; ++i) {
-			if (data[i] != '\n') continue;
-
-			// Slice the current line [lineStart, i), peeling off a trailing \r.
-			size_t end = i;
-			while (end > lineStart && data[end - 1] == '\r') --end;
-			std::string rawLine(data + lineStart, end - lineStart);
-			lineStart = i + 1;
-
-			std::string trimmedRaw = trim(rawLine);
-
-			// 2. Standard configuration line processing
-			std::string line = StripLineComment(rawLine);
-			line = trim(line);
-			if (line.empty()) continue;
-
-			if (line == "Start:" || line == "Start: ") break;
-
-			size_t sep = std::string::npos;
-			{
-				int depth = 0; bool inStr = false;
-				for (size_t j = 0; j < line.size(); ++j) {
-					char c = line[j];
-					if (inStr) {
-						if (c == '\\' && j + 1 < line.size()) { ++j; continue; }
-						if (c == '"') inStr = false;
-						continue;
-					}
-					if (c == '"') { inStr = true; continue; }
-					if (c == '{') ++depth;
-					else if (c == '}') --depth;
-					else if (depth == 0 && c == '=') { sep = j; break; }
-				}
-			}
-			if (sep == std::string::npos) continue;
-
-			std::string key  = trim(line.substr(0, sep));
-			std::string rest = trim(line.substr(sep + 1));
-
-			if (key.compare("UseCustomExitCombo") == 0 && rest.compare("true") == 0) return true;
-		}
-
-		return false;
-	}
-
-    MainMenu(std::string rel_path, std::string folderName = "") {
-		footerBackup = defaultButtonView;
-		formattedKeyCombo = keyCombo;
-		formatButtonCombination(formattedKeyCombo);
-        if (!rel_path.empty()) {
-            standard_path = rel_path;
-        }
-        find_smd_files(standard_path, filesChecked);
-		collectQuickCombos();
-		if (folderName.length() != 0) {
-			m_folderName = folderName;
-			defaultButtonView = locale["Footer"];
-		}
-		else {
-			isMainMenu = true;
-			defaultButtonView = locale["MainMenuFooter"];
-		}
-    }
-
-	~MainMenu() {
-		defaultButtonView = footerBackup;
-	}
+    OtherMenu() { }
 
     virtual tsl::elm::Element* createUI() override {
+        
+        auto* list = new tsl::elm::List();
 
-		if (jumpImmediatelyToSingleSmd == true && filesChecked.size() == 1) {
-			if (filesChecked[0].is_directory == false && standard_path.compare(root_path) == 0) {		
-				std::string full_path = standard_path + filesChecked[0].name;
+        list->addItem(new tsl::elm::CategoryHeader("Other"));
 
-				smd::Document::PeekInfo info;
-
-				if (smd::Document::Peek(full_path.c_str(), info, overrideLanguage.c_str())) {
-					std::string args = "--file " + filesChecked[0].name;
-					tsl::setNextOverlay(filepath, args);
-					tsl::Overlay::get()->close();
-						rootFrame = new tsl::elm::OverlayFrame("", "");
-					return rootFrame;
-				}
-			}
-		}
-
-		std::string version = APP_VERSION;
-		if (m_folderName.length() > 0) version += "\n\n" + m_folderName;
-
-		rootFrame = new tsl::elm::OverlayFrame(APP_TITLE, version.c_str());
-		auto list = new tsl::elm::List();
-
-
-        if (!filesChecked.empty()) {
-            for (const auto& item : filesChecked) {
-                if (item.is_directory) {
-					std::string localPath = standard_path + item.name + "/";
-					std::string localName = lookupSMF(localPath);
-					std::string name = localName.length() == 0 ? item.name : localName;
-                    auto folderItem = new tsl::elm::ListItem(name, "\uE133", true);
-                    folderItem->setClickListener([this, localPath, name](uint64_t keys) {
-                        if (keys & KEY_A) {
-                            tsl::changeTo<MainMenu>(localPath, name);
-                            return true;
-                        }
-						#ifdef DEBUG
-						else if (keys & KEY_Y) {
-							tsl::changeTo<MemoryCheck>();
-							return true;							
-						}
-						#endif
-						else if (isMainMenu && (keys & KEY_PLUS)) {
-							tsl::changeTo<ConfigurationMainMenu>();
-							return true;
-						}
-                        return false;
-                    });
-                    list->addItem(folderItem);
-                } 
-                else {
-                    std::string full_path = standard_path + item.name;
-                    
-                    smd::Document::PeekInfo info;
-                    smd::Document::Peek(full_path.c_str(), info, overrideLanguage.c_str());
-					FILE* file = fopen(full_path.c_str(), "rb");
-					bool doesHaveConfig = false;
-					bool customExitCombo = false;
-					if (file) {
-						fseek(file, 0, 2);
-						size_t size = ftell(file);
-						fseek(file, 0, 0);
-						char* buffer = 0;
-						buffer = (char*)malloc(size);
-						if (buffer) {
-							fread(buffer, 1, size, file);
-							doesHaveConfig = FindConfigs(buffer, size);
-							customExitCombo = itHasCustomExitCombo(buffer, size);
-							free(buffer);
-						}
-						fclose(file);
-					}
-					std::string second = "";
-					if (info.name.empty()) second = "\uE098";
-					else {
-						if (customExitCombo) second = "\uE136";
-						if (doesHaveConfig) second += "\uE04F";
-					} 
-                    auto fileItem = new tsl::elm::ListItem(info.name.empty() ? item.name : info.name, second.c_str(), info.name.empty() ? true : false);
-                    fileItem->setClickListener([this, info, full_path, doesHaveConfig](uint64_t keys) {
-						if (info.name.empty() == false) {
-							if (keys & KEY_A) {
-								// SMD dimensions describe widget geometry only. Changing the
-								// canonical framebuffer or restarting the overlay per mode breaks
-								// compact layouts and their return/lifecycle path.
-								tsl::changeTo<RenderingPipeline>(full_path);
-								return true;
-							}
-							else if (doesHaveConfig == true && (keys & KEY_Y)) {
-								tsl::changeTo<Configuration>(full_path, info.name);
-								return true;
-							}
-							else if (isMainMenu && (keys & KEY_PLUS)) {
-								tsl::changeTo<ConfigurationMainMenu>();
-								return true;
-							}
-						}
-                        return false;
-                    });
-                    list->addItem(fileItem);
-                }
+        auto* Battery = new tsl::elm::ListItem("Battery/Charger");
+        Battery->disableClickAnimation();
+        Battery->setClickListener([](uint64_t keys) {
+            if (keys & KEY_A) {
+                tsl::swapTo<BatteryOverlay>();
+                return true;
             }
-            rootFrame->setContent(list);
+            return false;
+        });
+        list->addItem(Battery);
+
+        auto* Misc = new tsl::elm::ListItem("Miscellaneous");
+        Misc->disableClickAnimation();
+        Misc->setClickListener([](uint64_t keys) {
+            if (keys & KEY_A) {
+                tsl::swapTo<MiscOverlay>();
+                return true;
+            }
+            return false;
+        });
+        list->addItem(Misc);
+
+        //if (SaltySD) {
+        //    auto* Res = new tsl::elm::ListItem("Game Resolutions");
+        //    Res->setClickListener([](uint64_t keys) {
+        //        if (keys & KEY_A) {
+        //            tsl::swapTo<ResolutionsOverlay>();
+        //            return true;
+        //        }
+        //        return false;
+        //    });
+        //    list->addItem(Res);
+        //}
+        //tsl::elm::g_disableMenuCacheOnReturn.store(true, std::memory_order_release);
+        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Ряжа-Монитор", localizeSubtitle("Modes"));
+        if (!lastSelectedItem.empty()) {
+            list->jumpToItem(lastSelectedItem);
         }
-        else {
-            auto Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
-                renderer->drawString("No folders or .smd files found!", false, 20, 20, 20, renderer->a(0xFFFF));
-            });
-            rootFrame->setContent(Status);
-        }
+        lastSelectedItem = "Other";
+
+        rootFrame->setContent(list);
 
         return rootFrame;
     }
 
-	virtual void update() override {}
+    virtual void update() override {
+        if (fixForeground) {
+            fixForeground = false;
+            tsl::hlp::requestForeground(true);
+        }
+    }
 
-	virtual bool handleInput(uint64_t keysDown, uint64_t keysHeld, touchPosition touchInput, JoystickPosition leftJoyStick, JoystickPosition rightJoyStick) override {
-		if (handleQuickCombos(keysDown, keysHeld))
-			return true;
-		if (keysDown & KEY_B) {
-			tsl::hlp::requestForeground(true);
-			tsl::goBack();
-			return true;
-		}
-		return false;
-	}
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState joyStickPosLeft, HidAnalogStickState joyStickPosRight) override {
+        if (disableJumpTo)
+            disableJumpTo = false;
+        if (fixHiding) {
+            if (isKeyComboPressed2(keysDown, keysHeld)) {
+                tsl::Overlay::get()->hide();
+                fixHiding = false;
+                return true;
+            }
+        }
+
+        if (keysDown & KEY_B) {
+            
+            tsl::swapTo<MainMenu>();
+            triggerExitFeedback();
+            return true;
+        }
+        return false;
+    }
+};
+
+//Main Menu
+class MainMenu : public tsl::Gui {
+public:
+    MainMenu() {
+        if (lastMode != "returning")
+            lastMode = "";
+    }
+
+    virtual tsl::elm::Element* createUI() override {
+        
+        auto* list = new tsl::elm::List();
+        
+        //list->addItem(new tsl::elm::CategoryHeader("Modes " + ult::DIVIDER_SYMBOL + " \uE0E0 Enter " + ult::DIVIDER_SYMBOL + " \uE0E3 Configure"));
+        list->addItem(new tsl::elm::CategoryHeader("Режимы " + ult::DIVIDER_SYMBOL + "+ Настройки"));
+
+        auto* Full = new tsl::elm::ListItem("Full");
+        Full->enableShortHoldKey();
+        Full->disableClickAnimation();
+        Full->setClickListener([](uint64_t keys) {
+            if (keys & KEY_A) {
+                lastMode = "full";
+                tsl::swapTo<FullOverlay>();
+                return true;
+            }
+            if (keys & KEY_PLUS) {
+                triggerSettingsFeedback();
+                // Launch configurator for Mini mode
+                tsl::swapTo<ConfiguratorOverlay>("Full");
+                return true;
+            }
+            return false;
+        });
+        list->addItem(Full);
+        //auto* Mini = new tsl::elm::ListItem("Mini");
+        //Mini->setClickListener([](uint64_t keys) {
+        //    if (keys & KEY_A) {
+        //        tsl::swapTo<MiniOverlay>();
+        //        return true;
+        //    }
+        //    return false;
+        //});
+        //list->addItem(Mini);
+
+        bool fileExist = false;
+        FILE* test = fopen(std::string(folderpath + filename).c_str(), "rb");
+        if (test) {
+            fclose(test);
+            fileExist = true;
+            filepath = folderpath + filename;
+        }
+        else {
+            test = fopen(std::string(folderpath + "Status-Monitor-Overlay.ovl").c_str(), "rb");
+            if (test) {
+                fclose(test);
+                fileExist = true;
+                filepath = folderpath + "Status-Monitor-Overlay.ovl";
+            }
+        }
+        if (fileExist) {
+            auto* Mini = new tsl::elm::SilentListItem("Mini");
+            Mini->enableShortHoldKey();
+            Mini->disableClickAnimation();
+            Mini->setClickListener([](uint64_t keys) {
+                if (keys & KEY_A) {
+                    tsl::setNextOverlay(filepath, directSession ? "-mini --direct" : "-mini");
+                    // Launching a mode is not an exit: in a direct session suppress the
+                    // directMode close-time exit feedback (this marks the close as a launch).
+                    if (directSession) launchComboHasTriggered.store(true, std::memory_order_release);
+                    tsl::Overlay::get()->close();
+                    return true;
+                }
+                if (keys & KEY_PLUS) {
+                    triggerSettingsFeedback();
+                    // Launch configurator for Mini mode
+                    tsl::swapTo<ConfiguratorOverlay>("Mini");
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(Mini);
+
+            auto* Micro = new tsl::elm::SilentListItem("Micro");
+            Micro->enableShortHoldKey();
+            Micro->disableClickAnimation();
+            Micro->setClickListener([](uint64_t keys) {
+                if (keys & KEY_A) {
+                    tsl::setNextOverlay(filepath, directSession ? "-micro --direct" : "-micro");
+                    if (directSession) launchComboHasTriggered.store(true, std::memory_order_release);
+                    tsl::Overlay::get()->close();
+                    return true;
+                }
+                if (keys & KEY_PLUS) {
+                    triggerSettingsFeedback();
+                    // Launch configurator for Micro mode
+                    tsl::swapTo<ConfiguratorOverlay>("Micro");
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(Micro);
+        }
+        if (SaltySD) {
+            //auto* Graphs = new tsl::elm::ListItem("FPS");
+            //Graphs->setValue(ult::DROPDOWN_SYMBOL);
+            //Graphs->setClickListener([](uint64_t keys) {
+            //    if (keys & KEY_A) {
+            //        tsl::swapTo<GraphsMenu>();
+            //        return true;
+            //    }
+            //    return false;
+            //});
+            //list->addItem(Graphs);
+
+            auto* comFPSGraph = new tsl::elm::SilentListItem("FPS Graph");
+            comFPSGraph->enableShortHoldKey();
+            comFPSGraph->disableClickAnimation();
+            comFPSGraph->setClickListener([](uint64_t keys) {
+                //if (keys & KEY_A) {
+                //    tsl::elm::g_disableMenuCacheOnReturn.store(true, std::memory_order_release);
+                //    lastMode = "fps_graph";
+                //    tsl::swapTo<com_FPSGraph>();
+                //    return true;
+                //}
+                if (keys & KEY_A) {
+                    tsl::setNextOverlay(filepath, directSession ? "-fps_graph --direct" : "-fps_graph");
+                    if (directSession) launchComboHasTriggered.store(true, std::memory_order_release);
+                    tsl::Overlay::get()->close();
+                    return true;
+                }
+
+                if (keys & KEY_PLUS) {
+                    triggerSettingsFeedback();
+                    // Launch configurator for Micro mode
+                    tsl::swapTo<ConfiguratorOverlay>("FPS Graph");
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(comFPSGraph);
+
+            auto* comFPSCounter = new tsl::elm::SilentListItem("FPS Counter");
+            comFPSCounter->enableShortHoldKey();
+            comFPSCounter->disableClickAnimation();
+            comFPSCounter->setClickListener([](uint64_t keys) {
+                //if (keys & KEY_A) {
+                //    tsl::elm::g_disableMenuCacheOnReturn.store(true, std::memory_order_release);
+                //    lastMode = "fps_counter";
+                //    tsl::swapTo<com_FPS>();
+                //    return true;
+                //}
+                if (keys & KEY_A) {
+                    tsl::setNextOverlay(filepath, directSession ? "-fps_counter --direct" : "-fps_counter");
+                    if (directSession) launchComboHasTriggered.store(true, std::memory_order_release);
+                    tsl::Overlay::get()->close();
+                    return true;
+                }
+
+                if (keys & KEY_PLUS) {
+                    triggerSettingsFeedback();
+                    // Launch configurator for Micro mode
+                    tsl::swapTo<ConfiguratorOverlay>("FPS Counter");
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(comFPSCounter);
+
+            auto* Res = new tsl::elm::SilentListItem("Game Resolutions");
+            Res->enableShortHoldKey();
+            Res->disableClickAnimation();
+            Res->setClickListener([](uint64_t keys) {
+                //if (keys & KEY_A) {
+                //    tsl::elm::g_disableMenuCacheOnReturn.store(true, std::memory_order_release);
+                //    lastMode = "game_resolutions";
+                //    tsl::swapTo<ResolutionsOverlay>();
+                //    return true;
+                //}
+                if (keys & KEY_A) {
+                    tsl::setNextOverlay(filepath, directSession ? "-game_resolutions --direct" : "-game_resolutions");
+                    if (directSession) launchComboHasTriggered.store(true, std::memory_order_release);
+                    tsl::Overlay::get()->close();
+                    return true;
+                }
+                if (keys & KEY_PLUS) {
+                    triggerSettingsFeedback();
+                    // Launch configurator for Micro mode
+                    tsl::swapTo<ConfiguratorOverlay>("Game Resolutions");
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(Res);
+
+        }
+        auto* Other = new tsl::elm::ListItem("Other");
+        Other->disableClickAnimation();
+        Other->setValue(ult::DROPDOWN_SYMBOL);
+        Other->setClickListener([](uint64_t keys) {
+            if (keys & KEY_A) {
+                //triggerEnterFeedback();
+                tsl::swapTo<OtherMenu>();
+                return true;
+            }
+            return false;
+        });
+        list->addItem(Other);
+
+        if (!lastSelectedItem.empty()) {
+            list->jumpToItem(lastSelectedItem);
+            lastSelectedItem = "";
+        }
+
+
+        //list->disableCaching();
+        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Ряжа-Монитор", APP_VERSION);
+        rootFrame->setContent(list);
+
+        return rootFrame;
+    }
+
+    virtual void update() override {
+        if (!ult::useRightAlignment) {
+            //if ((tsl::cfg::LayerPosX || tsl::cfg::LayerPosY)) {
+            tsl::gfx::Renderer::get().setLayerPos(0, 0);
+            //}
+        } else {
+            const auto [horizontalUnderscanPixels, verticalUnderscanPixels] = tsl::gfx::getUnderscanPixels();
+            tsl::gfx::Renderer::get().setLayerPos(1280-32 - horizontalUnderscanPixels, 0);
+        }
+        if (fixForeground) {
+            fixForeground = false;
+            tsl::hlp::requestForeground(true);
+        }
+    }
+
+    virtual bool handleInput(u64 keysDown, u64 keysHeld, const HidTouchState &touchPos, HidAnalogStickState joyStickPosLeft, HidAnalogStickState joyStickPosRight) override {
+        if (disableJumpTo)
+            disableJumpTo = false;
+        if (fixHiding) {
+            if (isKeyComboPressed2(keysDown, keysHeld)) {
+                tsl::Overlay::get()->hide();
+                fixHiding = false;
+                return true;
+            }
+        }
+
+        if (keysDown & KEY_B) {
+            if (directSession) {
+                // This menu was reached through the direct/combo flow, so "back" should
+                // continue unwinding to ovlmenu rather than just closing to the system.
+                // --comboReturnFrom positions ovlmenu's cursor on the SM row.
+                // --comboReturn is intentionally OMITTED: that flag tells ovlmenu "the
+                // overlay already played its own exit feedback, suppress yours." Here we
+                // want ovlmenu to play the exit feedback (SM suppresses its own teardown
+                // feedback via skipClosingExitFeedback), so we don't pass --comboReturn.
+                directSession = false;
+                ult::setIniFileValue(ult::RYZHAND_CONFIG_INI_PATH, ult::RYZHAND_PROJECT_NAME,
+                                     ult::IN_OVERLAY_STR, ult::TRUE_STR);
+                tsl::setNextOverlay(returnOverlayPath,
+                    "--direct --comboReturnFrom " + ult::getNameFromPath(filepath));
+                skipClosingExitFeedback = true; // suppress SM's own teardown double-click
+                tsl::Overlay::get()->close();
+                return true;
+            }
+            tsl::goBack();
+            return true;
+        }
+        return false;
+    }
 };
 
 class MonitorOverlay : public tsl::Overlay {
 public:
 
-	virtual void initServices() override {
-		//Initialize services
-		tsl::hlp::doWithSmSession([this]{
+    virtual void initServices() override {
+        //Initialize services
+        tsl::hlp::doWithSmSession([this]{
 
-			if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
-			else pcvCheck = pcvInitialize();
+            apmInitialize();
+            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
+            else pcvCheck = pcvInitialize();
 
-			if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
+            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
 
-			if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
-				pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
-			}
+            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
+                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
+            }
 
-			if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
 
-			psmCheck = psmInitialize();
-			i2cCheck = i2cInitialize();
+            psmCheck = psmInitialize();
+            if (R_SUCCEEDED(psmCheck)) {
+                psmService = psmGetServiceSession();
+            }
+            i2cCheck = i2cInitialize();
 
-			SaltySD = CheckPort();
+            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
+                uint32_t sysClkApiVer = 0;
+                sysclkIpcGetAPIVersion(&sysClkApiVer);
+                if (sysClkApiVer < 4) {
+                    sysclkIpcExit();
+                }
+                else sysclkCheck = 0;
+            }
+            // Fallback: try hoc-clk (Horizon OC native IPC, hoc:clk service)
+            else if (hocclkIpcRunning() && R_SUCCEEDED(hocclkIpcInitialize())) {
+                uint32_t hocClkApiVer = 0;
+                hocclkIpcGetAPIVersion(&hocClkApiVer);
+                if (hocClkApiVer < 2) {
+                    hocclkIpcExit();
+                }
+                else hocclkCheck = 0;
+            }
+            if (R_SUCCEEDED(splInitialize())) {
+                u64 sku = 0;
+                splGetConfig(SplConfigItem_HardwareType, &sku);
+                switch(sku) {
+                    case 2 ... 5:
+                        isMariko = true;
+                        break;
+                    default:
+                        isMariko = false;
+                }
+            }
+            splExit();
 
-			if (SaltySD) {
-				LoadSharedMemoryAndRefreshRate();
-			}
+        });
+        SaltySD = CheckPort();
+        if (SaltySD) {
+            LoadSharedMemoryAndRefreshRate();
+        }
+        Hinted = envIsSyscallHinted(0x6F);
+    }
 
-			smseLoadFolder("sdmc:/config/status-monitor/extensions/");
-			smseExecuteAll();
-		});
-			Hinted = envIsSyscallHinted(0x6F);
-		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_ProController], 1, HidNpadIdType_No1,      HidNpadStyleTag_NpadFullKey);
-		hidGetSixAxisSensorHandles(&sixaxisHandles[Controller_JoyConL], 2, HidNpadIdType_No1,      HidNpadStyleTag_NpadJoyDual);
-	}
+    virtual void exitServices() override {
+        CloseThreads();
+        if (R_SUCCEEDED(sysclkCheck)) {
+            sysclkIpcExit();
+        }
+        if (R_SUCCEEDED(hocclkCheck)) {
+            hocclkIpcExit();
+            hocclkCheck = 1;
+        }
+        shmemClose(&_sharedmemory);
+        //Exit services
+        clkrstExit();
+        pcvExit();
+        tsExit();
+        tcExit();
+        pwmChannelSessionClose(&g_ICon);
+        pwmExit();
+        nvClose(fd);
+        nvExit();
+        psmExit();
+        i2cExit();
+        apmExit();
+    }
 
-	virtual void exitServices() override {
-		for (auto& se : serviceExt) {
-			serviceClose(&se.service);
-		}
+    virtual void onShow() override {}    // Called before overlay wants to change from invisible to visible state
+    virtual void onHide() override {}    // Called before overlay wants to change from visible to invisible state
 
-		shmemClose(&_sharedmemory);
-		//Exit services
-		clkrstExit();
-		pcvExit();
-		tcExit();
-		pwmChannelSessionClose(&g_ICon);
-		pwmExit();
-		nvClose(fd);
-		nvExit();
-		psmExit();
-		i2cExit();
-	}
-
-    virtual void onShow() override {}
-    virtual void onHide() override {}
-
-	virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
-		// `tsl::loop` has already parsed [ryazhahand] here. Refresh the theme
-		// bindings used by SMD after that canonical bootstrap, not only before it.
-		ApplyRyazhaTheme();
-		// Ryazha Status Monitor uses the library's standard click and navigation
-		// vibration once libryazhahand has loaded its global configuration.
-		ult::useHapticFeedback = true;
-
-		//Get actual time without using time service
-		remove("sdmc:/dddd.dddd");
-		FsFileSystem* filesystem = fsdevGetDeviceFileSystem("sdmc");
-		char out_path[FS_MAX_PATH] = "";
-		fsdevTranslatePath("sdmc:/dddd.dddd", &filesystem, out_path);
-		LocalTime.relative_tick = svcGetSystemTick();
-		Result rc = fsFsCreateFile(filesystem, out_path, 0, 0);
-		if (R_SUCCEEDED(rc)) {
-			struct stat attr;
-			stat("sdmc:/dddd.dddd", &attr);
-			remove("sdmc:/dddd.dddd");
-			LocalTime.timestamp = attr.st_mtime;
-		}
-		if (file_to_load.length() == 0)
-        	return initially<MainMenu>("");
-		else {
-			return initially<RenderingPipelineDummy>(file_to_load);
-		}
+    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+        return initially<MainMenu>();  // Initial Gui to load. It's possible to pass arguments to it's constructor like this
     }
 };
 
-// Canonical libryazhahand owns theme loading. Status Monitor deliberately
-// keeps the mode background opaque so every SMD layout has a stable backdrop.
-static void ApplyRyazhaTheme() {
-	tsl::initializeTheme();
-	tsl::initializeThemeVars();
-	tsl::defaultBackgroundColor.a = 0xF;
+class MicroMode : public tsl::Overlay {
+public:
 
-	// SMD mode colors must follow the *same loaded canonical colors* as the
-	// renderer. Reading raw INI values before `tsl::loop` parses [ryazhahand]
-	// leaves these bindings stale when the selected theme path changes.
-	ThemeData.TextColor_int     = tsl::defaultTextColor.rgba;
-	ThemeData.CategoryColor_int = tsl::highlightColor1.rgba;
-	ThemeData.AccentColor_int   = tsl::highlightColor2.rgba;
-	ThemeData.BoxColor_int      = tsl::defaultBackgroundColor.rgba;
+    virtual void initServices() override {
+        //tsl::hlp::requestForeground(false);
+        //Initialize services
+        tsl::hlp::doWithSmSession([this]{
+            apmInitialize();
+            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
+            else pcvCheck = pcvInitialize();
+
+            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+
+            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
+
+            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
+                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
+            }
+
+            i2cCheck = i2cInitialize();
+
+            psmCheck = psmInitialize();
+            if (R_SUCCEEDED(psmCheck)) {
+                psmService = psmGetServiceSession();
+            }
+
+            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
+                uint32_t sysClkApiVer = 0;
+                sysclkIpcGetAPIVersion(&sysClkApiVer);
+                if (sysClkApiVer < 4) {
+                    sysclkIpcExit();
+                }
+                else sysclkCheck = 0;
+            }
+            // Fallback: try hoc-clk (Horizon OC native IPC, hoc:clk service)
+            else if (hocclkIpcRunning() && R_SUCCEEDED(hocclkIpcInitialize())) {
+                uint32_t hocClkApiVer = 0;
+                hocclkIpcGetAPIVersion(&hocClkApiVer);
+                if (hocClkApiVer < 2) {
+                    hocclkIpcExit();
+                }
+                else hocclkCheck = 0;
+            }
+            if (R_SUCCEEDED(splInitialize())) {
+                u64 sku = 0;
+                splGetConfig(SplConfigItem_HardwareType, &sku);
+                switch(sku) {
+                    case 2 ... 5:
+                        isMariko = true;
+                        break;
+                    default:
+                        isMariko = false;
+                }
+            }
+            splExit();
+        });
+        SaltySD = CheckPort();
+        if (SaltySD) {
+            LoadSharedMemory();
+        }
+        Hinted = envIsSyscallHinted(0x6F);
+    }
+
+    virtual void exitServices() override {
+        CloseThreads();
+        shmemClose(&_sharedmemory);
+        if (R_SUCCEEDED(sysclkCheck)) {
+            sysclkIpcExit();
+        }
+        if (R_SUCCEEDED(hocclkCheck)) {
+            hocclkIpcExit();
+            hocclkCheck = 1;
+        }
+        //Exit services
+        clkrstExit();
+        pcvExit();
+        tsExit();
+        tcExit();
+        pwmChannelSessionClose(&g_ICon);
+        pwmExit();
+        i2cExit();
+        psmExit();
+        nvClose(fd);
+        nvExit();
+        apmExit();
+    }
+
+    virtual void onShow() override { // Called before overlay wants to change from invisible to visible state
+        tsl::hlp::requestForeground(false);
+    }    
+    virtual void onHide() override {}    // Called before overlay wants to change from visible to invisible state
+
+    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+        return initially<MicroOverlay>();  // Initial Gui to load. It's possible to pass arguments to it's constructor like this
+    }
+};
+
+class MiniEntryOverlay : public tsl::Overlay {
+public:
+    MiniEntryOverlay() {}
+
+    virtual void initServices() override {
+
+        //tsl::hlp::requestForeground(false);
+        // Same service‐init as before
+        tsl::hlp::doWithSmSession([this]{
+            apmInitialize();
+            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
+            else pcvCheck = pcvInitialize();
+
+            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+
+            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
+
+            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
+                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
+            }
+
+            i2cCheck = i2cInitialize();
+
+            psmCheck = psmInitialize();
+            if (R_SUCCEEDED(psmCheck)) {
+                psmService = psmGetServiceSession();
+            }
+
+            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
+                uint32_t sysClkApiVer = 0;
+                sysclkIpcGetAPIVersion(&sysClkApiVer);
+                if (sysClkApiVer < 4) {
+                    sysclkIpcExit();
+                }
+                else sysclkCheck = 0;
+            }
+            // Fallback: try hoc-clk (Horizon OC native IPC, hoc:clk service)
+            else if (hocclkIpcRunning() && R_SUCCEEDED(hocclkIpcInitialize())) {
+                uint32_t hocClkApiVer = 0;
+                hocclkIpcGetAPIVersion(&hocClkApiVer);
+                if (hocClkApiVer < 2) {
+                    hocclkIpcExit();
+                }
+                else hocclkCheck = 0;
+            }
+            if (R_SUCCEEDED(splInitialize())) {
+                u64 sku = 0;
+                splGetConfig(SplConfigItem_HardwareType, &sku);
+                switch(sku) {
+                    case 2 ... 5:
+                        isMariko = true;
+                        break;
+                    default:
+                        isMariko = false;
+                }
+            }
+            splExit();
+        });
+        Hinted = envIsSyscallHinted(0x6F);
+
+    }
+
+    virtual void exitServices() override {
+        CloseThreads();
+        shmemClose(&_sharedmemory);
+        if (R_SUCCEEDED(sysclkCheck)) {
+            sysclkIpcExit();
+        }
+        if (R_SUCCEEDED(hocclkCheck)) {
+            hocclkIpcExit();
+            hocclkCheck = 1;
+        }
+        // Exit services
+        clkrstExit();
+        pcvExit();
+        tsExit();
+        tcExit();
+        pwmChannelSessionClose(&g_ICon);
+        pwmExit();
+        i2cExit();
+        psmExit();
+        nvClose(fd);
+        nvExit();
+        apmExit();
+    }
+
+    // **Override onShow** so that as soon as this Overlay appears, we let input pass through.
+    virtual void onShow() override {
+        // Request that Tesla stop grabbing all buttons/touches
+        tsl::hlp::requestForeground(false);
+
+        // (Optional) hide Tesla’s footer if you don’t want it
+        //deactivateOriginalFooter = true;
+    }
+
+    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+        // Immediately show your MiniOverlay page
+        return initially<MiniOverlay>();
+    }
+};
+
+class FPSGraphEntryOverlay : public tsl::Overlay {
+public:
+    FPSGraphEntryOverlay() {}
+
+    virtual void initServices() override {
+        tsl::hlp::doWithSmSession([this]{
+            apmInitialize();
+            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
+            else pcvCheck = pcvInitialize();
+
+            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+
+            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
+
+            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
+                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
+            }
+
+            i2cCheck = i2cInitialize();
+
+            psmCheck = psmInitialize();
+            if (R_SUCCEEDED(psmCheck)) {
+                psmService = psmGetServiceSession();
+            }
+
+            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
+                uint32_t sysClkApiVer = 0;
+                sysclkIpcGetAPIVersion(&sysClkApiVer);
+                if (sysClkApiVer < 4) {
+                    sysclkIpcExit();
+                }
+                else sysclkCheck = 0;
+            }
+            // Fallback: try hoc-clk (Horizon OC native IPC, hoc:clk service)
+            else if (hocclkIpcRunning() && R_SUCCEEDED(hocclkIpcInitialize())) {
+                uint32_t hocClkApiVer = 0;
+                hocclkIpcGetAPIVersion(&hocClkApiVer);
+                if (hocClkApiVer < 2) {
+                    hocclkIpcExit();
+                }
+                else hocclkCheck = 0;
+            }
+            if (R_SUCCEEDED(splInitialize())) {
+                u64 sku = 0;
+                splGetConfig(SplConfigItem_HardwareType, &sku);
+                switch(sku) {
+                    case 2 ... 5:
+                        isMariko = true;
+                        break;
+                    default:
+                        isMariko = false;
+                }
+            }
+            splExit();
+        });
+        SaltySD = CheckPort();
+        if (SaltySD) {
+            LoadSharedMemoryAndRefreshRate();
+        }
+        Hinted = envIsSyscallHinted(0x6F);
+    }
+
+    virtual void exitServices() override {
+        CloseThreads();
+        shmemClose(&_sharedmemory);
+        if (R_SUCCEEDED(sysclkCheck)) {
+            sysclkIpcExit();
+        }
+        if (R_SUCCEEDED(hocclkCheck)) {
+            hocclkIpcExit();
+            hocclkCheck = 1;
+        }
+        clkrstExit();
+        pcvExit();
+        tsExit();
+        tcExit();
+        pwmChannelSessionClose(&g_ICon);
+        pwmExit();
+        i2cExit();
+        psmExit();
+        nvClose(fd);
+        nvExit();
+        apmExit();
+    }
+
+    virtual void onShow() override {
+        tsl::hlp::requestForeground(false);
+        //deactivateOriginalFooter = true;
+    }
+
+    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+        return initially<com_FPSGraph>();
+    }
+};
+
+class FPSCounterEntryOverlay : public tsl::Overlay {
+public:
+    FPSCounterEntryOverlay() {}
+
+    virtual void initServices() override {
+        tsl::hlp::doWithSmSession([this]{
+            apmInitialize();
+            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
+            else pcvCheck = pcvInitialize();
+
+            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+
+            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
+
+            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
+                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
+            }
+
+            i2cCheck = i2cInitialize();
+
+            psmCheck = psmInitialize();
+            if (R_SUCCEEDED(psmCheck)) {
+                psmService = psmGetServiceSession();
+            }
+
+            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
+                uint32_t sysClkApiVer = 0;
+                sysclkIpcGetAPIVersion(&sysClkApiVer);
+                if (sysClkApiVer < 4) {
+                    sysclkIpcExit();
+                }
+                else sysclkCheck = 0;
+            }
+            // Fallback: try hoc-clk (Horizon OC native IPC, hoc:clk service)
+            else if (hocclkIpcRunning() && R_SUCCEEDED(hocclkIpcInitialize())) {
+                uint32_t hocClkApiVer = 0;
+                hocclkIpcGetAPIVersion(&hocClkApiVer);
+                if (hocClkApiVer < 2) {
+                    hocclkIpcExit();
+                }
+                else hocclkCheck = 0;
+            }
+            if (R_SUCCEEDED(splInitialize())) {
+                u64 sku = 0;
+                splGetConfig(SplConfigItem_HardwareType, &sku);
+                switch(sku) {
+                    case 2 ... 5:
+                        isMariko = true;
+                        break;
+                    default:
+                        isMariko = false;
+                }
+            }
+            splExit();
+        });
+        SaltySD = CheckPort();
+        if (SaltySD) {
+            LoadSharedMemoryAndRefreshRate();
+        }
+        Hinted = envIsSyscallHinted(0x6F);
+    }
+
+    virtual void exitServices() override {
+        CloseThreads();
+        shmemClose(&_sharedmemory);
+        if (R_SUCCEEDED(sysclkCheck)) {
+            sysclkIpcExit();
+        }
+        if (R_SUCCEEDED(hocclkCheck)) {
+            hocclkIpcExit();
+            hocclkCheck = 1;
+        }
+        clkrstExit();
+        pcvExit();
+        tsExit();
+        tcExit();
+        pwmChannelSessionClose(&g_ICon);
+        pwmExit();
+        i2cExit();
+        psmExit();
+        nvClose(fd);
+        nvExit();
+        apmExit();
+    }
+
+    virtual void onShow() override {
+        tsl::hlp::requestForeground(false);
+        //deactivateOriginalFooter = true;
+    }
+
+    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+        return initially<com_FPS>();
+    }
+};
+
+class GameResolutionsEntryOverlay : public tsl::Overlay {
+public:
+    GameResolutionsEntryOverlay() {}
+
+    virtual void initServices() override {
+        tsl::hlp::doWithSmSession([this]{
+            apmInitialize();
+            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
+            else pcvCheck = pcvInitialize();
+
+            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+
+            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
+
+            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
+                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
+            }
+
+            i2cCheck = i2cInitialize();
+
+            psmCheck = psmInitialize();
+            if (R_SUCCEEDED(psmCheck)) {
+                psmService = psmGetServiceSession();
+            }
+
+            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
+                uint32_t sysClkApiVer = 0;
+                sysclkIpcGetAPIVersion(&sysClkApiVer);
+                if (sysClkApiVer < 4) {
+                    sysclkIpcExit();
+                }
+                else sysclkCheck = 0;
+            }
+            // Fallback: try hoc-clk (Horizon OC native IPC, hoc:clk service)
+            else if (hocclkIpcRunning() && R_SUCCEEDED(hocclkIpcInitialize())) {
+                uint32_t hocClkApiVer = 0;
+                hocclkIpcGetAPIVersion(&hocClkApiVer);
+                if (hocClkApiVer < 2) {
+                    hocclkIpcExit();
+                }
+                else hocclkCheck = 0;
+            }
+            if (R_SUCCEEDED(splInitialize())) {
+                u64 sku = 0;
+                splGetConfig(SplConfigItem_HardwareType, &sku);
+                switch(sku) {
+                    case 2 ... 5:
+                        isMariko = true;
+                        break;
+                    default:
+                        isMariko = false;
+                }
+            }
+            splExit();
+        });
+        SaltySD = CheckPort();
+        if (SaltySD) {
+            LoadSharedMemoryAndRefreshRate();
+        }
+        Hinted = envIsSyscallHinted(0x6F);
+    }
+
+    virtual void exitServices() override {
+        CloseThreads();
+        shmemClose(&_sharedmemory);
+        if (R_SUCCEEDED(sysclkCheck)) {
+            sysclkIpcExit();
+        }
+        if (R_SUCCEEDED(hocclkCheck)) {
+            hocclkIpcExit();
+            hocclkCheck = 1;
+        }
+        clkrstExit();
+        pcvExit();
+        tsExit();
+        tcExit();
+        pwmChannelSessionClose(&g_ICon);
+        pwmExit();
+        i2cExit();
+        psmExit();
+        nvClose(fd);
+        nvExit();
+        apmExit();
+    }
+
+    virtual void onShow() override {
+        tsl::hlp::requestForeground(false);
+        //deactivateOriginalFooter = true;
+    }
+
+    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+        return initially<ResolutionsOverlay>();
+    }
+};
+
+
+class FullEntryOverlay : public tsl::Overlay {
+public:
+    FullEntryOverlay() {}
+
+    virtual void initServices() override {
+        tsl::hlp::doWithSmSession([this]{
+            apmInitialize();
+            if (hosversionAtLeast(8,0,0)) clkrstCheck = clkrstInitialize();
+            else pcvCheck = pcvInitialize();
+
+            if (R_SUCCEEDED(nvInitialize())) nvCheck = nvOpen(&fd, "/dev/nvhost-ctrl-gpu");
+
+            if (hosversionAtLeast(5,0,0)) tcCheck = tcInitialize();
+
+            if (hosversionAtLeast(6,0,0) && R_SUCCEEDED(pwmInitialize())) {
+                pwmCheck = pwmOpenSession2(&g_ICon, 0x3D000001);
+            }
+
+            i2cCheck = i2cInitialize();
+
+            psmCheck = psmInitialize();
+            if (R_SUCCEEDED(psmCheck)) {
+                psmService = psmGetServiceSession();
+            }
+
+            if (sysclkIpcRunning() && R_SUCCEEDED(sysclkIpcInitialize())) {
+                uint32_t sysClkApiVer = 0;
+                sysclkIpcGetAPIVersion(&sysClkApiVer);
+                if (sysClkApiVer < 4) {
+                    sysclkIpcExit();
+                }
+                else sysclkCheck = 0;
+            }
+            // Fallback: try hoc-clk (Horizon OC native IPC, hoc:clk service)
+            else if (hocclkIpcRunning() && R_SUCCEEDED(hocclkIpcInitialize())) {
+                uint32_t hocClkApiVer = 0;
+                hocclkIpcGetAPIVersion(&hocClkApiVer);
+                if (hocClkApiVer < 2) {
+                    hocclkIpcExit();
+                }
+                else hocclkCheck = 0;
+            }
+            if (R_SUCCEEDED(splInitialize())) {
+                u64 sku = 0;
+                splGetConfig(SplConfigItem_HardwareType, &sku);
+                switch(sku) {
+                    case 2 ... 5:
+                        isMariko = true;
+                        break;
+                    default:
+                        isMariko = false;
+                }
+            }
+            splExit();
+        });
+        SaltySD = CheckPort();
+        if (SaltySD) {
+            LoadSharedMemoryAndRefreshRate();
+        }
+        Hinted = envIsSyscallHinted(0x6F);
+    }
+
+    virtual void exitServices() override {
+        CloseThreads();
+        shmemClose(&_sharedmemory);
+        if (R_SUCCEEDED(sysclkCheck)) {
+            sysclkIpcExit();
+        }
+        if (R_SUCCEEDED(hocclkCheck)) {
+            hocclkIpcExit();
+            hocclkCheck = 1;
+        }
+        clkrstExit();
+        pcvExit();
+        tsExit();
+        tcExit();
+        pwmChannelSessionClose(&g_ICon);
+        pwmExit();
+        i2cExit();
+        psmExit();
+        nvClose(fd);
+        nvExit();
+        apmExit();
+    }
+
+    virtual void onShow() override {
+        tsl::hlp::requestForeground(false);
+        //deactivateOriginalFooter = true;
+    }
+
+    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+        return initially<FullOverlay>();
+    }
+};
+
+
+// Helper function to check if overlay file exists
+bool checkOverlayFile(const std::string& filename) {
+    struct stat buffer;
+    return stat(filename.c_str(), &buffer) == 0;
 }
 
-int main(int argc, char **argv) {
-	#if !defined(__SWITCH__) && !defined(__OUNCE__)
-		systemtickfrequency = armGetSystemTickFreq();
-	#endif
+// Returns true and configures the framebuffer for 1080p pixel-perfect mode if:
+//   - the mode's use_1080p_docked INI key is true
+//   - the console is currently docked
+//   - we have enough heap (expandedMemory, i.e. 8 MB+)
+// Otherwise leaves framebuffer settings untouched and returns false.
+// Safe to call before tsl::loop<> — uses only ult::parseValueFromIniSection
+// (file read, no services) and ult::consoleIsDocked() (applet query, no apm).
+//
+// Framebuffer dimensions in 1080p mode: 832×1080
+//
+//   Why 832×1080?
+//   The overlay framebuffer area must not exceed the equivalent of the standard
+//   1280×720 budget (921,600 pixels).  For 1080p pixel-perfect we choose a
+//   full-height strip so the layer is always anchored at both top AND bottom —
+//   this guarantees the layer appears in screenshots and never gets clipped by
+//   the compositor:
+//
+//     832 × 1080 = 921,240 px  ≈  1280 × 720 = 921,600 px  ✓
+//
+//   Memory: 832×1080×2 bytes×2 buffers ≈ 3.7 MB — well within 8 MB heap.
+//
+//   The layer is placed at VI position (x, 0) with size 832×1080, and x is
+//   adjusted when the user drags the overlay so it stays within (0..1088)
+//   (1920 − 832).  frameOffsetX (stored in 0..1280 logical space) maps to
+//   VI x via:  viX = round(frameOffsetX × 1.5)  clamped to [0, 1088].
+// Optional width/height overrides let modes like Micro request different
+// 1080p dimensions (1920x480 / 1920x240) without affecting mini/fps-counter.
+// Pass 0,0 (the defaults) to use the standard 832×1080 / 832×554 dimensions.
+static bool setup1080pIfEnabled(const std::string& iniSection,
+                                 uint32_t fullWidth  = 0, uint32_t fullHeight  = 0,
+                                 uint32_t limitWidth = 0, uint32_t limitHeight = 0) {
+    //if (!ult::expandedMemory) return false;
+    if (!ult::consoleIsDocked()) return false;
+    const std::string val = ult::parseValueFromIniSection(configIniPath, iniSection, "use_1080p_docked");
+    // Missing key defaults to true — only an explicit "false" disables 1080p docked.
+    if (!val.empty()) {
+        std::string upper = val;
+        for (char& c : upper) c = (char)std::toupper((unsigned char)c);
+        if (upper == "FALSE") return false;
+    }
+    ult::windowedLayerPixelPerfect = true;
+    if (!ult::limitedMemory) {
+        ult::DefaultFramebufferWidth  = (fullWidth  > 0) ? fullWidth  : 832;
+        ult::DefaultFramebufferHeight = (fullHeight > 0) ? fullHeight : 1080;
+    } else {
+        ult::DefaultFramebufferWidth  = (limitWidth  > 0) ? limitWidth  : 832;
+        ult::DefaultFramebufferHeight = (limitHeight > 0) ? limitHeight : 554;
+    }
+    return true;
+}
 
-	ParseIniFile();
-	ApplyRyazhaTheme();
+// Helper function to setup mode framebuffer and filepath
+inline void setupMode(const std::string& modeType = "") {
+
+    if (modeType == "micro") {
+        ult::windowedLayerPixelPerfect = false; // reset; setup1080pIfEnabled sets true if eligible
+        if (!setup1080pIfEnabled("micro", 1920, 480, 1920, 240)) {
+            // Non-1080p micro: 1280x720 (non-limited) or 1280x360 (limited)
+            if (!ult::limitedMemory) {
+                ult::DefaultFramebufferWidth  = 1280;
+                ult::DefaultFramebufferHeight = 720;
+            } else {
+                ult::DefaultFramebufferWidth  = 1280;
+                ult::DefaultFramebufferHeight = 360;
+            }
+        }
+    } else if (modeType == "mini") {
+        ult::windowedLayerPixelPerfect = false; // reset; setup1080pIfEnabled sets true if eligible
+        if (!setup1080pIfEnabled("mini")) {
+            // Non-1080p mini: only set 1280x720 when not limitedMemory.
+            // limitedMemory falls through to the stock 448x720 default —
+            // setting 1280x720 on a 4MB heap crashes the overlay loader.
+            if (!ult::limitedMemory) {
+                ult::DefaultFramebufferWidth = 1280;
+                ult::DefaultFramebufferHeight = 720;
+            }
+        } // else 1080p dims set by setup1080pIfEnabled
+    } else if (modeType == "fps_counter") {
+        ult::windowedLayerPixelPerfect = false; // reset; setup1080pIfEnabled sets true if eligible
+        if (!setup1080pIfEnabled("fps-counter")) {
+            if (!ult::limitedMemory) {
+                ult::DefaultFramebufferWidth = 1280;
+                ult::DefaultFramebufferHeight = 720;
+            }
+        } // else 1080p dims set by setup1080pIfEnabled
+    } else {
+        if (!ult::limitedMemory) {
+            ult::DefaultFramebufferWidth = 1280;
+            ult::DefaultFramebufferHeight = 720;
+        }
+    }
+
+    // Try user-specified filename first, then fallback to default
+    const std::string primaryPath = folderpath + filename;
     
-	if (argc > 0) {
-		filename = argv[0];
-		filepath = folderpath + filename;
-	}
-	auto loadSmdFile = [](const char* smd_filename) {
-		std::string path = "sdmc:/config/status-monitor/modes/";
-		path += smd_filename;
+    if (checkOverlayFile(primaryPath)) {
+        filepath = primaryPath;
+    } else {
+        const std::string fallbackPath = folderpath + "Status-Monitor-Overlay.ovl";
+        if (checkOverlayFile(fallbackPath)) {
+            filepath = fallbackPath;
+        }
+    }
+}
 
-			struct stat filedata;
-			if (stat(path.c_str(), &filedata) == 0) {
-				file_to_load = path;
-			}
-	};
+//void setupMicroMode() {
+//    ult::DefaultFramebufferWidth = 1280;
+//    //ult::DefaultFramebufferHeight = 28;
+//    ult::DefaultFramebufferHeight = 720;
+//    
+//    // Try user-specified filename first, then fallback to default
+//    const std::string primaryPath = folderpath + filename;
+//    
+//    if (checkOverlayFile(primaryPath)) {
+//        filepath = primaryPath;
+//    } else {
+//        const std::string fallbackPath = folderpath + "Status-Monitor-Overlay.ovl";
+//        if (checkOverlayFile(fallbackPath)) {
+//            filepath = fallbackPath;
+//        }
+//    }
+//}
 
-	// Legacy Ryazha/Status-Monitor-Overlay mode arguments are mapped to the
-	// bundled SMD files so pre-Deux shortcuts keep working after the update.
-	auto legacySmdFor = [](const char* arg) -> const char* {
-		if (strcasecmp(arg, "-micro") == 0
-		 || strcasecmp(arg, "--microOverlay") == 0
-		 || strcasecmp(arg, "--microOverlay_") == 0) return "03.Micro.smd";
-		if (strcasecmp(arg, "-mini") == 0)             return "02.Mini.smd";
-		if (strcasecmp(arg, "-full") == 0)             return "01.Full.smd";
-		if (strcasecmp(arg, "-fps_graph") == 0)        return "FPS/01.FPSGraph.smd";
-		if (strcasecmp(arg, "-fps_counter") == 0)      return "FPS/02.FPSCounter.smd";
-		if (strcasecmp(arg, "-game_resolutions") == 0) return "Other/03.GameResolutions.smd";
-		return nullptr;
-	};
 
-	int arg = 1;
-	while (arg < argc) {
-		if (strcasecmp(argv[arg], "--file") == 0) {
-			if (arg + 1 < argc) {
-				loadSmdFile(argv[arg+1]);
-			}
-		}
-		else if (strcasecmp(argv[arg], "--submenu") == 0) {
-			tsl::setNextOverlay(filepath, "");
-		}
-		else if (const char* legacy = legacySmdFor(argv[arg])) {
-			loadSmdFile(legacy);
-		};
-		arg++;
-	}
+// This function gets called on startup to create a new Overlay object
+int main(int argc, char **argv) {
+
+    // Opt into returning to Status Monitor's OWN main menu (cursor on the mode's row)
+    // when a mode's launch combo is pressed again while that mode is active, instead of
+    // returning to ovlmenu. Must be set before tsl::loop starts the combo poller thread.
+    comboReturnToSelfMenu.store(true, std::memory_order_release);
+
+    // load heap settings outside of loop (only Status Monitor directive)
+    ult::currentHeapSize = ult::getCurrentHeapSize();
+    ult::expandedMemory = ult::currentHeapSize >= ult::OverlayHeapSize::Size_8MB;
+    ult::limitedMemory = ult::currentHeapSize == ult::OverlayHeapSize::Size_4MB;
+    
+    
+    // Initialize buffer sizes based on expanded memory setting
+    if (ult::expandedMemory) {
+        ult::furtherExpandedMemory = ult::currentHeapSize > ult::OverlayHeapSize::Size_8MB;
+        
+        if (!ult::furtherExpandedMemory) {
+            ult::loaderTitle += "+";
+            ult::COPY_BUFFER_SIZE = 262144;
+            ult::HEX_BUFFER_SIZE = 8192;
+            ult::UNZIP_READ_BUFFER = 262144;
+            ult::UNZIP_WRITE_BUFFER = 131072;
+            ult::DOWNLOAD_READ_BUFFER = 131072;
+            ult::DOWNLOAD_WRITE_BUFFER = 131072;
+        } else {
+            ult::loaderTitle += "×";
+            ult::COPY_BUFFER_SIZE = 262144*2;
+            ult::HEX_BUFFER_SIZE = 8192;
+            ult::UNZIP_READ_BUFFER = 262144*2;
+            ult::UNZIP_WRITE_BUFFER = 131072*4;
+            ult::DOWNLOAD_READ_BUFFER = 131072*4;
+            ult::DOWNLOAD_WRITE_BUFFER = 131072*4;
+        }
+    } else if (!ult::limitedMemory) {
+        ult::COPY_BUFFER_SIZE = 262144;
+        ult::HEX_BUFFER_SIZE = 8192;
+        ult::UNZIP_READ_BUFFER = 262144;
+        ult::UNZIP_WRITE_BUFFER = 131072;
+        ult::DOWNLOAD_READ_BUFFER = 131072;
+        ult::DOWNLOAD_WRITE_BUFFER = 131072;
+    } else {
+        ult::loaderTitle += "-";
+        //ult::DOWNLOAD_READ_BUFFER = 16*1024;
+        //ult::UNZIP_READ_BUFFER = 16*1024;
+    }
+    
+    systemtickfrequency = armGetSystemTickFreq();
+    ParseIniFile(); // parse INI from file
+
+    // Stash a flattened copy of the launch args (argv[1..]) so modes like Mini
+    // can relaunch with the same arguments.  --silentLaunch is stripped here so
+    // it never propagates automatically — modes add it explicitly when needed.
+    {
+        for (int a = 1; a < argc; ++a) {
+            if (strcmp(argv[a], "--silentLaunch") == 0) continue;
+            if (!originalLaunchArgs.empty()) originalLaunchArgs += ' ';
+            originalLaunchArgs += argv[a];
+        }
+    }
+    
+    if (argc > 0) {
+        filename = argv[0]; // set global
+        
+        if (ult::isFile(ult::OVERLAYS_INI_FILEPATH)) {
+            // Read the entire INI file once
+            auto iniData = ult::getParsedDataFromIniFile(ult::OVERLAYS_INI_FILEPATH);
+            
+            auto sectionIt = iniData.find(filename);
+            if (sectionIt != iniData.end()) {
+                auto& section = sectionIt->second;
+                
+                // Compare and update if values differ
+                const std::string expectedArgs = "(-full, -mini, -micro, -fps_graph, -fps_counter, -game_resolutions)";
+                const std::string expectedLabels = "(Полный, Мини, Микро, FPS-график, FPS + Гц, Разрешение)";
+                if (section["mode_args"] != expectedArgs || section["mode_labels"] != expectedLabels) {
+                    section["mode_args"] = expectedArgs;
+                    section["mode_labels"] = expectedLabels;
+                    ult::saveIniFileData(ult::OVERLAYS_INI_FILEPATH, iniData);
+                }
+            } else {
+                // If section doesn't exist, create it with expected values
+                iniData[filename]["mode_args"] = "(-full, -mini, -micro, -fps_graph, -fps_counter, -game_resolutions)";
+                iniData[filename]["mode_labels"] = "(Полный, Мини, Микро, FPS-график, FPS + Гц, Разрешение)";
+                ult::saveIniFileData(ult::OVERLAYS_INI_FILEPATH, iniData);
+            }
+        }
+    
+        // Pre-scan for --direct: present means launched via combo/direct, absent means UI-initiated.
+        // This replaces the old trailing-underscore convention (e.g. "-mini_" vs "-mini").
+        bool directLaunch = false;
+        bool hasLastSelected = false;
+        for (u8 arg = 1; arg < argc; arg++) {
+            if (strcmp(argv[arg], "--direct") == 0)           directLaunch = true;
+            else if (strcmp(argv[arg], "--lastSelectedItem") == 0) hasLastSelected = true;
+        }
+        // Direct session = combo-return into the menu (--direct + --lastSelectedItem) OR a
+        // direct/combo launch straight into a mode (--direct with a -mode arg, set below).
+        // A plain ovlmenu open of Status Monitor has --direct but no --lastSelectedItem, so
+        // it stays a normal session.
+        directSession = directLaunch && hasLastSelected;
+
+        // Process command line arguments
+        for (u8 arg = 0; arg < argc; arg++) {
+            const char* argStr = argv[arg];
+            if (argStr[0] != '-') continue;
+            
+
+            // Full mode
+            if (strcasecmp(argStr, "-full") == 0) {
+                FullMode = true;
+                lastMode = "full";
+                skipMain = true;
+                return tsl::loop<FullEntryOverlay>(argc, argv);
+            }
+            // Micro mode
+            else if (strcasecmp(argStr, "-micro") == 0) {
+                FullMode = false;
+                lastMode = "micro";
+                if (!directLaunch) {
+                    setupMode(lastMode);
+                } else {
+                    skipMain = true;
+                    ult::windowedLayerPixelPerfect = false; // reset before 1080p check
+                    if (!setup1080pIfEnabled("micro", 1920, 480, 1920, 240)) {
+                        if (!ult::limitedMemory) {
+                            ult::DefaultFramebufferWidth  = 1280;
+                            ult::DefaultFramebufferHeight = 720;
+                        } else {
+                            ult::DefaultFramebufferWidth  = 1280;
+                            ult::DefaultFramebufferHeight = 360;
+                        }
+                    }
+                }
+                return tsl::loop<MicroMode>(argc, argv);
+            }
+            // Mini mode
+            else if (strcasecmp(argStr, "-mini") == 0) {
+                FullMode = false;
+                lastMode = "mini";
+                if (!directLaunch) {
+                    setupMode("mini");
+                } else {
+                    skipMain = true;
+                    ult::windowedLayerPixelPerfect = false; // reset before 1080p check
+                    if (!setup1080pIfEnabled("mini")) {
+                        if (!ult::limitedMemory) {
+                            ult::DefaultFramebufferWidth = 1280;
+                            ult::DefaultFramebufferHeight = 720;
+                        }
+                    }
+                }
+                return tsl::loop<MiniEntryOverlay>(argc, argv);
+            }
+            // FPS Graph mode
+            else if (strcasecmp(argStr, "-fps_graph") == 0) {
+                FullMode = false;
+                lastMode = "fps_graph";
+                if (!directLaunch) {
+                    setupMode();
+                } else {
+                    skipMain = true;
+                    if (!ult::limitedMemory) {
+                        ult::DefaultFramebufferWidth = 1280;
+                        ult::DefaultFramebufferHeight = 720;
+                    }
+                }
+                return tsl::loop<FPSGraphEntryOverlay>(argc, argv);
+            }
+            // FPS Counter mode
+            else if (strcasecmp(argStr, "-fps_counter") == 0) {
+                FullMode = false;
+                lastMode = "fps_counter";
+                if (!directLaunch) {
+                    setupMode("fps_counter");
+                } else {
+                    skipMain = true;
+                    ult::windowedLayerPixelPerfect = false; // reset before 1080p check
+                    if (!setup1080pIfEnabled("fps-counter")) {
+                        if (!ult::limitedMemory) {
+                            ult::DefaultFramebufferWidth = 1280;
+                            ult::DefaultFramebufferHeight = 720;
+                        }
+                    }
+                }
+                return tsl::loop<FPSCounterEntryOverlay>(argc, argv);
+            }
+            // Game Resolutions mode
+            else if (strcasecmp(argStr, "-game_resolutions") == 0) {
+                FullMode = false;
+                lastMode = "game_resolutions";
+                if (!directLaunch) {
+                    setupMode();
+                } else {
+                    skipMain = true;
+                    if (!ult::limitedMemory) {
+                        ult::DefaultFramebufferWidth = 1280;
+                        ult::DefaultFramebufferHeight = 720;
+                    }
+                }
+                return tsl::loop<GameResolutionsEntryOverlay>(argc, argv);
+            }
+            // Handle --lastSelectedItem (multi-token argument)
+            else if (strcmp(argStr, "--lastSelectedItem") == 0 && arg + 1 < argc) {
+                lastSelectedItem.clear();
+                
+                for (++arg; arg < argc; ++arg) {
+                    const char* token = argv[arg];
+                    
+                    // Stop if we hit another flag
+                    if (token[0] == '-' && !lastSelectedItem.empty())
+                        break;
+                    
+                    // Add space separator
+                    if (!lastSelectedItem.empty())
+                        lastSelectedItem += ' ';
+                    
+                    lastSelectedItem += token;
+                    
+                    // Stop if token ends with quote
+                    const char lastChar = token[strlen(token) - 1];
+                    if (lastChar == '"' || lastChar == '\'') {
+                        ++arg;
+                        break;
+                    }
+                }
+                
+                // Clean up quotes and whitespace
+                ult::removeQuotes(lastSelectedItem);
+                
+                // Trim whitespace
+                const size_t start = lastSelectedItem.find_first_not_of(" \t");
+                if (start != std::string::npos) {
+                    const size_t end = lastSelectedItem.find_last_not_of(" \t");
+                    lastSelectedItem = lastSelectedItem.substr(start, end - start + 1);
+                } else {
+                    lastSelectedItem.clear();
+                }
+            }
+        }
+    }
+    
+    // Default case
     return tsl::loop<MonitorOverlay>(argc, argv);
 }
