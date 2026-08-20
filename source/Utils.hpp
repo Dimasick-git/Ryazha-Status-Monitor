@@ -2847,6 +2847,43 @@ struct FpsGraphSettings {
     uint16_t borderWheelColor4Deep;
 };
 
+struct SecuritySpacificateSettings {
+    // The first multi-panel mode has four independently switchable diagnostic
+    // cards. It is intentionally isolated from FullSettings so experimental
+    // configuration can never alter the stable Full mode.
+    bool showPerformance;
+    bool showSystem;
+    bool showThermals;
+    bool showPower;
+    bool useDynamicColors;
+    bool disableScreenshots;
+    uint8_t refreshRate;
+    uint8_t sampleRate;
+    uint8_t touchScalePercent;
+    uint8_t cornerRadiusSp;
+    int frameOffsetX;
+    int frameOffsetY;
+    size_t framePadding;
+    uint16_t touchMoveDelayMs;
+    uint16_t buttonMoveDelayMs;
+    uint16_t backgroundColor;
+    uint16_t focusBackgroundColor;
+    uint16_t catColor1;
+    uint16_t catColor2;
+    uint16_t textColor;
+    bool useBorder;
+    bool useDynamicBorder;
+    bool useBorderCW;
+    uint8_t borderThickness;
+    uint16_t borderColor;
+    uint16_t borderWheelColor1;
+    uint16_t borderWheelColor2;
+    uint16_t borderWheelColor3;
+    uint16_t borderWheelColor3Deep;
+    uint16_t borderWheelColor4;
+    uint16_t borderWheelColor4Deep;
+};
+
 struct ResolutionSettings {
     uint8_t refreshRate;
     uint8_t sampleRate;          // how often resolution data is re-polled; <= refreshRate
@@ -4611,6 +4648,99 @@ ALWAYS_INLINE void GetConfigSettings(FullSettings* settings) {
     if (it != section.end()) {
         settings->buttonMoveDelayMs = (uint16_t)std::clamp(atol(it->second.c_str()), 0L, 1000L);
     }
+}
+
+ALWAYS_INLINE void GetConfigSettings(SecuritySpacificateSettings* settings) {
+    settings->showPerformance = true;
+    settings->showSystem = true;
+    settings->showThermals = true;
+    settings->showPower = true;
+    settings->useDynamicColors = true;
+    settings->disableScreenshots = false;
+    settings->refreshRate = 30;
+    settings->sampleRate = 4;
+    settings->touchScalePercent = 100;
+    settings->cornerRadiusSp = 36;
+    settings->frameOffsetX = 0;
+    settings->frameOffsetY = 0;
+    settings->framePadding = 0;
+    settings->touchMoveDelayMs = 0;
+    settings->buttonMoveDelayMs = 1000;
+    convertStrToRGBA4444("#101F", &(settings->backgroundColor));
+    convertStrToRGBA4444("#210F", &(settings->focusBackgroundColor));
+    convertStrToRGBA4444("#FE4F", &(settings->catColor1));
+    convertStrToRGBA4444("#FFDF", &(settings->catColor2));
+    convertStrToRGBA4444("#FFFF", &(settings->textColor));
+    initBorderDefaults(settings);
+    settings->borderThickness = 8;
+
+    FILE* configFile = fopen(configIniPath, "r");
+    if (!configFile) return;
+    fseek(configFile, 0, SEEK_END);
+    const long fileSize = ftell(configFile);
+    fseek(configFile, 0, SEEK_SET);
+    std::string fileData;
+    fileData.resize(fileSize);
+    fread(fileData.data(), 1, fileSize, configFile);
+    fclose(configFile);
+
+    const auto parsedData = ult::parseIni(fileData);
+    const auto sectionIt = parsedData.find("security-spacificate");
+    if (sectionIt == parsedData.end()) return;
+    const auto& section = sectionIt->second;
+
+    const auto parseBool = [&section](const char* key, bool& target) {
+        const auto it = section.find(key);
+        if (it == section.end()) return;
+        std::string value = it->second;
+        convertToUpper(value);
+        target = (value != "FALSE");
+    };
+    parseBool("show_performance", settings->showPerformance);
+    parseBool("show_system", settings->showSystem);
+    parseBool("show_thermals", settings->showThermals);
+    parseBool("show_power", settings->showPower);
+    parseBool("use_dynamic_colors", settings->useDynamicColors);
+    parseBool("disable_screenshots", settings->disableScreenshots);
+
+    auto it = section.find("refresh_rate");
+    if (it != section.end())
+        settings->refreshRate = (uint8_t)std::clamp(atol(it->second.c_str()), 1L, 60L);
+    it = section.find("sample_rate");
+    if (it != section.end())
+        settings->sampleRate = (uint8_t)std::clamp(atol(it->second.c_str()), 1L, (long)settings->refreshRate);
+    it = section.find("touch_scale");
+    if (it != section.end())
+        settings->touchScalePercent = (uint8_t)std::clamp(atol(it->second.c_str()), 70L, 150L);
+    it = section.find("corner_radius");
+    if (it != section.end())
+        settings->cornerRadiusSp = (uint8_t)std::clamp(atol(it->second.c_str()), 0L, 80L);
+    it = section.find("frame_offset_x");
+    if (it != section.end()) settings->frameOffsetX = atol(it->second.c_str());
+    it = section.find("frame_offset_y");
+    if (it != section.end()) settings->frameOffsetY = atol(it->second.c_str());
+    it = section.find("frame_padding");
+    if (it != section.end()) settings->framePadding = std::max(0L, atol(it->second.c_str()));
+    it = section.find("touch_move_delay");
+    if (it != section.end()) settings->touchMoveDelayMs = (uint16_t)std::clamp(atol(it->second.c_str()), 0L, 1000L);
+    it = section.find("button_move_delay");
+    if (it != section.end()) settings->buttonMoveDelayMs = (uint16_t)std::clamp(atol(it->second.c_str()), 0L, 1000L);
+
+    struct ColorMapping { const char* key; uint16_t* target; };
+    const ColorMapping colorMappings[] = {
+        {"background_color", &settings->backgroundColor},
+        {"focus_background_color", &settings->focusBackgroundColor},
+        {"cat_color_1", &settings->catColor1},
+        {"cat_color_2", &settings->catColor2},
+        {"text_color", &settings->textColor},
+    };
+    for (const auto& color : colorMappings) {
+        it = section.find(color.key);
+        uint16_t converted = 0;
+        if (it != section.end() && convertStrToRGBA4444(it->second, &converted))
+            *color.target = converted;
+    }
+    parseBorderSettings(settings, section);
 }
 
 ALWAYS_INLINE void GetConfigSettings(ResolutionSettings* settings) {

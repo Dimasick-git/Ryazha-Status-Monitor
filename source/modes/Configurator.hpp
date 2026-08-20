@@ -61,6 +61,7 @@ inline std::string modeToSection(const std::string& mode) {
     if (mode == "FPS Counter")      return "fps-counter";
     if (mode == "FPS Graph")        return "fps-graph";
     if (mode == "Game Resolutions") return "game_resolutions";
+    if (mode == "Security-Spacificate") return "security-spacificate";
     return "";
 }
 
@@ -194,14 +195,15 @@ inline std::string getAlphaPercentage(const std::string& color) {
 
 // Compact mode-flag bundle. Construct once per class from the mode string.
 struct ModeFlags {
-    bool isMini, isMicro, isFull, isGameRes, isFPSCounter, isFPSGraph;
+    bool isMini, isMicro, isFull, isGameRes, isFPSCounter, isFPSGraph, isSecuritySpacificate;
     explicit ModeFlags(const std::string& mode)
         : isMini      (mode == "Mini")
         , isMicro     (mode == "Micro")
         , isFull      (mode == "Full")
         , isGameRes   (mode == "Game Resolutions")
         , isFPSCounter(mode == "FPS Counter")
-        , isFPSGraph  (mode == "FPS Graph") {}
+        , isFPSGraph  (mode == "FPS Graph")
+        , isSecuritySpacificate(mode == "Security-Spacificate") {}
 };
 
 // Clear all three jump-state globals at once.
@@ -414,7 +416,7 @@ static constexpr const char* const g_defaultModeCombos[] = {
     "ZL+ZR+LS",     "ZL+ZR+RS",     "ZL+ZR+L",        "ZL+ZR+R",    "ZL+ZR+LS+RS"
 };
 
-static constexpr size_t kModeComboSlotCount = 5;
+static constexpr size_t kModeComboSlotCount = 7;
 
 inline int modeComboIndexFor(const std::string& modeName) {
     if (modeName == "Full")             return 0;
@@ -423,6 +425,7 @@ inline int modeComboIndexFor(const std::string& modeName) {
     if (modeName == "FPS Graph")        return 3;
     if (modeName == "FPS Counter")      return 4;
     if (modeName == "Game Resolutions") return 5;
+    if (modeName == "Security-Spacificate") return 6;
     return -1;
 }
 
@@ -730,6 +733,18 @@ public:
             addToggle(list, "Graph Border",   "use_graph_border", false);
             addToggle(list, "Graph Background", "graph_background", false);
 
+        } else if (flags.isSecuritySpacificate) {
+            list->addItem(new tsl::elm::CategoryHeader("Security-Spacificate"));
+            addToggle(list, "Игра и нагрузка", "show_performance", true);
+            addToggle(list, "Частоты и ОЗУ", "show_system", true);
+            addToggle(list, "Тепло", "show_thermals", true);
+            addToggle(list, "Питание", "show_power", true);
+            addToggle(list, "Динамические температуры", "use_dynamic_colors", true);
+            addToggle(list, "Скрывать скриншоты", "disable_screenshots", false);
+            addToggle(list, "Обводка", "use_border", true);
+            addToggle(list, "Динамическая обводка", "dynamic_border", true);
+            addToggle(list, "Обводка по часовой", "cw_border_flow", true);
+
         } else if (flags.isFull) {
             list->addItem(new tsl::elm::CategoryHeader("Global"));
             addToggle(list, "Disable Screenshots", "disable_screenshots", false);
@@ -934,8 +949,8 @@ public:
     SampleRateConfig(const std::string& mode) : modeName(mode), flags(mode) {
         const std::string section = modeToSection(mode);
         const std::string rrVal = ult::parseValueFromIniSection(configIniPath, section, "refresh_rate");
-        const int defaultRate       = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3)));
-        const int defaultSampleRate = (flags.isFPSGraph ? 3 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 2 : defaultRate)));
+        const int defaultRate       = flags.isSecuritySpacificate ? 30 : (flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3))));
+        const int defaultSampleRate = flags.isSecuritySpacificate ? 4 : (flags.isFPSGraph ? 3 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 2 : defaultRate)));
         maxRate = rrVal.empty() ? defaultRate : std::clamp(atoi(rrVal.c_str()), 1, 60);
         const std::string srVal = ult::parseValueFromIniSection(configIniPath, section, "sample_rate");
         currentRate = srVal.empty() ? std::min(defaultSampleRate, maxRate) : std::clamp(atoi(srVal.c_str()), 1, maxRate);
@@ -1052,7 +1067,7 @@ public:
     RefreshRateConfig(const std::string& mode) : modeName(mode), flags(mode) {
         const std::string section = modeToSection(mode);
         const std::string value = ult::parseValueFromIniSection(configIniPath, section, "refresh_rate");
-        const int defaultRate = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3)));
+        const int defaultRate = flags.isSecuritySpacificate ? 30 : (flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3))));
         currentRate = value.empty() ? defaultRate : std::clamp(atoi(value.c_str()), 1, 60);
     }
     ~RefreshRateConfig() { lastSelectedListItem = nullptr; }
@@ -2080,10 +2095,10 @@ public:
         auto* list = new tsl::elm::List();
         list->addItem(new tsl::elm::CategoryHeader("Colors"));
 
-        const char* backgroundDefault = flags.isFull ? "#101F" : "#000A";
-        const char* focusDefault = flags.isFull ? "#210F" : "#000F";
+        const char* backgroundDefault = (flags.isFull || flags.isSecuritySpacificate) ? "#101F" : "#000A";
+        const char* focusDefault = (flags.isFull || flags.isSecuritySpacificate) ? "#210F" : "#000F";
         addColorWithAlpha(list, "Background Color", "background_color", backgroundDefault, "Background Alpha");
-        if (flags.isMini || flags.isMicro || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes || flags.isFull)
+        if (flags.isMini || flags.isMicro || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes || flags.isFull || flags.isSecuritySpacificate)
             addColorWithAlpha(list, "Focus Color",  "focus_background_color", focusDefault, "Focus Alpha");
 
         addColorItem(list, "Text Color", "text_color", "#FFFF");
@@ -2115,6 +2130,12 @@ public:
             }
             // Switch 2 frame-border wheel colours (the flat "Border" colour is in
             // the table above and is reused for both the outer frame and the plot).
+            addBorderWheelColors(list);
+
+        } else if (flags.isSecuritySpacificate) {
+            addColorItem(list, "Основной акцент", "cat_color_1", "#FE4F");
+            addColorItem(list, "Подписи", "cat_color_2", "#FFDF");
+            addColorItem(list, "Цвет обводки", "border_color", "#FA2F");
             addBorderWheelColors(list);
 
         } else if (flags.isFull) {
@@ -2362,15 +2383,15 @@ private:
     int getCurrentRefreshRate() const {
         const std::string section = modeToSection(modeName);
         const std::string value = ult::parseValueFromIniSection(configIniPath, section, "refresh_rate");
-        const int defaultRate = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3)));
+        const int defaultRate = flags.isSecuritySpacificate ? 30 : (flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3))));
         return value.empty() ? defaultRate : atoi(value.c_str());
     }
 
     int getCurrentSampleRate() const {
         const std::string section = modeToSection(modeName);
         const std::string rrVal = ult::parseValueFromIniSection(configIniPath, section, "refresh_rate");
-        const int defaultRate       = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3)));
-        const int defaultSampleRate = (flags.isFPSGraph ? 3 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 2 : defaultRate)));
+        const int defaultRate       = flags.isSecuritySpacificate ? 30 : (flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3))));
+        const int defaultSampleRate = flags.isSecuritySpacificate ? 4 : (flags.isFPSGraph ? 3 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 2 : defaultRate)));
         const int maxRate = rrVal.empty() ? defaultRate : std::clamp(atoi(rrVal.c_str()), 1, 60);
         const std::string srVal = ult::parseValueFromIniSection(configIniPath, section, "sample_rate");
         return srVal.empty() ? std::min(defaultSampleRate, maxRate) : std::clamp(atoi(srVal.c_str()), 1, maxRate);
@@ -2608,7 +2629,7 @@ public:
         }
 
         // Sample Rate (Mini / Micro / FPS Counter / FPS Graph / Game Resolutions / Full) — above Refresh Rate
-        if (flags.isMini || flags.isMicro || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes || flags.isFull) {
+        if (flags.isMini || flags.isMicro || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes || flags.isFull || flags.isSecuritySpacificate) {
             auto* sampleRate = new tsl::elm::ListItem("Sample Rate");
             sampleRate->setValue(std::to_string(getCurrentSampleRate()) + " Hz");
             sampleRate->setClickListener([this](uint64_t keys) {
@@ -2632,7 +2653,7 @@ public:
         // Touch Move Delay — only for modes whose touch reposition is a
         // press-and-hold. Full and Micro reposition by swipe gesture, so they
         // have no touch delay to configure.
-        if (flags.isMini || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes) {
+        if (flags.isMini || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes || flags.isSecuritySpacificate) {
             auto* touchMoveDelay = new tsl::elm::ListItem("Touch Move Delay");
             touchMoveDelay->setValue(std::to_string(getCurrentMoveDelay("touch")) + " ms");
             touchMoveDelay->setClickListener([this](uint64_t keys) {
@@ -2645,7 +2666,7 @@ public:
         // Button Move Delay — every mode holds PLUS to enter reposition mode,
         // including Full and Micro.
         if (flags.isMini || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes ||
-            flags.isFull || flags.isMicro) {
+            flags.isFull || flags.isMicro || flags.isSecuritySpacificate) {
             auto* buttonMoveDelay = new tsl::elm::ListItem("Button Move Delay");
             buttonMoveDelay->setValue(std::to_string(getCurrentMoveDelay("button")) + " ms");
             buttonMoveDelay->setClickListener([this](uint64_t keys) {

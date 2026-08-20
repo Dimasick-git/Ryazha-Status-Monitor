@@ -26,6 +26,7 @@ inline std::string originalLaunchArgs; // flattened argv[1..] minus --silentLaun
 #include "modes/Battery.hpp"
 #include "modes/Misc.hpp"
 #include "modes/Resolutions.hpp"
+#include "modes/SecuritySpacificate.hpp"
 #include "modes/Configurator.hpp" 
 
 
@@ -210,6 +211,25 @@ public:
             return false;
         });
         list->addItem(Full);
+
+        auto* securitySpacificate = new tsl::elm::ListItem("Security-Spacificate");
+        securitySpacificate->enableShortHoldKey();
+        securitySpacificate->disableClickAnimation();
+        securitySpacificate->setClickListener([](uint64_t keys) {
+            if (keys & KEY_A) {
+                lastMode = "security_spacificate";
+                tsl::swapTo<SecuritySpacificateOverlay>();
+                return true;
+            }
+            if (keys & KEY_PLUS) {
+                triggerSettingsFeedback();
+                tsl::swapTo<ConfiguratorOverlay>("Security-Spacificate");
+                return true;
+            }
+            return false;
+        });
+        list->addItem(securitySpacificate);
+
         //auto* Mini = new tsl::elm::ListItem("Mini");
         //Mini->setClickListener([](uint64_t keys) {
         //    if (keys & KEY_A) {
@@ -1122,6 +1142,12 @@ public:
     }
 };
 
+class SecuritySpacificateEntryOverlay : public FullEntryOverlay {
+public:
+    virtual std::unique_ptr<tsl::Gui> loadInitialGui() override {
+        return initially<SecuritySpacificateOverlay>();
+    }
+};
 
 // Helper function to check if overlay file exists
 bool checkOverlayFile(const std::string& filename) {
@@ -1327,8 +1353,8 @@ int main(int argc, char **argv) {
                 auto& section = sectionIt->second;
                 
                 // Compare and update if values differ
-                const std::string expectedArgs = "(-full, -mini, -micro, -fps_graph, -fps_counter, -game_resolutions)";
-                const std::string expectedLabels = "(Полный, Мини, Микро, FPS-график, FPS + Гц, Разрешение)";
+                const std::string expectedArgs = "(-full, -mini, -micro, -fps_graph, -fps_counter, -game_resolutions, -security_spacificate)";
+                const std::string expectedLabels = "(Полный, Мини, Микро, FPS-график, FPS + Гц, Разрешение, Security-Spacificate)";
                 if (section["mode_args"] != expectedArgs || section["mode_labels"] != expectedLabels) {
                     section["mode_args"] = expectedArgs;
                     section["mode_labels"] = expectedLabels;
@@ -1336,8 +1362,8 @@ int main(int argc, char **argv) {
                 }
             } else {
                 // If section doesn't exist, create it with expected values
-                iniData[filename]["mode_args"] = "(-full, -mini, -micro, -fps_graph, -fps_counter, -game_resolutions)";
-                iniData[filename]["mode_labels"] = "(Полный, Мини, Микро, FPS-график, FPS + Гц, Разрешение)";
+                iniData[filename]["mode_args"] = "(-full, -mini, -micro, -fps_graph, -fps_counter, -game_resolutions, -security_spacificate)";
+                iniData[filename]["mode_labels"] = "(Полный, Мини, Микро, FPS-график, FPS + Гц, Разрешение, Security-Spacificate)";
                 ult::saveIniFileData(ult::OVERLAYS_INI_FILEPATH, iniData);
             }
         }
@@ -1362,8 +1388,23 @@ int main(int argc, char **argv) {
             if (argStr[0] != '-') continue;
             
 
+            // Security-Spacificate mode
+            if (strcasecmp(argStr, "-security_spacificate") == 0) {
+                FullMode = false;
+                lastMode = "security_spacificate";
+                if (!directLaunch) {
+                    setupMode();
+                } else {
+                    skipMain = true;
+                    if (!ult::limitedMemory) {
+                        ult::DefaultFramebufferWidth = 1280;
+                        ult::DefaultFramebufferHeight = 720;
+                    }
+                }
+                return tsl::loop<SecuritySpacificateEntryOverlay>(argc, argv);
+            }
             // Full mode
-            if (strcasecmp(argStr, "-full") == 0) {
+            else if (strcasecmp(argStr, "-full") == 0) {
                 FullMode = true;
                 lastMode = "full";
                 skipMain = true;
