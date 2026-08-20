@@ -83,7 +83,8 @@ CXXFLAGS	:= $(CFLAGS) -std=c++23 -Wno-dangling-else -fno-unwind-tables -fno-asyn
 ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	+=	-specs=$(DEVKITPRO)/libnx/switch.specs -g $(ARCH) -Wl,-Map,$(notdir $*.map)
 
-LIBS := -lnx
+# libryazhahand decodes themed PNG resources through libpng.
+LIBS := -lnx -lpng -lz
 
 CXXFLAGS += -fno-exceptions -ffunction-sections -fdata-sections -fno-rtti
 LDFLAGS += -Wl,--gc-sections -Wl,--as-needed
