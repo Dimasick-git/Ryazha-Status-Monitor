@@ -2890,13 +2890,13 @@ ALWAYS_INLINE void initBorderDefaults(S* s) {
     s->useDynamicBorder = true;
     s->useBorderCW = true;
     // borderThickness is set per-mode by the caller immediately after this call.
-    convertStrToRGBA4444("#04AF", &(s->borderColor));           // Cobalt
-    convertStrToRGBA4444("#0C0F", &(s->borderWheelColor1));     // anchor0 UR
-    convertStrToRGBA4444("#64FF", &(s->borderWheelColor2));     // anchor2 LL  (Deep Slate)
-    convertStrToRGBA4444("#08AF", &(s->borderWheelColor3));     // anchor1 bright
-    convertStrToRGBA4444("#657F", &(s->borderWheelColor3Deep)); // anchor1 deep  (Slate Navy)
-    convertStrToRGBA4444("#A98F", &(s->borderWheelColor4));     // anchor3 bright (Periwinkle)
-    convertStrToRGBA4444("#C8FF", &(s->borderWheelColor4Deep)); // anchor3 deep
+    convertStrToRGBA4444("#FA2F", &(s->borderColor));           // warm gold fallback
+    convertStrToRGBA4444("#FA2F", &(s->borderWheelColor1));     // anchor0: gold
+    convertStrToRGBA4444("#FFFF", &(s->borderWheelColor2));     // anchor2: white highlight
+    convertStrToRGBA4444("#FE4F", &(s->borderWheelColor3));     // anchor1: bright gold
+    convertStrToRGBA4444("#A51F", &(s->borderWheelColor3Deep)); // anchor1: deep red
+    convertStrToRGBA4444("#F46F", &(s->borderWheelColor4));     // anchor3: rose highlight
+    convertStrToRGBA4444("#813F", &(s->borderWheelColor4Deep)); // anchor3: burgundy
 }
 
 // Shared parser for the configurable Switch 2 frame border. Reads the same keys
@@ -4449,11 +4449,11 @@ ALWAYS_INLINE void GetConfigSettings(FullSettings* settings) {
     settings->useRyazhaTheme = true;
     settings->disableScreenshots = false;
     settings->buttonMoveDelayMs = 1000;  // same default as every other mode
-    convertStrToRGBA4444("#0009", &(settings->backgroundColor));
-    convertStrToRGBA4444("#000F", &(settings->focusBackgroundColor));
-    convertStrToRGBA4444("#2DFF", &(settings->separatorColor));
-    convertStrToRGBA4444("#8FFF", &(settings->catColor1));
-    convertStrToRGBA4444("#8CFF", &(settings->catColor2));
+    convertStrToRGBA4444("#101F", &(settings->backgroundColor));
+    convertStrToRGBA4444("#210F", &(settings->focusBackgroundColor));
+    convertStrToRGBA4444("#FA2F", &(settings->separatorColor));
+    convertStrToRGBA4444("#FE4F", &(settings->catColor1));
+    convertStrToRGBA4444("#FFDF", &(settings->catColor2));
     convertStrToRGBA4444("#FFFF", &(settings->textColor));
 
     // Open and read file efficiently

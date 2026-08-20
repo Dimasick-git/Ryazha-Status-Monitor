@@ -2062,15 +2062,15 @@ private:
         list->addItem(alphaItem);
     }
 
-    // The six Switch 2 frame-border wheel anchor colours (shared by every overlay
-    // that carries the configurable border). Defaults are the muted slate palette.
+    // The six Switch 2 frame-border wheel anchors shared by every movable
+    // overlay. Defaults mirror the gold, white and crimson Ryazha-clk frame.
     void addBorderWheelColors(tsl::elm::List* list) {
-        addColorItem(list, "Border Wheel 1",      "border_wheel_color_1",      "#0C0F");
-        addColorItem(list, "Border Wheel 2",      "border_wheel_color_2",      "#64FF");
-        addColorItem(list, "Border Wheel 3",      "border_wheel_color_3",      "#08AF");
-        addColorItem(list, "Border Wheel 3 Deep", "border_wheel_color_3_deep", "#657F");
-        addColorItem(list, "Border Wheel 4",      "border_wheel_color_4",      "#A98F");
-        addColorItem(list, "Border Wheel 4 Deep", "border_wheel_color_4_deep", "#C8FF");
+        addColorItem(list, "Border Wheel 1",      "border_wheel_color_1",      "#FA2F");
+        addColorItem(list, "Border Wheel 2",      "border_wheel_color_2",      "#FFFF");
+        addColorItem(list, "Border Wheel 3",      "border_wheel_color_3",      "#FE4F");
+        addColorItem(list, "Border Wheel 3 Deep", "border_wheel_color_3_deep", "#A51F");
+        addColorItem(list, "Border Wheel 4",      "border_wheel_color_4",      "#F46F");
+        addColorItem(list, "Border Wheel 4 Deep", "border_wheel_color_4_deep", "#813F");
     }
 
 public:
@@ -2080,9 +2080,11 @@ public:
         auto* list = new tsl::elm::List();
         list->addItem(new tsl::elm::CategoryHeader("Colors"));
 
-        addColorWithAlpha(list, "Background Color", "background_color",       "#000A", "Background Alpha");
+        const char* backgroundDefault = flags.isFull ? "#101F" : "#000A";
+        const char* focusDefault = flags.isFull ? "#210F" : "#000F";
+        addColorWithAlpha(list, "Background Color", "background_color", backgroundDefault, "Background Alpha");
         if (flags.isMini || flags.isMicro || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes || flags.isFull)
-            addColorWithAlpha(list, "Focus Color",  "focus_background_color", "#000F", "Focus Alpha");
+            addColorWithAlpha(list, "Focus Color",  "focus_background_color", focusDefault, "Focus Alpha");
 
         addColorItem(list, "Text Color", "text_color", "#FFFF");
 
@@ -2095,7 +2097,7 @@ public:
             static const FPSGraphColorSetting fpsGraphColors[] = {
                 {"FPS Counter",  "fps_counter_color",  "#2DFF", false},
                 {"Graph",        "plot_background_color", "#0007", true},
-                {"Border",       "border_color",        "#04AF", false},
+                {"Border",       "border_color",        "#FA2F", false},
                 {"Dashed Line",  "dashed_line_color",   "#0AAF", true},
                 {"Max FPS Text", "max_fps_text_color",  "#FFFF", false},
                 {"Min FPS Text", "min_fps_text_color",  "#FFFF", false},
@@ -2116,25 +2118,25 @@ public:
             addBorderWheelColors(list);
 
         } else if (flags.isFull) {
-            addColorItem(list, "Category Color 1", "cat_color_1",    "#8FFF");
-            addColorItem(list, "Category Color 2", "cat_color_2",    "#2DFF");
-            addColorItem(list, "Separator Color",  "separator_color","#2DFF");
+            addColorItem(list, "Category Color 1", "cat_color_1",    "#FE4F");
+            addColorItem(list, "Category Color 2", "cat_color_2",    "#FFDF");
+            addColorItem(list, "Separator Color",  "separator_color","#FA2F");
 
         } else if (flags.isMini || flags.isMicro) {
             addColorItem(list, "Category Color", "cat_color",       "#2DFF");
             addColorItem(list, "Separator Color", "separator_color", "#2DFF");
             if (flags.isMini) {
-                addColorItem(list, "Border Color", "border_color", "#04AF");
+                addColorItem(list, "Border Color", "border_color", "#FA2F");
                 addBorderWheelColors(list);
             }
 
         } else if (flags.isFPSCounter) {
-            addColorItem(list, "Border Color", "border_color", "#04AF");
+            addColorItem(list, "Border Color", "border_color", "#FA2F");
             addBorderWheelColors(list);
 
         } else if (flags.isGameRes) {
             addColorItem(list, "Category Color", "cat_color", "#2DFF");
-            addColorItem(list, "Border Color", "border_color", "#04AF");
+            addColorItem(list, "Border Color", "border_color", "#FA2F");
             addBorderWheelColors(list);
         }
 

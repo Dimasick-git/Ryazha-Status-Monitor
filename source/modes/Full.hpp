@@ -217,16 +217,11 @@ public:
         disableJumpTo = true;
         GetConfigSettings(&settings);
         if (settings.useRyazhaTheme) {
-            // Full is the sole Status Monitor mode that follows the active
-            // libryazhahand theme. Compact modes retain their own palettes.
+            // Theme resources are still initialized for Ryazha styling, but the
+            // Full-mode colour settings remain authoritative.  Previously this
+            // block overwrote every selected colour after config loading.
             tsl::initializeTheme();
             tsl::initializeThemeVars();
-            settings.backgroundColor = tsl::defaultBackgroundColor.rgba;
-            settings.focusBackgroundColor = tsl::unfocusedColor.rgba;
-            settings.separatorColor = tsl::headerSeparatorColor.rgba;
-            settings.catColor1 = tsl::headerTextColor.rgba;
-            settings.catColor2 = tsl::bottomTextColor.rgba;
-            settings.textColor = tsl::defaultTextColor.rgba;
         }
         tsl::defaultBackgroundColor = tsl::Color(settings.backgroundColor); // apply Full's bg color to the tesla draw path
         mutexInit(&mutex_BatteryChecker);
@@ -305,19 +300,28 @@ public:
             constexpr int valueInset = 84;
             constexpr int lineH = 15;
 
-            const tsl::Color cardFill(1, 2, 7, 0xF);
-            const tsl::Color titleColor(15, 13, 4, 0xF);
-            const tsl::Color labelColor(15, 15, 14, 0xF);
-            const tsl::Color textColor(14, 14, 15, 0xF);
-            const tsl::Color warmBorder(15, 11, 2, 0xF);
-            const tsl::Color redAccent(15, 4, 6, 0xF);
+            // Every color comes from the existing Full-mode palette.  This keeps
+            // the card layout compatible with the Color settings screen instead
+            // of pinning it to the old hard-coded blue background.
+            const tsl::Color cardFill = !isDragging ? tsl::Color(settings.backgroundColor)
+                                                     : tsl::Color(settings.focusBackgroundColor);
+            const tsl::Color titleColor(settings.catColor1);
+            const tsl::Color labelColor(settings.catColor2);
+            const tsl::Color textColor(settings.textColor);
+            const tsl::Color warmBorder(settings.separatorColor);
+            const tsl::Color accentColor = settings.useRyazhaTheme
+                ? tsl::Color(15, 4, 6, 0xF)
+                : tsl::Color(settings.catColor2);
+            const tsl::Color deepAccent = settings.useRyazhaTheme
+                ? tsl::Color(8, 1, 3, 0xF)
+                : tsl::Color(settings.focusBackgroundColor);
             const auto ryazhaWheel = tsl::makeSwitch2Wheel(
-                tsl::Color(15, 9, 2, 0xF),   // gold
-                tsl::Color(15, 15, 14, 0xF), // white
-                titleColor,                  // bright gold
-                tsl::Color(10, 5, 1, 0xF),   // deep amber
-                redAccent,                   // red/pink accent
-                tsl::Color(10, 1, 4, 0xF),   // deep crimson
+                warmBorder,
+                textColor,
+                titleColor,
+                cardFill,
+                accentColor,
+                deepAccent,
                 5.4f
             );
 

@@ -66,6 +66,20 @@ def main() -> None:
                 f"Full card layout is missing {title}")
     require("makeSwitch2Wheel(" in full,
             "Full card layout must use the Ryazha-clk dynamic border palette")
+    require("tsl::Color(settings.backgroundColor)" in full and
+            "warmBorder(settings.separatorColor)" in full,
+            "Full cards must use their configured background and border colours")
+    require("settings.backgroundColor = tsl::defaultBackgroundColor.rgba" not in full,
+            "Full theme initialization must not overwrite the configured background")
+
+    color_config = (ROOT / "source" / "modes" / "Configurator.hpp").read_text(encoding="utf-8")
+    install_config = (ROOT / "config" / "status-monitor" / "config.ini").read_text(encoding="utf-8")
+    for obsolete in ("#04AF", "#64FF", "#657F", "#A98F", "#C8FF"):
+        require(obsolete not in color_config and obsolete not in install_config,
+                f"legacy blue border colour must not return: {obsolete}")
+    for required in ("#FA2F", "#FFFF", "#FE4F", "#A51F", "#F46F", "#813F"):
+        require(required in color_config and required in install_config,
+                f"Ryazha-clk border colour is missing: {required}")
 
     print("Ryazha Status Monitor source validation passed.")
 
