@@ -579,32 +579,23 @@ struct DTCFormatCategory {
 };
 
 static const std::vector<DTCFormatCategory> dtcFormatCategories = {
-    {"Time", {
-        {"Time 24h",    "%H:%M"},
-        {"Time 24h(s)", "%H:%M:%S"},
-        {"Time 12h",    "%l:%M %p"},
-        {"Time 12h(s)", "%l:%M:%S %p"}
+    {"Время", {
+        {"24 ч",             "%H:%M"},
+        {"24 ч с секундами", "%H:%M:%S"}
     }},
-    {"Date", {
-        {"Date US Dash",   "%m-%d-%Y"},
-        {"Date US Slash",  "%m/%d/%Y"},
-        {"Date EU Dash",   "%d-%m-%Y"},
-        {"Date EU Slash",  "%d/%m/%Y"},
-        {"Date ISO",       "%Y-%m-%d"},
-        {"Date ISO Slash", "%Y/%m/%d"},
-        {"Date Short US",  "%m/%d/%y"},
-        {"Date Short EU",  "%d/%m/%y"},
-        {"Date Compact",   "%Y%m%d"}
+    {"Дата", {
+        {"День.Месяц.Год", "%d.%m.%Y"},
+        {"День-Месяц-Год", "%d-%m-%Y"},
+        {"Год-Месяц-День", "%Y-%m-%d"},
+        {"Короткая дата",  "%d.%m.%y"},
+        {"Компактная дата", "%Y%m%d"}
     }},
-    {"Day & Month", {
-        {"Day + Date Short", "%a, %b %d"},
-        {"Day + Date Full",  "%A, %B %d"},
-        {"Weekday Short",    "%a"},
-        {"Weekday Full",     "%A"},
-        {"Month Short",      "%b"},
-        {"Month Full",       "%B"},
-        {"Month + Year",     "%b %Y"},
-        {"Day of Year",      "%j"},
+    {"Числа даты", {
+        {"День месяца", "%d"},
+        {"Номер месяца", "%m"},
+        {"Год",         "%Y"},
+        {"День года",   "%j"},
+        {"Неделя года", "%V"}
     }},
 };
 
@@ -638,7 +629,7 @@ public:
 
         std::string currentValue = ult::parseValueFromIniSection(configIniPath, section, iniKey);
         if (currentValue.empty()) {
-            if (slot == 1) currentValue = std::string("%a, %b %d");
+            if (slot == 1) currentValue = std::string("%d.%m.%Y");
             else           currentValue = std::string("%H:%M:%S");
         }
 
@@ -2474,8 +2465,8 @@ private:
                 else
                     value = (slot == 1) ? legacy : ult::OPTION_SYMBOL;
             } else {
-                if (slot == 1) value = std::string("%a, %b %d");
-                else           value = std::string("%l:%M:%S %p");
+                if (slot == 1) value = std::string("%d.%m.%Y");
+                else           value = std::string("%H:%M:%S");
             }
         }
         return getDTCFormatName(value);

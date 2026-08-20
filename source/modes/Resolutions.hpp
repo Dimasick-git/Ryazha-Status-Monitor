@@ -131,10 +131,9 @@ public:
                         const int touchableWidth = overlayWidth + (touchPadding * 2);
                         const int touchableHeight = overlayHeight + (touchPadding * 2);
                         
-                        // Check if touch is within bounds — hold required.
-                        const bool inBounds = (
-                            touchX >= touchableX && touchX <= touchableX + touchableWidth &&
-                            touchY >= touchableY && touchY <= touchableY + touchableHeight);
+                        // The touchscreen is global whereas this VI layer moves.
+                        // A valid long hold must not be discarded against stale bounds.
+                        const bool inBounds = (touchX < 1280 && touchY < 720);
                         
                         // Latch validity on the press edge only. If the finger went down
                         // outside the overlay, this contact can never arm repositioning,
@@ -346,9 +345,9 @@ public:
         
                 int xOffset = 10;
                 int yOffset = 10 + bExpand; // shift down by bExpand to stay clear of expanded top border
-                renderer->drawString("Depth", false, xOffset + final_base_x + 20, yOffset + final_base_y + 20, 20, settings.catColor);
+                renderer->drawString("Глубина", false, xOffset + final_base_x + 20, yOffset + final_base_y + 20, 20, settings.catColor);
                 renderer->drawString(Resolutions_c, false, xOffset + final_base_x + 20, yOffset + final_base_y + 55, 18, settings.textColor);
-                renderer->drawString("Viewport", false, xOffset + final_base_x + 180, yOffset + final_base_y + 20, 20, settings.catColor);
+                renderer->drawString("Область вывода", false, xOffset + final_base_x + 180, yOffset + final_base_y + 20, 20, settings.catColor);
                 renderer->drawString(Resolutions2_c, false, xOffset + final_base_x + 180, yOffset + final_base_y + 55, 18, settings.textColor);
             }
             // Game not detected
@@ -361,9 +360,9 @@ public:
         
                 std::string msg;
                 if (under100ms && waitingForGame)
-                    msg = "Checking for game...";
+                    msg = "Проверка игры...";
                 else {
-                    msg = "Game is not running\nor is incompatible.";
+                    msg = "Игра не запущена\nили несовместима.";
                     waitingForGame = false;
                 }
         
@@ -479,9 +478,11 @@ public:
         static constexpr int TOUCH_THRESHOLD = 8;
         static bool hasMoved = false;
     
-        // Better touch detection - check if coordinates are within reasonable screen bounds
-        const bool currentTouchDetected = (touchPos.x > 0 && touchPos.y > 0 && 
-                                    touchPos.x < screenWidth && touchPos.y < screenHeight);
+        // Read the physical touchscreen directly. Framework coordinates can be
+        // stale while a status-monitor VI layer is repositioned.
+        HidTouchScreenState rawTouchState = {};
+        const bool currentTouchDetected = hidGetTouchScreenStates(&rawTouchState, 1) > 0 && rawTouchState.count > 0;
+        const HidTouchState& activeTouchPos = currentTouchDetected ? rawTouchState.touches[0] : touchPos;
         
         static bool clearOnRelease = false;
 
@@ -541,13 +542,13 @@ public:
             isDragging = true;
             triggerOnFeedback();
             hasMoved = false;
-            initialTouchPos = touchPos;
+            initialTouchPos = activeTouchPos;
             initialFrameOffsetX = frameOffsetX;
             initialFrameOffsetY = frameOffsetY;
         } else if (currentTouchDetected && isDragging && !currentPlusHeld) {
             // Continue touch dragging
-            const int touchX = touchPos.x;
-            const int touchY = touchPos.y;
+            const int touchX = activeTouchPos.x;
+            const int touchY = activeTouchPos.y;
             const int deltaX = touchX - initialTouchPos.x;
             const int deltaY = touchY - initialTouchPos.y;
             

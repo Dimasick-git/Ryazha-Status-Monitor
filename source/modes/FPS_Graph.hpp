@@ -164,10 +164,9 @@ public:
                         const int touchableWidth = totalWidth + (touchPadding * 2);
                         const int touchableHeight = totalHeight + (touchPadding * 2);
                         
-                        // Check if touch is within bounds — hold required.
-                        const bool inBounds = (
-                            touchX >= touchableX && touchX <= touchableX + touchableWidth &&
-                            touchY >= touchableY && touchY <= touchableY + touchableHeight);
+                        // Touch coordinates are global while the VI layer moves.
+                        // Do not reject a valid hold against stale layer-local bounds.
+                        const bool inBounds = (touchX < 1280 && touchY < 720);
                         
                         // Latch validity on the press edge only. If the finger went down
                         // outside the overlay, this contact can never arm repositioning,
@@ -725,9 +724,11 @@ public:
         static constexpr int TOUCH_THRESHOLD = 8;
         static bool hasMoved = false;
     
-        // Touch detection
-        const bool currentTouchDetected = (touchPos.x > 0 && touchPos.y > 0 && 
-                                    touchPos.x < screenWidth && touchPos.y < screenHeight);
+        // Read the physical touchscreen directly. Framework coordinates can be
+        // stale while a movable VI layer is repositioned.
+        HidTouchScreenState rawTouchState = {};
+        const bool currentTouchDetected = hidGetTouchScreenStates(&rawTouchState, 1) > 0 && rawTouchState.count > 0;
+        const HidTouchState& activeTouchPos = currentTouchDetected ? rawTouchState.touches[0] : touchPos;
         
         static bool clearOnRelease = false;
         
@@ -782,13 +783,13 @@ public:
             isDragging = true;
             triggerOnFeedback();
             hasMoved = false;
-            initialTouchPos = touchPos;
+            initialTouchPos = activeTouchPos;
             initialFrameOffsetX = frameOffsetX;
             initialFrameOffsetY = frameOffsetY;
         } else if (currentTouchDetected && isDragging && !currentPlusHeld) {
             // Continue touch dragging
-            const int touchX = touchPos.x;
-            const int touchY = touchPos.y;
+            const int touchX = activeTouchPos.x;
+            const int touchY = activeTouchPos.y;
             const int deltaX = touchX - initialTouchPos.x;
             const int deltaY = touchY - initialTouchPos.y;
             

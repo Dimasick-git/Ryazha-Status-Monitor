@@ -21,6 +21,14 @@ def main() -> None:
     require(isinstance(translations, dict) and translations, "Russian locale must be a non-empty JSON object")
     for key in ("Full", "Mini", "Micro", "FPS Counter", "FPS Graph", "Configuration"):
         require(key in translations, f"missing Russian translation key: {key}")
+    expected_terms = {
+        "CPU": "ЦПУ",
+        "GPU": "ГПУ",
+        "RAM": "ОЗУ",
+        "Checking for game...": "Проверка игры...",
+    }
+    for key, value in expected_terms.items():
+        require(translations.get(key) == value, f"incorrect Russian translation for {key}")
 
     makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
     require("lib/libryazhahand/ryazhahand.mk" in makefile, "Makefile must include libryazhahand")
@@ -39,6 +47,15 @@ def main() -> None:
     present_modes = {path.name for path in (ROOT / "source" / "modes").glob("*.hpp")}
     missing_modes = sorted(required_modes - present_modes)
     require(not missing_modes, f"missing ppkantorski mode sources: {', '.join(missing_modes)}")
+
+    for name in ("Mini.hpp", "FPS_Counter.hpp", "FPS_Graph.hpp", "Resolutions.hpp"):
+        content = (ROOT / "source" / "modes" / name).read_text(encoding="utf-8")
+        require("hidGetTouchScreenStates(&rawTouchState, 1)" in content,
+                f"{name} must read touchscreen state directly")
+    for name in ("Mini.hpp", "FPS_Counter.hpp"):
+        content = (ROOT / "source" / "modes" / name).read_text(encoding="utf-8")
+        require("rawTouchState.count >= 2" in content,
+                f"{name} must support two-finger pinch scaling")
 
     print("Ryazha Status Monitor source validation passed.")
 

@@ -2964,7 +2964,7 @@ ALWAYS_INLINE void GetConfigSettings(MiniSettings* settings) {
     settings->showStopwatch = true;
     settings->useIntegerFPS = false;
     settings->showFpsGraph = true;
-    settings->dtcFormat1 = "%a, %b %d";
+    settings->dtcFormat1 = "%d.%m.%Y";
     settings->dtcFormat2 = "%H:%M:%S";
     settings->dtcFormat  = settings->dtcFormat1 + ult::DIVIDER_SYMBOL + settings->dtcFormat2;
     settings->handheldFontSize = 15;
@@ -3528,7 +3528,7 @@ ALWAYS_INLINE void GetConfigSettings(MicroSettings* settings) {
     settings->useDTCSymbol = true;
     settings->showStopwatch = true;
     settings->useIntegerFPS = true;
-    settings->dtcFormat1 = "%a, %b %d";
+    settings->dtcFormat1 = "%d.%m.%Y";
     settings->dtcFormat2 = "%H:%M:%S";
     settings->dtcFormat  = settings->dtcFormat1 + ult::DIVIDER_SYMBOL + settings->dtcFormat2;
     settings->invertBatteryDisplay = true;

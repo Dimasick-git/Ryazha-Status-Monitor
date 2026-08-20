@@ -517,11 +517,9 @@ public:
                         const int touchableWidth = overlayWidth + (touchPadding * 2);
                         const int touchableHeight = overlayHeight + (touchPadding * 2);
                         
-                        // Check if touch is within bounds — hold required.
-                        const bool inBounds = (
-                            overlayHeight > 0 &&
-                            touchX >= touchableX && touchX <= touchableX + touchableWidth &&
-                            touchY >= touchableY && touchY <= touchableY + touchableHeight);
+                        // Touch coordinates are global while the VI layer moves.
+                        // Do not reject a valid hold against stale layer-local bounds.
+                        const bool inBounds = (touchX < 1280 && touchY < 720);
                         
                         // Latch validity on the press edge only. If the finger went down
                         // outside the overlay, this contact can never arm repositioning,
@@ -5073,16 +5071,57 @@ public:
         static int initialFrameOffsetY = 0;
         static constexpr int TOUCH_THRESHOLD = 8;
         static bool hasMoved = false;
+        static bool boundsNeedUpdate = true;
         //static u64 lastTouchTime = 0;
         //static constexpr u64 TOUCH_DEBOUNCE_NS = 16000000ULL; // 16ms debounce
     
         // Get current time for debouncing
         //const u64 currentTime = armTicksToNs(armGetSystemTick());
         
-        // Better touch detection - check if coordinates are within reasonable screen bounds
-        // Touch coordinates are always in 1280×720 touch space regardless of framebuffer mode.
-        const bool currentTouchDetected = (touchPos.x > 0 && touchPos.y > 0 && 
-                                    touchPos.x < 1280 && touchPos.y < 720);
+        // Read the physical touchscreen directly. Framework coordinates can be
+        // stale while a movable VI layer is repositioned.
+        HidTouchScreenState rawTouchState = {};
+        const bool currentTouchDetected = hidGetTouchScreenStates(&rawTouchState, 1) > 0 && rawTouchState.count > 0;
+        const HidTouchState& activeTouchPos = currentTouchDetected ? rawTouchState.touches[0] : touchPos;
+
+        // Two-finger pinch changes persisted font sizes. One gesture is limited
+        // to 70–130% and can be repeated after release.
+        static bool pinchActive = false;
+        static size_t pinchStartHandheld = 0, pinchStartDocked = 0, pinchStart1080 = 0;
+        static float pinchStartDistance = 0.0f;
+        const bool pinchDetected = currentTouchDetected && rawTouchState.count >= 2;
+        if (pinchDetected) {
+            const float dx = static_cast<float>(rawTouchState.touches[1].x) - static_cast<float>(rawTouchState.touches[0].x);
+            const float dy = static_cast<float>(rawTouchState.touches[1].y) - static_cast<float>(rawTouchState.touches[0].y);
+            const float distance = std::sqrt(dx * dx + dy * dy);
+            if (!pinchActive || pinchStartDistance < 1.0f) {
+                pinchActive = true;
+                pinchStartDistance = std::max(distance, 1.0f);
+                pinchStartHandheld = settings.handheldFontSize;
+                pinchStartDocked = settings.dockedFontSize;
+                pinchStart1080 = settings.docked1080pFontSize;
+            } else {
+                const float scale = std::clamp(distance / pinchStartDistance, 0.70f, 1.30f);
+                settings.handheldFontSize = static_cast<size_t>(std::clamp<int>(std::lround(pinchStartHandheld * scale), 8, 48));
+                settings.dockedFontSize = static_cast<size_t>(std::clamp<int>(std::lround(pinchStartDocked * scale), 8, 64));
+                settings.docked1080pFontSize = static_cast<size_t>(std::clamp<int>(std::lround(pinchStart1080 * scale), 10, 96));
+                if (ult::windowedLayerPixelPerfect) fontsize = settings.docked1080pFontSize;
+                else {
+                    ApmPerformanceMode mode{};
+                    apmGetPerformanceMode(&mode);
+                    fontsize = (mode == ApmPerformanceMode_Normal) ? settings.handheldFontSize : settings.dockedFontSize;
+                }
+            }
+            buttonState.touchDragActive.store(false, std::memory_order_release);
+        } else if (pinchActive) {
+            auto iniData = ult::getParsedDataFromIniFile(configIniPath);
+            iniData["mini"]["handheld_font_size"] = std::to_string(settings.handheldFontSize);
+            iniData["mini"]["docked_font_size"] = std::to_string(settings.dockedFontSize);
+            iniData["mini"]["docked_1080p_font_size"] = std::to_string(settings.docked1080pFontSize);
+            ult::saveIniFileData(configIniPath, iniData);
+            boundsNeedUpdate = true;
+            pinchActive = false;
+        }
         
         // Debounce touch detection
         //if (currentTouchDetected && !oldTouchDetected) {
@@ -5112,7 +5151,6 @@ public:
         static int cachedBaseX = 0;
         static int cachedBaseY = 0;
         static uint32_t cachedOverlayHeight = 0;
-        static bool boundsNeedUpdate = true;
         static std::string lastVariables = "";
         
         // Only recalculate bounds when Variables change or first time
@@ -5217,18 +5255,18 @@ public:
         const bool touchDragReady = buttonState.touchDragActive.load(std::memory_order_acquire);
         static bool oldTouchDragReady = false;
         
-        if (currentTouchDetected && !isDragging && touchDragReady && !oldTouchDragReady) {
+        if (!pinchDetected && currentTouchDetected && !isDragging && touchDragReady && !oldTouchDragReady) {
             // Poll thread confirmed 500ms in-bounds hold — start drag now
             isDragging = true;
             triggerOnFeedback();
             hasMoved = false;
-            initialTouchPos = touchPos;
+            initialTouchPos = activeTouchPos;
             initialFrameOffsetX = frameOffsetX;
             initialFrameOffsetY = frameOffsetY;
-        } else if (currentTouchDetected && isDragging && !currentPlusHeld) {
+        } else if (!pinchDetected && currentTouchDetected && isDragging && !currentPlusHeld) {
             // Continue touch dragging (only if neither MINUS nor PLUS is held)
-            const int touchX = touchPos.x;
-            const int touchY = touchPos.y;
+            const int touchX = activeTouchPos.x;
+            const int touchY = activeTouchPos.y;
             const int deltaX = touchX - initialTouchPos.x;
             // Scale Y delta so the rect tracks the finger 1:1 in display pixels across
             // all modes.  See yMovementScale comment above for the reasoning.
@@ -5256,7 +5294,7 @@ public:
                 updateLayerPos();
                 boundsNeedUpdate = true;
             }
-        } else if (!currentTouchDetected && oldTouchDetected && isDragging && !currentPlusHeld) {
+        } else if (!pinchDetected && !currentTouchDetected && oldTouchDetected && isDragging && !currentPlusHeld) {
             // Touch just released and we were touch dragging
             if (hasMoved) {
                 // Save position when touch drag ends
