@@ -745,6 +745,22 @@ public:
             addToggle(list, "Динамическая обводка", "dynamic_border", true);
             addToggle(list, "Обводка по часовой", "cw_border_flow", true);
 
+            auto* resetLayout = new tsl::elm::ListItem("Сбросить раскладку карточек");
+            resetLayout->setClickListener([](uint64_t keys) {
+                if (keys & KEY_A) {
+                    auto iniData = ult::getParsedDataFromIniFile(configIniPath);
+                    auto& sec = iniData["security-spacificate"];
+                    sec["performance_x"] = "650"; sec["performance_y"] = "96"; sec["performance_scale"] = "100";
+                    sec["system_x"] = "650"; sec["system_y"] = "302"; sec["system_scale"] = "100";
+                    sec["thermals_x"] = "950"; sec["thermals_y"] = "96"; sec["thermals_scale"] = "100";
+                    sec["power_x"] = "950"; sec["power_y"] = "302"; sec["power_scale"] = "100";
+                    ult::saveIniFileData(configIniPath, iniData);
+                    return true;
+                }
+                return false;
+            });
+            list->addItem(resetLayout);
+
         } else if (flags.isFull) {
             list->addItem(new tsl::elm::CategoryHeader("Global"));
             addToggle(list, "Disable Screenshots", "disable_screenshots", false);

@@ -2859,7 +2859,21 @@ struct SecuritySpacificateSettings {
     bool disableScreenshots;
     uint8_t refreshRate;
     uint8_t sampleRate;
+    // Legacy global scale remains for backward compatibility. Every monitor now
+    // also carries its own persisted position and pinch scale.
     uint8_t touchScalePercent;
+    int performanceX;
+    int performanceY;
+    uint8_t performanceScale;
+    int systemX;
+    int systemY;
+    uint8_t systemScale;
+    int thermalsX;
+    int thermalsY;
+    uint8_t thermalsScale;
+    int powerX;
+    int powerY;
+    uint8_t powerScale;
     uint8_t cornerRadiusSp;
     int frameOffsetX;
     int frameOffsetY;
@@ -4660,6 +4674,20 @@ ALWAYS_INLINE void GetConfigSettings(SecuritySpacificateSettings* settings) {
     settings->refreshRate = 30;
     settings->sampleRate = 4;
     settings->touchScalePercent = 100;
+    // Default modular layout: four independent cards on the right side, clear
+    // of ovlmenu's title area and its lower navigation strip.
+    settings->performanceX = 650;
+    settings->performanceY = 96;
+    settings->performanceScale = 100;
+    settings->systemX = 650;
+    settings->systemY = 302;
+    settings->systemScale = 100;
+    settings->thermalsX = 950;
+    settings->thermalsY = 96;
+    settings->thermalsScale = 100;
+    settings->powerX = 950;
+    settings->powerY = 302;
+    settings->powerScale = 100;
     settings->cornerRadiusSp = 36;
     settings->frameOffsetX = 0;
     settings->frameOffsetY = 0;
@@ -4712,6 +4740,21 @@ ALWAYS_INLINE void GetConfigSettings(SecuritySpacificateSettings* settings) {
     it = section.find("touch_scale");
     if (it != section.end())
         settings->touchScalePercent = (uint8_t)std::clamp(atol(it->second.c_str()), 70L, 150L);
+
+    const auto parseCard = [&section](const char* prefix, int& x, int& y, uint8_t& scale) {
+        const std::string base(prefix);
+        auto cardIt = section.find(base + "_x");
+        if (cardIt != section.end()) x = std::clamp(atol(cardIt->second.c_str()), -512L, 1792L);
+        cardIt = section.find(base + "_y");
+        if (cardIt != section.end()) y = std::clamp(atol(cardIt->second.c_str()), -512L, 1232L);
+        cardIt = section.find(base + "_scale");
+        if (cardIt != section.end()) scale = (uint8_t)std::clamp(atol(cardIt->second.c_str()), 70L, 150L);
+    };
+    parseCard("performance", settings->performanceX, settings->performanceY, settings->performanceScale);
+    parseCard("system", settings->systemX, settings->systemY, settings->systemScale);
+    parseCard("thermals", settings->thermalsX, settings->thermalsY, settings->thermalsScale);
+    parseCard("power", settings->powerX, settings->powerY, settings->powerScale);
+
     it = section.find("corner_radius");
     if (it != section.end())
         settings->cornerRadiusSp = (uint8_t)std::clamp(atol(it->second.c_str()), 0L, 80L);
