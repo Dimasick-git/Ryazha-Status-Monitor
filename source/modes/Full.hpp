@@ -336,6 +336,12 @@ public:
                 if (newline != std::string::npos) compact.resize(newline);
                 return compact;
             };
+            const auto firstToken = [](const char* value) {
+                std::string compact(value ? value : "--");
+                const auto separator = compact.find_first_of(" \n");
+                if (separator != std::string::npos) compact.resize(separator);
+                return compact;
+            };
 
             drawCard(leftX, topY, cardW, topH, "ЦПУ");
             const int cpuY = topY + 51;
@@ -377,7 +383,8 @@ public:
                     drawRow(leftX, ramY, "Реал.", RealRAM_Hz_c);
                 if (settings.showTargetFreqs)
                     drawRow(leftX, ramY + lineH, "Цель", RAM_Hz_c);
-                drawRow(leftX, ramY + lineH * 2, "Загр.", RAM_load_c, 11);
+                const std::string totalLoad = firstToken(RAM_load_c);
+                drawRow(leftX, ramY + lineH * 2, "Загр.", totalLoad.c_str(), 11);
                 const std::string totalRam = firstLine(RAM_var_compressed_c);
                 if (!totalRam.empty())
                     drawRow(leftX, ramY + lineH * 4, "Всего", totalRam.c_str(), 11);
