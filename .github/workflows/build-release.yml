@@ -1,170 +1,108 @@
 name: Build & Release
 
-defaults:
-  run:
-    shell: bash
-
 on:
   push:
-    branches: ['**']
-    tags: ['v*']
+    branches:
+      - main
+    tags:
+      - 'v*'
   pull_request:
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: build-release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  tests:
-    name: Source validation
+  validate:
+    name: Validate source and translations
     runs-on: ubuntu-latest
+    timeout-minutes: 5
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout source and dependencies
+        uses: actions/checkout@v7
         with:
           submodules: recursive
 
-      - name: Validate ppkantorski source integration
+      - name: Validate source tree
         run: python3 scripts/validate_source.py
 
+      - name: Verify release tag matches APP_VERSION
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          APP_VERSION=$(sed -nE 's/^APP_VERSION[[:space:]]*:=[[:space:]]*([^[:space:]]+).*$/\1/p' Makefile)
+          EXPECTED_TAG="v${APP_VERSION}"
+          if [ "$RELEASE_TAG" != "$EXPECTED_TAG" ]; then
+            echo "::error::Tag $RELEASE_TAG does not match APP_VERSION $APP_VERSION (expected $EXPECTED_TAG)."
+            exit 1
+          fi
+
   build:
-    name: Build
+    name: Build Nintendo Switch package
+    needs: validate
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     container: devkitpro/devkita64:latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Checkout source and dependencies
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           submodules: recursive
 
-      - name: Fix git safe.directory
-        run: git config --global --add safe.directory '*'
+      - name: Allow Git inside the container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-      - name: Build
-        run: make -j$(nproc)
+      - name: Build overlay and distribution
+        run: |
+          make -j"$(nproc)"
+          make dist
+          test -s Ryazha-Status-Monitor.ovl
+          test -s Ryazha-Status-Monitor.zip
+          unzip -t Ryazha-Status-Monitor.zip
 
-      - name: Upload overlay artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload verified build
+        uses: actions/upload-artifact@v7
         with:
-          name: Ryazha-Status-Monitor
-          path: Ryazha-Status-Monitor.ovl
+          name: Ryazha-Status-Monitor-${{ github.sha }}
+          path: |
+            Ryazha-Status-Monitor.ovl
+            Ryazha-Status-Monitor.zip
           if-no-files-found: error
-
-      # out/ holds the complete installation layout (overlay plus configuration)
-      # and must remain intact for a correct SD-card installation.
-      # include-hidden-files is required: upload-artifact v4 silently drops
-      # hidden directories like .overlays by default.
-      - name: Upload dist artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: Ryazha-Status-Monitor-dist
-          path: out/
-          if-no-files-found: error
-          include-hidden-files: true
 
   release:
-    name: Publish release if APP_VERSION changed
-    needs: [build, tests]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    name: Publish author-tagged release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     permissions:
       contents: write
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Download verified build
+        uses: actions/download-artifact@v8
         with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          name: Ryazha-Status-Monitor-${{ github.sha }}
+          path: release-assets
 
-      - name: Download overlay artifact
-        uses: actions/download-artifact@v4
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v3
         with:
-          name: Ryazha-Status-Monitor
-
-      - name: Download dist artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: Ryazha-Status-Monitor-dist
-          path: dist-out
-
-      - name: Pack full distribution zip
-        run: |
-          cd dist-out
-          zip -r ../Ryazha-Status-Monitor.zip .
-          cd ..
-          unzip -l Ryazha-Status-Monitor.zip | head -20
-
-      - name: Resolve target tag and check if release exists
-        id: tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          APP_VERSION=$(grep -E '^APP_VERSION\s*:=' Makefile | sed -E 's/.*:=\s*//;s/\s*$//')
-          if [ -z "$APP_VERSION" ]; then
-            echo "::error::Could not extract APP_VERSION."
-            exit 1
-          fi
-
-          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-          else
-            TAG="v${APP_VERSION}"
-          fi
-
-          if gh release view "$TAG" --repo "${{ github.repository }}" >/dev/null 2>&1; then
-            # Release exists — re-publish only if an expected asset is missing
-            # or implausibly small (a dist zip without the .ovl inside is a
-            # few dozen KB), so a broken upload self-heals on the next push.
-            ASSETS=$(gh release view "$TAG" --repo "${{ github.repository }}" --json assets --jq '.assets[] | "\(.name) \(.size)"')
-            OVL_OK=$(echo "$ASSETS" | awk '$1 == "Ryazha-Status-Monitor.ovl" {print "yes"}')
-            ZIP_OK=$(echo "$ASSETS" | awk '$1 == "Ryazha-Status-Monitor.zip" && $2 > 100000 {print "yes"}')
-            if [ "$OVL_OK" = "yes" ] && [ "$ZIP_OK" = "yes" ]; then
-              echo "Release $TAG already exists with all assets — skipping."
-              echo "should_release=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "Release $TAG exists but assets are incomplete — re-publishing."
-              echo "should_release=true" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "Will publish: $TAG"
-            echo "should_release=true" >> "$GITHUB_OUTPUT"
-          fi
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-
-      - name: Create & push tag
-        if: steps.tag.outputs.should_release == 'true' && !startsWith(github.ref, 'refs/tags/')
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -e
-          TAG="${{ steps.tag.outputs.tag }}"
-          if ! git rev-parse "refs/tags/$TAG" >/dev/null 2>&1; then
-            git config user.name  'ryazhahand-release-bot'
-            git config user.email 'ryazhahand-release-bot@users.noreply.github.com'
-            git tag -a "$TAG" -m "Auto-release on APP_VERSION change: $TAG"
-            git push origin "$TAG"
-          fi
-
-      - name: Publish GitHub Release
-        if: steps.tag.outputs.should_release == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.tag }}
-          name: Ryazha-Status-Monitor ${{ steps.tag.outputs.tag }}
+          tag_name: ${{ github.ref_name }}
+          name: Ryazha-Status-Monitor ${{ github.ref_name }}
           generate_release_notes: true
+          make_latest: true
           files: |
-            Ryazha-Status-Monitor.ovl
-            Ryazha-Status-Monitor.zip
+            release-assets/Ryazha-Status-Monitor.ovl
+            release-assets/Ryazha-Status-Monitor.zip
           fail_on_unmatched_files: true
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
