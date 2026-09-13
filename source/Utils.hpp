@@ -8,6 +8,7 @@
 #include "max17050.h"
 #include "tmp451.h"
 #include "pwm.h"
+#include <cmath>
 #include <numeric>
 #include <tesla.hpp>
 #include <sys/stat.h>
@@ -273,6 +274,60 @@ inline uint32_t applyEmaU32(EmaFilterState& filter, uint32_t sample, bool enable
     }
     const float smoothed = applyEma(filter, static_cast<float>(sample), enabled);
     return static_cast<uint32_t>(smoothed + 0.5f);
+}
+
+// Reject transient service sentinels and stale hardware values before they can
+// reach the UI or poison an EMA filter during sleep/service transitions.
+static constexpr float kTemperatureMinC = -20.0f;
+static constexpr float kTemperatureMaxC = 150.0f;
+
+inline bool isPlausibleTemperatureC(float value) {
+    return std::isfinite(value) && value >= kTemperatureMinC && value <= kTemperatureMaxC;
+}
+
+inline bool isPlausibleTemperatureMilliC(int64_t value) {
+    return value >= static_cast<int64_t>(kTemperatureMinC * 1000.0f) &&
+           value <= static_cast<int64_t>(kTemperatureMaxC * 1000.0f);
+}
+
+inline void acceptTemperatureC(float& destination, float sample) {
+    if (isPlausibleTemperatureC(sample)) destination = sample;
+}
+
+inline void acceptTemperatureMilliC(int32_t& destination, int64_t sample) {
+    if (isPlausibleTemperatureMilliC(sample)) destination = static_cast<int32_t>(sample);
+}
+
+inline void acceptTemperatureMilliC(uint32_t& destination, int64_t sample) {
+    if (sample >= 0 && isPlausibleTemperatureMilliC(sample)) destination = static_cast<uint32_t>(sample);
+}
+
+inline void smoothTemperatureC(float& value, EmaFilterState& filter, bool enabled) {
+    if (!isPlausibleTemperatureC(value)) { filter.initialized = false; value = 0.0f; return; }
+    const float filtered = applyEma(filter, value, enabled);
+    if (isPlausibleTemperatureC(filtered)) value = filtered; else filter.initialized = false;
+}
+
+inline void smoothTemperatureMilliC(int32_t& value, EmaFilterState& filter, bool enabled) {
+    if (!isPlausibleTemperatureMilliC(value)) { filter.initialized = false; value = 0; return; }
+    const float filtered = applyEma(filter, static_cast<float>(value), enabled);
+    if (std::isfinite(filtered) && isPlausibleTemperatureMilliC(static_cast<int64_t>(filtered))) value = static_cast<int32_t>(filtered);
+    else filter.initialized = false;
+}
+
+inline void smoothTemperatureMilliC(uint32_t& value, EmaFilterState& filter, bool enabled) {
+    if (!isPlausibleTemperatureMilliC(value)) { filter.initialized = false; value = 0; return; }
+    const float filtered = applyEma(filter, static_cast<float>(value), enabled);
+    if (std::isfinite(filtered) && filtered >= 0.0f && isPlausibleTemperatureMilliC(static_cast<int64_t>(filtered))) value = static_cast<uint32_t>(filtered + 0.5f);
+    else filter.initialized = false;
+}
+
+inline int safeTemperatureInt(float value) {
+    return isPlausibleTemperatureC(value) ? static_cast<int>(value) : 0;
+}
+
+inline int safeTemperatureMilliInt(int64_t value) {
+    return isPlausibleTemperatureMilliC(value) ? static_cast<int>(value / 1000) : 0;
 }
 
 SharedMemory _sharedmemory = {};
@@ -581,13 +636,13 @@ static void Read() {
     u32 t1 = Rd(vSoc, SENSOR_TEMP1);
     u32 t2 = Rd(vSoc, SENSOR_TEMP2);
     if (!t1 && !t2) return; // sensors still warming up; keep last values
-    componentCPU_mC = (u32)Trans((u16)(t1 >> 16));
-    componentGPU_mC = (u32)Trans((u16)(t1 & 0xFFFFu));
+    acceptTemperatureMilliC(componentCPU_mC, Trans((u16)(t1 >> 16)));
+    acceptTemperatureMilliC(componentGPU_mC, Trans((u16)(t1 & 0xFFFFu)));
     // Erista: dedicated MEM sensor in TEMP2[31:16]
     // Mariko: no MEM sensor — use PLLX [15:0] as proxy (same as HOC)
-    componentRAM_mC = isMariko
-        ? (u32)Trans((u16)(t2 & 0xFFFFu))
-        : (u32)Trans((u16)(t2 >> 16));
+    acceptTemperatureMilliC(componentRAM_mC, isMariko
+        ? Trans((u16)(t2 & 0xFFFFu))
+        : Trans((u16)(t2 >> 16)));
 }
 
 } // namespace Soctherm
@@ -1481,7 +1536,7 @@ void Misc(void*) {
 
         // Get sys-clk data (sys-clk-hoc: sys:clk service)
         if (R_SUCCEEDED(sysclkCheck)) {
-            SysClkContext sysclkCTX;
+            SysClkContext sysclkCTX{};
             if (R_SUCCEEDED(sysclkIpcGetCurrentContext(&sysclkCTX))) {
                 realCPU_Hz = sysclkCTX.realFreqs[SysClkModule_CPU];
                 realGPU_Hz = sysclkCTX.realFreqs[SysClkModule_GPU];
@@ -1498,15 +1553,15 @@ void Misc(void*) {
                 }
                 // HOC die temps via sys-clk-hoc IPC (packed into perfConfId/realProfile/reserved[0])
                 if (usingHOC()) {
-                    componentCPU_mC = sysclkCTX.perfConfId;
-                    componentGPU_mC = (uint32_t)sysclkCTX.realProfile;
-                    componentRAM_mC = (uint32_t)sysclkCTX.reserved[0];
+                    acceptTemperatureMilliC(componentCPU_mC, sysclkCTX.perfConfId);
+                    acceptTemperatureMilliC(componentGPU_mC, static_cast<int64_t>(sysclkCTX.realProfile));
+                    acceptTemperatureMilliC(componentRAM_mC, sysclkCTX.reserved[0]);
                 }
             }
         }
         // Get hoc-clk data (Horizon OC native hoc:clk IPC)
         else if (R_SUCCEEDED(hocclkCheck)) {
-            HocClkContext hocclkCTX;
+            HocClkContext hocclkCTX{};
             if (R_SUCCEEDED(hocclkIpcGetCurrentContext(&hocclkCTX))) {
                 realCPU_Hz = hocclkCTX.stable.realFreqs[HocClkModule_CPU];
                 realGPU_Hz = hocclkCTX.stable.realFreqs[HocClkModule_GPU];
@@ -1532,9 +1587,9 @@ void Misc(void*) {
                     realSOC_mV = hocclkCTX.stable.voltages[HocClkVoltage_SOC];
                 }
                 // HOC die temps directly from hoc-clk IPC (per-die SOCTHERM values)
-                componentCPU_mC = (uint32_t)hocclkCTX.stable.temps[HocClkThermalSensor_CPU];
-                componentGPU_mC = (uint32_t)hocclkCTX.stable.temps[HocClkThermalSensor_GPU];
-                componentRAM_mC = (uint32_t)hocclkCTX.stable.temps[HocClkThermalSensor_MEM];
+                acceptTemperatureMilliC(componentCPU_mC, hocclkCTX.stable.temps[HocClkThermalSensor_CPU]);
+                acceptTemperatureMilliC(componentGPU_mC, hocclkCTX.stable.temps[HocClkThermalSensor_GPU]);
+                acceptTemperatureMilliC(componentRAM_mC, hocclkCTX.stable.temps[HocClkThermalSensor_MEM]);
                 // RAM bandwidth from hoc-clk IPC (pre-calculated MB/s values, indices 6-7 in stable).
                 // HocClkPartLoad_RamBWAll = 6, HocClkPartLoad_RamBWCpu = 7, both < HocClkPartLoadStable_EnumMax (10).
                 ramBW_MBs     = hocclkCTX.stable.partLoad[HocClkPartLoad_RamBWAll];
@@ -1657,11 +1712,13 @@ void Misc(void*) {
 
         // Temperatures
         if (R_SUCCEEDED(i2cCheck)) {
-            Tmp451GetSocTemp(&SOC_temperatureF);
-            Tmp451GetPcbTemp(&PCB_temperatureF);
+            float socSample = 0.0f, pcbSample = 0.0f;
+            if (R_SUCCEEDED(Tmp451GetSocTemp(&socSample))) acceptTemperatureC(SOC_temperatureF, socSample);
+            if (R_SUCCEEDED(Tmp451GetPcbTemp(&pcbSample))) acceptTemperatureC(PCB_temperatureF, pcbSample);
         }
         if (R_SUCCEEDED(tcCheck)) {
-            tcGetSkinTemperatureMilliC(&skin_temperaturemiliC);
+            int32_t skinSample = 0;
+            if (R_SUCCEEDED(tcGetSkinTemperatureMilliC(&skinSample))) acceptTemperatureMilliC(skin_temperaturemiliC, skinSample);
         }
 
         // Apply user-configured EMA only after raw values have been consumed by
@@ -1672,12 +1729,12 @@ void Misc(void*) {
         realCPU_Hz = applyEmaU32(emaRealCpuHz, realCPU_Hz, emaSettings.frequencies);
         realGPU_Hz = applyEmaU32(emaRealGpuHz, realGPU_Hz, emaSettings.frequencies);
         realRAM_Hz = applyEmaU32(emaRealRamHz, realRAM_Hz, emaSettings.frequencies);
-        SOC_temperatureF = applyEma(emaSocTemp, SOC_temperatureF, emaSettings.temperatures);
-        PCB_temperatureF = applyEma(emaPcbTemp, PCB_temperatureF, emaSettings.temperatures);
-        skin_temperaturemiliC = static_cast<int32_t>(applyEma(emaSkinTemp, static_cast<float>(skin_temperaturemiliC), emaSettings.temperatures));
-        componentCPU_mC = applyEmaU32(emaCpuTemp, componentCPU_mC, emaSettings.temperatures);
-        componentGPU_mC = applyEmaU32(emaGpuTemp, componentGPU_mC, emaSettings.temperatures);
-        componentRAM_mC = applyEmaU32(emaRamTemp, componentRAM_mC, emaSettings.temperatures);
+        smoothTemperatureC(SOC_temperatureF, emaSocTemp, emaSettings.temperatures);
+        smoothTemperatureC(PCB_temperatureF, emaPcbTemp, emaSettings.temperatures);
+        smoothTemperatureMilliC(skin_temperaturemiliC, emaSkinTemp, emaSettings.temperatures);
+        smoothTemperatureMilliC(componentCPU_mC, emaCpuTemp, emaSettings.temperatures);
+        smoothTemperatureMilliC(componentGPU_mC, emaGpuTemp, emaSettings.temperatures);
+        smoothTemperatureMilliC(componentRAM_mC, emaRamTemp, emaSettings.temperatures);
         ramLoad[SysClkRamLoad_All] = applyEmaU32(emaRamLoadAll, ramLoad[SysClkRamLoad_All], emaSettings.loads);
         ramLoad[SysClkRamLoad_Cpu] = applyEmaU32(emaRamLoadCpu, ramLoad[SysClkRamLoad_Cpu], emaSettings.loads);
         ramBW_MBs = applyEmaU32(emaRamBandwidth, ramBW_MBs, emaSettings.loads);
@@ -1829,7 +1886,7 @@ void Misc3(void*) {
 
         // Get sys-clk data (sys-clk-hoc: sys:clk service)
         if (R_SUCCEEDED(sysclkCheck)) {
-            SysClkContext sysclkCTX;
+            SysClkContext sysclkCTX{};
             if (R_SUCCEEDED(sysclkIpcGetCurrentContext(&sysclkCTX))) {
                 ramLoad[SysClkRamLoad_All] = sysclkCTX.ramLoad[SysClkRamLoad_All];
                 ramLoad[SysClkRamLoad_Cpu] = sysclkCTX.ramLoad[SysClkRamLoad_Cpu];
@@ -1843,15 +1900,15 @@ void Misc3(void*) {
                 }
                 // HOC die temps via sys-clk-hoc IPC (packed into perfConfId/realProfile/reserved[0])
                 if (usingHOC()) {
-                    componentCPU_mC = sysclkCTX.perfConfId;
-                    componentGPU_mC = (uint32_t)sysclkCTX.realProfile;
-                    componentRAM_mC = (uint32_t)sysclkCTX.reserved[0];
+                    acceptTemperatureMilliC(componentCPU_mC, sysclkCTX.perfConfId);
+                    acceptTemperatureMilliC(componentGPU_mC, static_cast<int64_t>(sysclkCTX.realProfile));
+                    acceptTemperatureMilliC(componentRAM_mC, sysclkCTX.reserved[0]);
                 }
             }
         }
         // Get hoc-clk data (Horizon OC native hoc:clk IPC)
         else if (R_SUCCEEDED(hocclkCheck)) {
-            HocClkContext hocclkCTX;
+            HocClkContext hocclkCTX{};
             if (R_SUCCEEDED(hocclkIpcGetCurrentContext(&hocclkCTX))) {
                 ramLoad[SysClkRamLoad_All] = hocclkCTX.stable.partLoad[HocClkPartLoad_EMC];
                 ramLoad[SysClkRamLoad_Cpu] = hocclkCTX.stable.partLoad[HocClkPartLoad_EMCCpu];
@@ -1874,9 +1931,9 @@ void Misc3(void*) {
                     realSOC_mV = hocclkCTX.stable.voltages[HocClkVoltage_SOC];
                 }
                 // HOC die temps directly from hoc-clk IPC (per-die SOCTHERM values)
-                componentCPU_mC = (uint32_t)hocclkCTX.stable.temps[HocClkThermalSensor_CPU];
-                componentGPU_mC = (uint32_t)hocclkCTX.stable.temps[HocClkThermalSensor_GPU];
-                componentRAM_mC = (uint32_t)hocclkCTX.stable.temps[HocClkThermalSensor_MEM];
+                acceptTemperatureMilliC(componentCPU_mC, hocclkCTX.stable.temps[HocClkThermalSensor_CPU]);
+                acceptTemperatureMilliC(componentGPU_mC, hocclkCTX.stable.temps[HocClkThermalSensor_GPU]);
+                acceptTemperatureMilliC(componentRAM_mC, hocclkCTX.stable.temps[HocClkThermalSensor_MEM]);
 
                 // HocClkPartLoad_RamBWAll = 6, HocClkPartLoad_RamBWCpu = 7, both < HocClkPartLoadStable_EnumMax (10).
                 ramBW_MBs     = hocclkCTX.stable.partLoad[HocClkPartLoad_RamBWAll];
@@ -2004,11 +2061,13 @@ void Misc3(void*) {
 
         // Temperatures
         if (R_SUCCEEDED(i2cCheck)) {
-            Tmp451GetSocTemp(&SOC_temperatureF);
-            Tmp451GetPcbTemp(&PCB_temperatureF);
+            float socSample = 0.0f, pcbSample = 0.0f;
+            if (R_SUCCEEDED(Tmp451GetSocTemp(&socSample))) acceptTemperatureC(SOC_temperatureF, socSample);
+            if (R_SUCCEEDED(Tmp451GetPcbTemp(&pcbSample))) acceptTemperatureC(PCB_temperatureF, pcbSample);
         }
         if (R_SUCCEEDED(tcCheck)) {
-            tcGetSkinTemperatureMilliC(&skin_temperaturemiliC);
+            int32_t skinSample = 0;
+            if (R_SUCCEEDED(tcGetSkinTemperatureMilliC(&skinSample))) acceptTemperatureMilliC(skin_temperaturemiliC, skinSample);
         }
 
         // Fan
@@ -4437,8 +4496,8 @@ ALWAYS_INLINE void GetConfigSettings(FpsGraphSettings* settings) {
 ALWAYS_INLINE void GetConfigSettings(FullSettings* settings) {
     // Initialize defaults
     settings->setPosRight = false;
-    settings->refreshRate = 2;
-    settings->sampleRate = 2;  // matches refreshRate by default for this mode
+    settings->refreshRate = 60;
+    settings->sampleRate = 15;  // telemetry rate; EMA advances at the 60 Hz draw rate
     settings->showRealFreqs = true;
     settings->showDeltas = true;
     settings->showTargetFreqs = true;

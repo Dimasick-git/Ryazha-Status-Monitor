@@ -39,9 +39,9 @@ inline std::string originalLaunchArgs; // flattened argv[1..] minus --silentLaun
 //        
 //        auto* list = new tsl::elm::List();
 //
-//        list->addItem(new tsl::elm::CategoryHeader("FPS"));
+//        list->addItem(new tsl::elm::CompactCategoryHeader("FPS"));
 //
-//        auto* comFPSGraph = new tsl::elm::ListItem("Graph");
+//        auto* comFPSGraph = new tsl::elm::CompactListItem("Graph");
 //        comFPSGraph->setClickListener([](uint64_t keys) {
 //            if (keys & KEY_A) {
 //                tsl::swapTo<com_FPSGraph>();
@@ -51,7 +51,7 @@ inline std::string originalLaunchArgs; // flattened argv[1..] minus --silentLaun
 //        });
 //        list->addItem(comFPSGraph);
 //
-//        auto* comFPSCounter = new tsl::elm::ListItem("Counter");
+//        auto* comFPSCounter = new tsl::elm::CompactListItem("Counter");
 //        comFPSCounter->setClickListener([](uint64_t keys) {
 //            if (keys & KEY_A) {
 //                tsl::swapTo<com_FPS>();
@@ -102,9 +102,9 @@ public:
         
         auto* list = new tsl::elm::List();
 
-        list->addItem(new tsl::elm::CategoryHeader("Other"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Other"));
 
-        auto* Battery = new tsl::elm::ListItem("Battery/Charger");
+        auto* Battery = new tsl::elm::CompactListItem("Battery/Charger");
         Battery->disableClickAnimation();
         Battery->setClickListener([](uint64_t keys) {
             if (keys & KEY_A) {
@@ -115,7 +115,7 @@ public:
         });
         list->addItem(Battery);
 
-        auto* Misc = new tsl::elm::ListItem("Miscellaneous");
+        auto* Misc = new tsl::elm::CompactListItem("Miscellaneous");
         Misc->disableClickAnimation();
         Misc->setClickListener([](uint64_t keys) {
             if (keys & KEY_A) {
@@ -127,7 +127,7 @@ public:
         list->addItem(Misc);
 
         //if (SaltySD) {
-        //    auto* Res = new tsl::elm::ListItem("Game Resolutions");
+        //    auto* Res = new tsl::elm::CompactListItem("Game Resolutions");
         //    Res->setClickListener([](uint64_t keys) {
         //        if (keys & KEY_A) {
         //            tsl::swapTo<ResolutionsOverlay>();
@@ -138,7 +138,7 @@ public:
         //    list->addItem(Res);
         //}
         //tsl::elm::g_disableMenuCacheOnReturn.store(true, std::memory_order_release);
-        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Ряжа-Монитор", localizeSubtitle("Modes"));
+        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Status Monitor", localizeSubtitle("Other"));
         if (!lastSelectedItem.empty()) {
             list->jumpToItem(lastSelectedItem);
         }
@@ -189,16 +189,23 @@ public:
         
         auto* list = new tsl::elm::List();
         
-        //list->addItem(new tsl::elm::CategoryHeader("Modes " + ult::DIVIDER_SYMBOL + " \uE0E0 Enter " + ult::DIVIDER_SYMBOL + " \uE0E3 Configure"));
-        list->addItem(new tsl::elm::CategoryHeader("Режимы " + ult::DIVIDER_SYMBOL + "+ Настройки"));
+        //list->addItem(new tsl::elm::CompactCategoryHeader("Modes " + ult::DIVIDER_SYMBOL + " \uE0E0 Enter " + ult::DIVIDER_SYMBOL + " \uE0E3 Configure"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Modes " + ult::DIVIDER_SYMBOL + "+ Configure"));
 
-        auto* Full = new tsl::elm::ListItem("Full");
+        auto* Full = new tsl::elm::CompactListItem("Full");
         Full->enableShortHoldKey();
         Full->disableClickAnimation();
         Full->setClickListener([](uint64_t keys) {
             if (keys & KEY_A) {
                 lastMode = "full";
-                tsl::swapTo<FullOverlay>();
+                if (!filepath.empty()) {
+                    tsl::setNextOverlay(filepath, directSession ? "-full --direct" : "-full");
+                    if (directSession) launchComboHasTriggered.store(true, std::memory_order_release);
+                    tsl::Overlay::get()->close();
+                } else {
+                    // Defensive fallback for an unusual renamed/missing overlay.
+                    tsl::swapTo<FullOverlay>();
+                }
                 return true;
             }
             if (keys & KEY_PLUS) {
@@ -209,8 +216,7 @@ public:
             }
             return false;
         });
-        list->addItem(Full);
-        //auto* Mini = new tsl::elm::ListItem("Mini");
+        //auto* Mini = new tsl::elm::CompactListItem("Mini");
         //Mini->setClickListener([](uint64_t keys) {
         //    if (keys & KEY_A) {
         //        tsl::swapTo<MiniOverlay>();
@@ -235,8 +241,11 @@ public:
                 filepath = folderpath + "Status-Monitor-Overlay.ovl";
             }
         }
+        // filepath is resolved before Full can be activated so Full may relaunch
+        // with its own full-screen transparent framebuffer.
+        list->addItem(Full);
         if (fileExist) {
-            auto* Mini = new tsl::elm::SilentListItem("Mini");
+            auto* Mini = new tsl::elm::CompactSilentListItem("Mini");
             Mini->enableShortHoldKey();
             Mini->disableClickAnimation();
             Mini->setClickListener([](uint64_t keys) {
@@ -258,7 +267,7 @@ public:
             });
             list->addItem(Mini);
 
-            auto* Micro = new tsl::elm::SilentListItem("Micro");
+            auto* Micro = new tsl::elm::CompactSilentListItem("Micro");
             Micro->enableShortHoldKey();
             Micro->disableClickAnimation();
             Micro->setClickListener([](uint64_t keys) {
@@ -279,7 +288,7 @@ public:
             list->addItem(Micro);
         }
         if (SaltySD) {
-            //auto* Graphs = new tsl::elm::ListItem("FPS");
+            //auto* Graphs = new tsl::elm::CompactListItem("FPS");
             //Graphs->setValue(ult::DROPDOWN_SYMBOL);
             //Graphs->setClickListener([](uint64_t keys) {
             //    if (keys & KEY_A) {
@@ -290,7 +299,7 @@ public:
             //});
             //list->addItem(Graphs);
 
-            auto* comFPSGraph = new tsl::elm::SilentListItem("FPS Graph");
+            auto* comFPSGraph = new tsl::elm::CompactSilentListItem("FPS Graph");
             comFPSGraph->enableShortHoldKey();
             comFPSGraph->disableClickAnimation();
             comFPSGraph->setClickListener([](uint64_t keys) {
@@ -317,7 +326,7 @@ public:
             });
             list->addItem(comFPSGraph);
 
-            auto* comFPSCounter = new tsl::elm::SilentListItem("FPS Counter");
+            auto* comFPSCounter = new tsl::elm::CompactSilentListItem("FPS Counter");
             comFPSCounter->enableShortHoldKey();
             comFPSCounter->disableClickAnimation();
             comFPSCounter->setClickListener([](uint64_t keys) {
@@ -344,7 +353,7 @@ public:
             });
             list->addItem(comFPSCounter);
 
-            auto* Res = new tsl::elm::SilentListItem("Game Resolutions");
+            auto* Res = new tsl::elm::CompactSilentListItem("Game Resolutions");
             Res->enableShortHoldKey();
             Res->disableClickAnimation();
             Res->setClickListener([](uint64_t keys) {
@@ -371,7 +380,7 @@ public:
             list->addItem(Res);
 
         }
-        auto* Other = new tsl::elm::ListItem("Other");
+        auto* Other = new tsl::elm::CompactListItem("Other");
         Other->disableClickAnimation();
         Other->setValue(ult::DROPDOWN_SYMBOL);
         Other->setClickListener([](uint64_t keys) {
@@ -391,7 +400,7 @@ public:
 
 
         //list->disableCaching();
-        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Ряжа-Монитор", APP_VERSION);
+        tsl::elm::HeaderOverlayFrame* rootFrame = new tsl::elm::HeaderOverlayFrame("Status Monitor", APP_VERSION);
         rootFrame->setContent(list);
 
         return rootFrame;
@@ -1328,7 +1337,10 @@ int main(int argc, char **argv) {
                 
                 // Compare and update if values differ
                 const std::string expectedArgs = "(-full, -mini, -micro, -fps_graph, -fps_counter, -game_resolutions)";
-                const std::string expectedLabels = "(Полный, Мини, Микро, FPS-график, FPS + Гц, Разрешение)";
+                const std::string expectedLabels = "(" + localizeSubtitle("Full") + ", " +
+                    localizeSubtitle("Mini") + ", " + localizeSubtitle("Micro") + ", " +
+                    localizeSubtitle("FPS Graph") + ", " + localizeSubtitle("FPS Counter") + ", " +
+                    localizeSubtitle("Game Resolutions") + ")";
                 if (section["mode_args"] != expectedArgs || section["mode_labels"] != expectedLabels) {
                     section["mode_args"] = expectedArgs;
                     section["mode_labels"] = expectedLabels;
@@ -1337,7 +1349,10 @@ int main(int argc, char **argv) {
             } else {
                 // If section doesn't exist, create it with expected values
                 iniData[filename]["mode_args"] = "(-full, -mini, -micro, -fps_graph, -fps_counter, -game_resolutions)";
-                iniData[filename]["mode_labels"] = "(Полный, Мини, Микро, FPS-график, FPS + Гц, Разрешение)";
+                iniData[filename]["mode_labels"] = "(" + localizeSubtitle("Full") + ", " +
+                    localizeSubtitle("Mini") + ", " + localizeSubtitle("Micro") + ", " +
+                    localizeSubtitle("FPS Graph") + ", " + localizeSubtitle("FPS Counter") + ", " +
+                    localizeSubtitle("Game Resolutions") + ")";
                 ult::saveIniFileData(ult::OVERLAYS_INI_FILEPATH, iniData);
             }
         }
@@ -1367,6 +1382,7 @@ int main(int argc, char **argv) {
                 FullMode = true;
                 lastMode = "full";
                 skipMain = true;
+                setupMode("full");
                 return tsl::loop<FullEntryOverlay>(argc, argv);
             }
             // Micro mode

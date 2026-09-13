@@ -276,8 +276,8 @@ static const std::vector<std::string> COLOR_SWATCH_SPECIAL = { COLOR_SWATCH };
 // drawStringWithColoredSections with the stored swatch color. The checkmark and focus
 // highlight draw normally through the parent.
 template<bool isMini>
-class ColorSwatchListItemT : public std::conditional_t<isMini, tsl::elm::MiniListItem, tsl::elm::ListItem> {
-    using Base = std::conditional_t<isMini, tsl::elm::MiniListItem, tsl::elm::ListItem>;
+class ColorSwatchListItemT : public tsl::elm::CompactListItem {
+    using Base = tsl::elm::CompactListItem;
 public:
     explicit ColorSwatchListItemT(const std::string& text)
         : Base(text), m_swatchColor(tsl::Color(0xF, 0xF, 0xF, 0xF)) {}
@@ -286,8 +286,7 @@ public:
 
     virtual void draw(tsl::gfx::Renderer* renderer) override {
         static constexpr s32 fontSize   = 20;
-        static constexpr u16 itemHeight = isMini ? tsl::style::MiniListItemDefaultHeight
-                                                 : tsl::style::ListItemDefaultHeight;
+        static constexpr u16 itemHeight = tsl::style::MiniListItemDefaultHeight;
         static constexpr s32 yOffset    = (tsl::style::ListItemDefaultHeight - itemHeight) / 2 + 1;
         const s32 swatchY = this->getY() + 45 - yOffset - 1;
 
@@ -516,7 +515,7 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader(title));
+        list->addItem(new tsl::elm::CompactCategoryHeader(title));
 
         const std::string section = modeToSection(modeName);
         std::string currentColor = ult::parseValueFromIniSection(configIniPath, section, colorKey);
@@ -531,7 +530,7 @@ public:
         };
 
         for (const auto& option : alphaOptions) {
-            auto* alphaItem = new tsl::elm::MiniListItem(option.first);
+            auto* alphaItem = new tsl::elm::CompactListItem(option.first);
             alphaItem->setRadioSelector();
             if (!currentAlpha.empty() && currentAlpha[0] == option.second)
                 selectItem(lastSelectedListItem, alphaItem, ult::CHECKMARK_SYMBOL);
@@ -579,23 +578,23 @@ struct DTCFormatCategory {
 };
 
 static const std::vector<DTCFormatCategory> dtcFormatCategories = {
-    {"Время", {
-        {"24 ч",             "%H:%M"},
-        {"24 ч с секундами", "%H:%M:%S"}
+    {"Time", {
+        {"Time 24h",    "%H:%M"},
+        {"Time 24h(s)", "%H:%M:%S"}
     }},
-    {"Дата", {
-        {"День.Месяц.Год", "%d.%m.%Y"},
-        {"День-Месяц-Год", "%d-%m-%Y"},
-        {"Год-Месяц-День", "%Y-%m-%d"},
-        {"Короткая дата",  "%d.%m.%y"},
-        {"Компактная дата", "%Y%m%d"}
+    {"Date", {
+        {"Date EU",      "%d.%m.%Y"},
+        {"Date EU Dash", "%d-%m-%Y"},
+        {"Date ISO",     "%Y-%m-%d"},
+        {"Date Short",   "%d.%m.%y"},
+        {"Date Compact", "%Y%m%d"}
     }},
-    {"Числа даты", {
-        {"День месяца", "%d"},
-        {"Номер месяца", "%m"},
-        {"Год",         "%Y"},
-        {"День года",   "%j"},
-        {"Неделя года", "%V"}
+    {"Date Fields", {
+        {"Day of Month", "%d"},
+        {"Month Number", "%m"},
+        {"Year",         "%Y"},
+        {"Day of Year",  "%j"},
+        {"Week of Year", "%V"}
     }},
 };
 
@@ -634,8 +633,8 @@ public:
         }
 
         if (slot == 2) {
-            list->addItem(new tsl::elm::CategoryHeader("None"));
-            auto* noneItem = new tsl::elm::MiniListItem(ult::OPTION_SYMBOL);
+            list->addItem(new tsl::elm::CompactCategoryHeader("None"));
+            auto* noneItem = new tsl::elm::CompactListItem(ult::OPTION_SYMBOL);
             noneItem->setRadioSelector();
             if (currentValue == ult::OPTION_SYMBOL)
                 selectItem(lastSelectedListItem, noneItem, ult::CHECKMARK_SYMBOL);
@@ -651,9 +650,9 @@ public:
         }
 
         for (const auto& cat : dtcFormatCategories) {
-            list->addItem(new tsl::elm::CategoryHeader(cat.header));
+            list->addItem(new tsl::elm::CompactCategoryHeader(cat.header));
             for (const auto& entry : cat.entries) {
-                auto* formatItem = new tsl::elm::MiniListItem(entry.label);
+                auto* formatItem = new tsl::elm::CompactListItem(entry.label);
                 formatItem->setRadioSelector();
                 if (entry.fmt == currentValue)
                     selectItem(lastSelectedListItem, formatItem, ult::CHECKMARK_SYMBOL);
@@ -701,7 +700,7 @@ private:
                    const std::string& key, bool defaultVal,
                    const std::string& overrideSection = "") {
         const std::string& sec = overrideSection.empty() ? section : overrideSection;
-        auto* item = new tsl::elm::MiniToggleListItem(label, readBool(sec, key, defaultVal));
+        auto* item = new tsl::elm::CompactToggleListItem(label, readBool(sec, key, defaultVal));
         item->setStateChangedListener([sec, key](bool state) {
             ult::setIniFileValue(configIniPath, sec, key, state ? "true" : "false");
         });
@@ -719,7 +718,7 @@ public:
         auto* list = new tsl::elm::List();
 
         if (flags.isFPSGraph) {
-            list->addItem(new tsl::elm::CategoryHeader("Global"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("Global"));
             addToggle(list, "Disable Screenshots", "disable_screenshots", false);
             addToggle(list, "Info",                "show_info",           true);
             addToggle(list, "Dynamic Temps", "use_dynamic_colors",  true);
@@ -731,7 +730,7 @@ public:
             addToggle(list, "Graph Background", "graph_background", false);
 
         } else if (flags.isFull) {
-            list->addItem(new tsl::elm::CategoryHeader("Global"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("Global"));
             addToggle(list, "Disable Screenshots", "disable_screenshots", false);
             addToggle(list, "Real Frequencies",    "show_real_freqs",     true);
             addToggle(list, "Target Frequencies",  "show_target_freqs",   true);
@@ -743,7 +742,7 @@ public:
             addToggle(list, "Use Ryazha Theme", "use_ryazha_theme", true);
 
         } else if (flags.isMini || flags.isMicro) {
-            list->addItem(new tsl::elm::CategoryHeader("Global"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("Global"));
             addToggle(list, "1080p Docked",   "use_1080p_docked",   true);
             addToggle(list, "Disable Screenshots", "disable_screenshots", false);
 
@@ -759,7 +758,7 @@ public:
                 addToggle(list, "CW Border Flow", "cw_border_flow",  true);
             }
 
-            list->addItem(new tsl::elm::CategoryHeader("CPU"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("CPU"));
             addToggle(list, "Full CPU",              "show_full_cpu",              true);
             addToggle(list, "Full CPU Max Core 0-2", "show_full_cpu_max_core_012", flags.isMini);
             addToggle(list, "Stacked Full CPU",      "show_stacked_full_cpu",      true);
@@ -767,12 +766,12 @@ public:
             addToggle(list, "Stacked CPU Temp",      "show_stacked_cpu_temp",      true);
             addToggle(list, "Voltage At End",        "voltage_at_end_cpu",         flags.isMicro);
 
-            list->addItem(new tsl::elm::CategoryHeader("GPU"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("GPU"));
             addToggle(list, "GPU Temp",         "show_gpu_temp",         flags.isMicro);
             addToggle(list, "Stacked GPU Temp", "show_stacked_gpu_temp", true);
             addToggle(list, "Voltage At End",   "voltage_at_end_gpu",    true);
 
-            list->addItem(new tsl::elm::CategoryHeader("RAM"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("RAM"));
             addToggle(list, "RAM Bandwidth",         "show_ram_bandwidth",               true);
             addToggle(list, "Stacked RAM Bandwidth", "show_stacked_ram_bandwidth",       true);
             addToggle(list, "RAM Load CPU/GPU", "show_RAM_load_CPU_GPU",                 false);
@@ -790,12 +789,12 @@ public:
             addToggle(list, "Stacked RAM Temp", "show_stacked_ram_temp", true);
             addToggle(list, "Voltage At End",   "voltage_at_end_ram",    flags.isMicro);
 
-            list->addItem(new tsl::elm::CategoryHeader("TMP"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("TMP"));
             {
                 // Mutual-exclusivity pair
-                auto* compTemps   = new tsl::elm::MiniToggleListItem("CPU/GPU/RAM Temps",
+                auto* compTemps   = new tsl::elm::CompactToggleListItem("CPU/GPU/RAM Temps",
                     readBool(section, "show_component_temps", true));
-                auto* socPcbTemps = new tsl::elm::MiniToggleListItem("SOC/PCB/Skin Temps",
+                auto* socPcbTemps = new tsl::elm::CompactToggleListItem("SOC/PCB/Skin Temps",
                     readBool(section, "show_soc_pcb_skin_temps", true));
 
                 compTemps->setStateChangedListener([this, compTemps, socPcbTemps](bool state) {
@@ -827,32 +826,32 @@ public:
             addToggle(list, "Stacked Fan/SOC", "show_stacked_fan_soc", true);
             addToggle(list, "Voltage At End",  "voltage_at_end_tmp",   true);
 
-            list->addItem(new tsl::elm::CategoryHeader("RES"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("RES"));
             addToggle(list, "Full Resolution", "show_full_res", true);
             addToggle(list, "Primary Only",    "show_primary_res", flags.isMicro);
 
-            list->addItem(new tsl::elm::CategoryHeader("FPS"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("FPS"));
             addToggle(list, "Integer FPS", "integer_fps", true);
             addToggle(list, "Use FPS Graph", "use_fps_graph", false);
 
-            list->addItem(new tsl::elm::CategoryHeader("BAT"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("BAT"));
             addToggle(list, "Invert Battery Display", "invert_battery_display", true);
             addToggle(list, "Stacked", "show_stacked_bat", flags.isMicro);
 
-            list->addItem(new tsl::elm::CategoryHeader("DTC"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("DTC"));
             addToggle(list, "Stop Watch",     "show_stopwatch",   true);
             addToggle(list, "Use DTC Symbol", "use_dtc_symbol",   true);
             addToggle(list, "Stacked",        "show_stacked_dtc", flags.isMicro);
 
         } else if (flags.isGameRes) {
-            list->addItem(new tsl::elm::CategoryHeader("Global"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("Global"));
             addToggle(list, "Disable Screenshots", "disable_screenshots", false);
             addToggle(list, "Border",         "use_border",      true);
             addToggle(list, "Dynamic Border", "dynamic_border",  true);
             addToggle(list, "CW Border Flow", "cw_border_flow",  true);
 
         } else if (flags.isFPSCounter) {
-            list->addItem(new tsl::elm::CategoryHeader("Global"));
+            list->addItem(new tsl::elm::CompactCategoryHeader("Global"));
             addToggle(list, "1080p Docked",   "use_1080p_docked",   true);
             addToggle(list, "Disable Screenshots", "disable_screenshots", false);
             addToggle(list, "Integer FPS",         "integer_fps",         true);
@@ -885,7 +884,7 @@ public:
 class EmaConfig : public tsl::Gui {
 private:
     static void addToggle(tsl::elm::List* list, const std::string& label, const std::string& key) {
-        auto* item = new tsl::elm::MiniToggleListItem(label, readBool("status-monitor", key, false));
+        auto* item = new tsl::elm::CompactToggleListItem(label, readBool("status-monitor", key, false));
         item->setStateChangedListener([key](bool state) {
             ult::setIniFileValue(configIniPath, "status-monitor", key, state ? "true" : "false");
             if (key == "ema_fps") emaSettings.fps = state;
@@ -900,7 +899,7 @@ private:
 public:
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("EMA Smoothing"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("EMA Smoothing"));
         addToggle(list, "EMA FPS", "ema_fps");
         addToggle(list, "EMA Frequencies", "ema_frequencies");
         addToggle(list, "EMA Loads", "ema_loads");
@@ -934,8 +933,8 @@ public:
     SampleRateConfig(const std::string& mode) : modeName(mode), flags(mode) {
         const std::string section = modeToSection(mode);
         const std::string rrVal = ult::parseValueFromIniSection(configIniPath, section, "refresh_rate");
-        const int defaultRate       = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3)));
-        const int defaultSampleRate = (flags.isFPSGraph ? 3 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 2 : defaultRate)));
+        const int defaultRate       = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 60 : 3)));
+        const int defaultSampleRate = (flags.isFPSGraph ? 3 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 2 : (flags.isFull ? 15 : defaultRate))));
         maxRate = rrVal.empty() ? defaultRate : std::clamp(atoi(rrVal.c_str()), 1, 60);
         const std::string srVal = ult::parseValueFromIniSection(configIniPath, section, "sample_rate");
         currentRate = srVal.empty() ? std::min(defaultSampleRate, maxRate) : std::clamp(atoi(srVal.c_str()), 1, maxRate);
@@ -944,13 +943,13 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Sample Rate"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Sample Rate"));
 
         const std::string section = modeToSection(modeName);
         static const int rates[] = {1, 2, 3, 5, 10, 15, 30, 60};
         for (int rate : rates) {
             if (rate > maxRate) break;
-            auto* rateItem = new tsl::elm::MiniListItem(std::to_string(rate) + " Hz");
+            auto* rateItem = new tsl::elm::CompactListItem(std::to_string(rate) + " Hz");
             rateItem->setRadioSelector();
             if (rate == currentRate)
                 selectItem(lastSelectedListItem, rateItem, ult::CHECKMARK_SYMBOL);
@@ -1004,11 +1003,11 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader(title));
+        list->addItem(new tsl::elm::CompactCategoryHeader(title));
 
         const std::string section = modeToSection(modeName);
         for (int delay = 0; delay <= 1000; delay += 50) {
-            auto* delayItem = new tsl::elm::MiniListItem(std::to_string(delay) + " ms");
+            auto* delayItem = new tsl::elm::CompactListItem(std::to_string(delay) + " ms");
             delayItem->setRadioSelector();
             if (delay == currentDelay)
                 selectItem(lastSelectedListItem, delayItem, ult::CHECKMARK_SYMBOL);
@@ -1052,19 +1051,19 @@ public:
     RefreshRateConfig(const std::string& mode) : modeName(mode), flags(mode) {
         const std::string section = modeToSection(mode);
         const std::string value = ult::parseValueFromIniSection(configIniPath, section, "refresh_rate");
-        const int defaultRate = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3)));
+        const int defaultRate = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 60 : 3)));
         currentRate = value.empty() ? defaultRate : std::clamp(atoi(value.c_str()), 1, 60);
     }
     ~RefreshRateConfig() { lastSelectedListItem = nullptr; }
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Refresh Rate"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Refresh Rate"));
 
         const std::string section = modeToSection(modeName);
         static const int rates[] = {1, 2, 3, 5, 10, 15, 30, 60};
         for (int rate : rates) {
-            auto* rateItem = new tsl::elm::MiniListItem(std::to_string(rate) + " Hz");
+            auto* rateItem = new tsl::elm::CompactListItem(std::to_string(rate) + " Hz");
             rateItem->setRadioSelector();
             if (rate == currentRate)
                 selectItem(lastSelectedListItem, rateItem, ult::CHECKMARK_SYMBOL);
@@ -1114,10 +1113,10 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Mode Combo"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Mode Combo"));
 
         {
-            auto* noneItem = new tsl::elm::ListItem(ult::OPTION_SYMBOL);
+            auto* noneItem = new tsl::elm::CompactListItem(ult::OPTION_SYMBOL);
             noneItem->setRadioSelector();
             if (currentCombo.empty())
                 selectItem(lastSelectedListItem, noneItem, ult::CHECKMARK_SYMBOL);
@@ -1142,7 +1141,7 @@ public:
             std::string display = combo;
             ult::convertComboToUnicode(display);
 
-            auto* item = new tsl::elm::ListItem(display);
+            auto* item = new tsl::elm::CompactListItem(display);
             item->setRadioSelector();
             if (currentKeys != 0 && comboKeys == currentKeys)
                 selectItem(lastSelectedListItem, item, ult::CHECKMARK_SYMBOL);
@@ -1194,10 +1193,10 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Frame Padding"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Frame Padding"));
 
         for (int padding = 0; padding <= 14; ++padding) {
-            auto* paddingItem = new tsl::elm::MiniListItem(std::to_string(padding) + " px");
+            auto* paddingItem = new tsl::elm::CompactListItem(std::to_string(padding) + " px");
             paddingItem->setRadioSelector();
             if (padding == currentPadding)
                 selectItem(lastSelectedListItem, paddingItem, ult::CHECKMARK_SYMBOL);
@@ -1254,11 +1253,11 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Border Thickness"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Border Thickness"));
 
         for (int tenths = 1; tenths <= 30; ++tenths) {
             const std::string label = std::to_string(tenths / 10) + "." + std::to_string(tenths % 10) + " sp";
-            auto* item = new tsl::elm::MiniListItem(label);
+            auto* item = new tsl::elm::CompactListItem(label);
             item->setRadioSelector();
             if (tenths == currentThickness)
                 selectItem(lastSelectedListItem, item, ult::CHECKMARK_SYMBOL);
@@ -1335,9 +1334,9 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader(headerLabel));
+        list->addItem(new tsl::elm::CompactCategoryHeader(headerLabel));
         for (int p = MIN_P; p <= MAX_P; p += STEP_P) {
-            auto* item = new tsl::elm::MiniListItem(formatLabel(p));
+            auto* item = new tsl::elm::CompactListItem(formatLabel(p));
             item->setRadioSelector();
             if (p == currentPadding)
                 selectItem(lastSelectedListItem, item, ult::CHECKMARK_SYMBOL);
@@ -1429,9 +1428,9 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader(headerLabel));
+        list->addItem(new tsl::elm::CompactCategoryHeader(headerLabel));
         for (int p = MIN_P; p <= MAX_P; p += STEP_P) {
-            auto* item = new tsl::elm::MiniListItem(formatLabel(p));
+            auto* item = new tsl::elm::CompactListItem(formatLabel(p));
             item->setRadioSelector();
             if (p == currentPadding)
                 selectItem(lastSelectedListItem, item, ult::CHECKMARK_SYMBOL);
@@ -1507,9 +1506,9 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Corner Radius"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Corner Radius"));
         for (int p = 0; p <= 80; p += 2) {
-            auto* item = new tsl::elm::MiniListItem(formatSpTenths(p));
+            auto* item = new tsl::elm::CompactListItem(formatSpTenths(p));
             item->setRadioSelector();
             if (p == currentRadius)
                 selectItem(lastSelectedListItem, item, ult::CHECKMARK_SYMBOL);
@@ -1619,11 +1618,11 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Paddings"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Paddings"));
 
         // Frame Padding — Mini / Game Resolutions / FPS Counter / FPS Graph
         if (flags.isMini || flags.isGameRes || flags.isFPSCounter || flags.isFPSGraph) {
-            auto* item = new tsl::elm::ListItem("Frame Padding");
+            auto* item = new tsl::elm::CompactListItem("Frame Padding");
             item->setValue(std::to_string(getFramePadding()) + " px");
             item->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<FramePaddingConfig>(modeName); return true; }
@@ -1632,7 +1631,7 @@ public:
             list->addItem(item);
 
             // Border Thickness - same modes carry the configurable frame border.
-            auto* btItem = new tsl::elm::ListItem("Border Thickness");
+            auto* btItem = new tsl::elm::CompactListItem("Border Thickness");
             {
                 const int bt = getBorderThickness();
                 btItem->setValue(std::to_string(bt / 10) + "." + std::to_string(bt % 10) + " sp");
@@ -1646,7 +1645,7 @@ public:
             // Corner Radius (sp) for the non-Mini border modes; Mini has its own
             // entry below via MiniCornerRadiusConfig.
             if (flags.isGameRes || flags.isFPSCounter || flags.isFPSGraph) {
-                auto* crItem = new tsl::elm::ListItem("Corner Radius");
+                auto* crItem = new tsl::elm::CompactListItem("Corner Radius");
                 crItem->setValue(formatSpTenths(getCornerRadius()));
                 crItem->setClickListener([this](uint64_t keys) {
                     if (keys & KEY_A) { tsl::changeTo<CornerRadiusConfig>(modeName); return true; }
@@ -1658,7 +1657,7 @@ public:
 
         // Mini paddings
         if (flags.isMini) {
-            auto* hItem = new tsl::elm::ListItem("Horizontal Padding");
+            auto* hItem = new tsl::elm::CompactListItem("Horizontal Padding");
             hItem->setValue(formatSpTenths(getMiniHPadding()));
             hItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MiniHPaddingConfig>(); return true; }
@@ -1666,7 +1665,7 @@ public:
             });
             list->addItem(hItem);
 
-            auto* vItem = new tsl::elm::ListItem("Vertical Padding");
+            auto* vItem = new tsl::elm::CompactListItem("Vertical Padding");
             vItem->setValue(formatSpTenths(getMiniVPadding()));
             vItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MiniVPaddingConfig>(); return true; }
@@ -1674,7 +1673,7 @@ public:
             });
             list->addItem(vItem);
 
-            auto* spItem = new tsl::elm::ListItem("Spacing");
+            auto* spItem = new tsl::elm::CompactListItem("Spacing");
             spItem->setValue(formatSpTenths(getMiniSpacing()));
             spItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MiniSpacingConfig>(); return true; }
@@ -1682,7 +1681,7 @@ public:
             });
             list->addItem(spItem);
 
-            auto* ssItem = new tsl::elm::ListItem("Stacked Spacing");
+            auto* ssItem = new tsl::elm::CompactListItem("Stacked Spacing");
             ssItem->setValue(formatSpTenths(getMiniStackedSpacing()));
             ssItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MiniStackedSpacingConfig>(); return true; }
@@ -1690,7 +1689,7 @@ public:
             });
             list->addItem(ssItem);
 
-            auto* crItem = new tsl::elm::ListItem("Corner Radius");
+            auto* crItem = new tsl::elm::CompactListItem("Corner Radius");
             crItem->setValue(formatSpTenths(getMiniCornerRadius()));
             crItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MiniCornerRadiusConfig>(); return true; }
@@ -1701,7 +1700,7 @@ public:
 
         // Micro paddings
         if (flags.isMicro) {
-            auto* hItem = new tsl::elm::ListItem("Horizontal Padding");
+            auto* hItem = new tsl::elm::CompactListItem("Horizontal Padding");
             hItem->setValue(formatSpTenths(getMicroHPadding()));
             hItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MicroHPaddingConfig>(); return true; }
@@ -1709,7 +1708,7 @@ public:
             });
             list->addItem(hItem);
 
-            auto* vItem = new tsl::elm::ListItem("Vertical Padding");
+            auto* vItem = new tsl::elm::CompactListItem("Vertical Padding");
             vItem->setValue(formatSpTenths(getMicroVPadding()));
             vItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MicroVPaddingConfig>(); return true; }
@@ -1717,7 +1716,7 @@ public:
             });
             list->addItem(vItem);
 
-            auto* ssItem = new tsl::elm::ListItem("Stacked Spacing");
+            auto* ssItem = new tsl::elm::CompactListItem("Stacked Spacing");
             ssItem->setValue(formatSpTenths(getMicroStackedSpacing()));
             ssItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MicroStackedSpacingConfig>(); return true; }
@@ -1725,7 +1724,7 @@ public:
             });
             list->addItem(ssItem);
 
-            auto* lItem = new tsl::elm::ListItem("Label Padding");
+            auto* lItem = new tsl::elm::CompactListItem("Label Padding");
             lItem->setValue(formatSpTenths(getMicroLabelPadding()));
             lItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MicroLabelPaddingConfig>(); return true; }
@@ -1733,7 +1732,7 @@ public:
             });
             list->addItem(lItem);
 
-            auto* eItem = new tsl::elm::ListItem("Element Padding");
+            auto* eItem = new tsl::elm::CompactListItem("Element Padding");
             eItem->setValue(formatSpWhole(getMicroElementPadding()));
             eItem->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MicroElementPaddingConfig>(); return true; }
@@ -1788,7 +1787,7 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader(title));
+        list->addItem(new tsl::elm::CompactCategoryHeader(title));
 
         const std::string section = modeToSection(modeName);
         const std::string keyName = fontType + "_font_size";
@@ -1812,7 +1811,7 @@ public:
             maxSize = flags.isFPSCounter ? 150 : (flags.isMini ? 22 : 18);
 
         for (int size = minSize; size <= maxSize; size++) {
-            auto* sizeItem = new tsl::elm::MiniListItem(std::to_string(size) + " pt");
+            auto* sizeItem = new tsl::elm::CompactListItem(std::to_string(size) + " pt");
             sizeItem->setRadioSelector();
             if (size == currentSize)
                 selectItem(lastSelectedListItem, sizeItem, ult::CHECKMARK_SYMBOL);
@@ -1856,7 +1855,7 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Font Sizes"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Font Sizes"));
 
         const std::string section = modeToSection(modeName);
         const int defaultSize      = flags.isFPSCounter ? 40 : 15;
@@ -1866,7 +1865,7 @@ public:
                             const std::string& type, int defSz) {
             const std::string val = ult::parseValueFromIniSection(configIniPath, section, key);
             const int sz = val.empty() ? defSz : atoi(val.c_str());
-            auto* item = new tsl::elm::ListItem(label);
+            auto* item = new tsl::elm::CompactListItem(label);
             item->setValue(std::to_string(sz) + " pt");
             item->setClickListener([this, type](uint64_t keys) {
                 if (keys & KEY_A) {
@@ -1933,7 +1932,7 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader(modeTitle));
+        list->addItem(new tsl::elm::CompactCategoryHeader(modeTitle));
 
         const std::string section = modeToSection(modeName);
         std::string currentValue = ult::parseValueFromIniSection(configIniPath, section, colorKey);
@@ -2050,7 +2049,7 @@ private:
         });
         list->addItem(colorItem);
 
-        auto* alphaItem = new tsl::elm::ListItem(alphaLabel);
+        auto* alphaItem = new tsl::elm::CompactListItem(alphaLabel);
         alphaItem->setValue(getAlphaPercentage(currentColor));
         alphaItem->setClickListener([this, key, alphaLabel](uint64_t keys) {
             if (keys & KEY_A) {
@@ -2078,7 +2077,7 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Colors"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Colors"));
 
         const char* backgroundDefault = flags.isFull ? "#101F" : "#000A";
         const char* focusDefault = flags.isFull ? "#210F" : "#000F";
@@ -2185,7 +2184,7 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader(
+        list->addItem(new tsl::elm::CompactCategoryHeader(
             "Elements " + ult::DIVIDER_SYMBOL + " \uE0E3 Move Down " + ult::DIVIDER_SYMBOL + " \uE0E2 Move Up"));
 
         const std::string section = isMiniMode ? "mini" : "micro";
@@ -2232,7 +2231,7 @@ public:
             const std::string& element = elementOrder[i];
             const bool isEnabled = enabledElements.count(element) > 0;
 
-            auto* elementItem = new tsl::elm::MiniToggleListItem(element, isEnabled);
+            auto* elementItem = new tsl::elm::CompactToggleListItem(element, isEnabled);
             elementItem->enableShortHoldKey();
             elementItem->enableLongHoldKey();
 
@@ -2362,15 +2361,15 @@ private:
     int getCurrentRefreshRate() const {
         const std::string section = modeToSection(modeName);
         const std::string value = ult::parseValueFromIniSection(configIniPath, section, "refresh_rate");
-        const int defaultRate = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3)));
+        const int defaultRate = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 60 : 3)));
         return value.empty() ? defaultRate : atoi(value.c_str());
     }
 
     int getCurrentSampleRate() const {
         const std::string section = modeToSection(modeName);
         const std::string rrVal = ult::parseValueFromIniSection(configIniPath, section, "refresh_rate");
-        const int defaultRate       = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 2 : 3)));
-        const int defaultSampleRate = (flags.isFPSGraph ? 3 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 2 : defaultRate)));
+        const int defaultRate       = flags.isFPSGraph ? 30 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 30 : (flags.isFull ? 60 : 3)));
+        const int defaultSampleRate = (flags.isFPSGraph ? 3 : (flags.isFPSCounter ? 30 : ((flags.isMini || flags.isMicro || flags.isGameRes) ? 2 : (flags.isFull ? 15 : defaultRate))));
         const int maxRate = rrVal.empty() ? defaultRate : std::clamp(atoi(rrVal.c_str()), 1, 60);
         const std::string srVal = ult::parseValueFromIniSection(configIniPath, section, "sample_rate");
         return srVal.empty() ? std::min(defaultSampleRate, maxRate) : std::clamp(atoi(srVal.c_str()), 1, maxRate);
@@ -2538,11 +2537,11 @@ public:
 
     virtual tsl::elm::Element* createUI() override {
         auto* list = new tsl::elm::List();
-        list->addItem(new tsl::elm::CategoryHeader("Configuration"));
+        list->addItem(new tsl::elm::CompactCategoryHeader("Configuration"));
 
         // Elements (Mini/Micro only)
         if (flags.isMini || flags.isMicro) {
-            auto* showSettings = new tsl::elm::ListItem("Elements");
+            auto* showSettings = new tsl::elm::CompactListItem("Elements");
             showSettings->setValue(ult::DROPDOWN_SYMBOL);
             showSettings->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<ShowConfig>(modeName); return true; }
@@ -2553,7 +2552,7 @@ public:
 
         // Toggles (all modes)
         {
-            auto* toggles = new tsl::elm::ListItem("Toggles");
+            auto* toggles = new tsl::elm::CompactListItem("Toggles");
             toggles->setValue(ult::DROPDOWN_SYMBOL);
             toggles->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<TogglesConfig>(modeName); return true; }
@@ -2564,7 +2563,7 @@ public:
 
         // EMA smoothing (shared by every mode)
         {
-            auto* ema = new tsl::elm::ListItem("EMA Smoothing");
+            auto* ema = new tsl::elm::CompactListItem("EMA Smoothing");
             ema->setValue(ult::DROPDOWN_SYMBOL);
             ema->setClickListener([](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<EmaConfig>(); return true; }
@@ -2575,7 +2574,7 @@ public:
 
         // Colors (all modes)
         {
-            auto* colors = new tsl::elm::ListItem("Colors");
+            auto* colors = new tsl::elm::CompactListItem("Colors");
             colors->setValue(ult::DROPDOWN_SYMBOL);
             colors->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<ColorConfig>(modeName); return true; }
@@ -2586,7 +2585,7 @@ public:
 
         // Font Sizes (Mini/Micro/FPS Counter only)
         if (flags.isMini || flags.isMicro || flags.isFPSCounter) {
-            auto* fontSizes = new tsl::elm::ListItem("Font Sizes");
+            auto* fontSizes = new tsl::elm::CompactListItem("Font Sizes");
             fontSizes->setValue(ult::DROPDOWN_SYMBOL);
             fontSizes->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<FontSizeConfig>(modeName); return true; }
@@ -2598,7 +2597,7 @@ public:
         // Paddings — after Font Sizes (or after Colors for modes without Font Sizes),
         // before Sample Rate / Refresh Rate.
         if (flags.isMini || flags.isGameRes || flags.isFPSCounter || flags.isFPSGraph || flags.isMicro) {
-            auto* paddings = new tsl::elm::ListItem("Paddings");
+            auto* paddings = new tsl::elm::CompactListItem("Paddings");
             paddings->setValue(ult::DROPDOWN_SYMBOL);
             paddings->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<PaddingsConfig>(modeName); return true; }
@@ -2609,7 +2608,7 @@ public:
 
         // Sample Rate (Mini / Micro / FPS Counter / FPS Graph / Game Resolutions / Full) — above Refresh Rate
         if (flags.isMini || flags.isMicro || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes || flags.isFull) {
-            auto* sampleRate = new tsl::elm::ListItem("Sample Rate");
+            auto* sampleRate = new tsl::elm::CompactListItem("Sample Rate");
             sampleRate->setValue(std::to_string(getCurrentSampleRate()) + " Hz");
             sampleRate->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<SampleRateConfig>(modeName); return true; }
@@ -2620,7 +2619,7 @@ public:
 
         // Refresh Rate (all modes)
         {
-            auto* refreshRate = new tsl::elm::ListItem("Refresh Rate");
+            auto* refreshRate = new tsl::elm::CompactListItem("Refresh Rate");
             refreshRate->setValue(std::to_string(getCurrentRefreshRate()) + " Hz");
             refreshRate->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<RefreshRateConfig>(modeName); return true; }
@@ -2633,7 +2632,7 @@ public:
         // press-and-hold. Full and Micro reposition by swipe gesture, so they
         // have no touch delay to configure.
         if (flags.isMini || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes) {
-            auto* touchMoveDelay = new tsl::elm::ListItem("Touch Move Delay");
+            auto* touchMoveDelay = new tsl::elm::CompactListItem("Touch Move Delay");
             touchMoveDelay->setValue(std::to_string(getCurrentMoveDelay("touch")) + " ms");
             touchMoveDelay->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MoveDelayConfig>(modeName, "touch"); return true; }
@@ -2646,7 +2645,7 @@ public:
         // including Full and Micro.
         if (flags.isMini || flags.isFPSCounter || flags.isFPSGraph || flags.isGameRes ||
             flags.isFull || flags.isMicro) {
-            auto* buttonMoveDelay = new tsl::elm::ListItem("Button Move Delay");
+            auto* buttonMoveDelay = new tsl::elm::CompactListItem("Button Move Delay");
             buttonMoveDelay->setValue(std::to_string(getCurrentMoveDelay("button")) + " ms");
             buttonMoveDelay->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<MoveDelayConfig>(modeName, "button"); return true; }
@@ -2657,7 +2656,7 @@ public:
 
         // DTC Format (Mini/Micro only)
         if (flags.isMini || flags.isMicro) {
-            auto* dtcFormat1 = new tsl::elm::ListItem("DTC Format 1");
+            auto* dtcFormat1 = new tsl::elm::CompactListItem("DTC Format 1");
             dtcFormat1->setValue(getCurrentDTCFormatLabel(1));
             dtcFormat1->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<DTCFormatConfig>(modeName, 1); return true; }
@@ -2665,7 +2664,7 @@ public:
             });
             list->addItem(dtcFormat1);
 
-            auto* dtcFormat2 = new tsl::elm::ListItem("DTC Format 2");
+            auto* dtcFormat2 = new tsl::elm::CompactListItem("DTC Format 2");
             dtcFormat2->setValue(getCurrentDTCFormatLabel(2));
             dtcFormat2->setClickListener([this](uint64_t keys) {
                 if (keys & KEY_A) { tsl::changeTo<DTCFormatConfig>(modeName, 2); return true; }
@@ -2676,7 +2675,7 @@ public:
 
         // Mode-specific positioning (kept in main menu — these are positional, not padding)
         if (flags.isMicro) {
-            auto* textAlign = new tsl::elm::ListItem("Text Alignment");
+            auto* textAlign = new tsl::elm::CompactListItem("Text Alignment");
             textAlign->setValue(getCurrentTextAlign());
             textAlign->setClickListener([this, textAlign](uint64_t keys) {
                 if (keys & KEY_A) { textAlign->setValue(cycleTextAlign()); return true; }
@@ -2684,7 +2683,7 @@ public:
             });
             list->addItem(textAlign);
 
-            auto* layerPos = new tsl::elm::ListItem("Vertical Position");
+            auto* layerPos = new tsl::elm::CompactListItem("Vertical Position");
             layerPos->setValue(getCurrentLayerPosBottom());
             layerPos->setClickListener([this, layerPos](uint64_t keys) {
                 if (keys & KEY_A) { layerPos->setValue(cycleLayerPosBottom()); return true; }
@@ -2693,7 +2692,7 @@ public:
             list->addItem(layerPos);
 
         } else if (flags.isFull) {
-            auto* layerPos = new tsl::elm::ListItem("Horizontal Position");
+            auto* layerPos = new tsl::elm::CompactListItem("Horizontal Position");
             layerPos->setValue(getCurrentLayerPosRight());
             layerPos->setClickListener([this, layerPos](uint64_t keys) {
                 if (keys & KEY_A) { layerPos->setValue(cycleLayerPosRight()); return true; }
@@ -2710,7 +2709,7 @@ public:
                 if (comboDisplay.empty()) comboDisplay = ult::OPTION_SYMBOL;
                 else ult::convertComboToUnicode(comboDisplay);
 
-                auto* modeCombo = new tsl::elm::ListItem("Mode Combo", comboDisplay);
+                auto* modeCombo = new tsl::elm::CompactListItem("Mode Combo", comboDisplay);
                 modeCombo->setClickListener([this](uint64_t keys) {
                     if (keys & KEY_A) { tsl::changeTo<ModeComboConfig>(modeName); return true; }
                     return false;

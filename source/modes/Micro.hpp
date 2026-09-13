@@ -3017,7 +3017,7 @@ public:
         /* Integer SoC temperature + duty */
         snprintf(soc_temperature_c, sizeof soc_temperature_c,
                  "%d°C %d%%",
-                 (int)SOC_temperatureF,          // SoC °C, no decimals
+                 safeTemperatureInt(SOC_temperatureF), // SoC °C, no decimals
                  duty);                          // fan %
         
         /* Build temperature buffers based on active toggle settings */
@@ -3026,26 +3026,26 @@ public:
         if (settings.showComponentTemps) {
             snprintf(componentTemps_c, sizeof componentTemps_c,
                      "%d°C %d°C %d°C",
-                     (int)(componentCPU_mC / 1000),
-                     (int)(componentGPU_mC / 1000),
-                     (int)(componentRAM_mC / 1000));
+                     safeTemperatureMilliInt(componentCPU_mC),
+                     safeTemperatureMilliInt(componentGPU_mC),
+                     safeTemperatureMilliInt(componentRAM_mC));
         } else {
             componentTemps_c[0] = '\0';
         }
 
         // Individual die temps for per-component temp display
         if (settings.showCPUTemp)
-            snprintf(cpu_temp_c, sizeof cpu_temp_c, "%d\u00B0C", (int)(componentCPU_mC / 1000));
+            snprintf(cpu_temp_c, sizeof cpu_temp_c, "%d\u00B0C", safeTemperatureMilliInt(componentCPU_mC));
         else
             cpu_temp_c[0] = '\0';
 
         if (settings.showGPUTemp)
-            snprintf(gpu_temp_c, sizeof gpu_temp_c, "%d\u00B0C", (int)(componentGPU_mC / 1000));
+            snprintf(gpu_temp_c, sizeof gpu_temp_c, "%d\u00B0C", safeTemperatureMilliInt(componentGPU_mC));
         else
             gpu_temp_c[0] = '\0';
 
         if (settings.showRAMTemp)
-            snprintf(ram_temp_c, sizeof ram_temp_c, "%d\u00B0C", (int)(componentRAM_mC / 1000));
+            snprintf(ram_temp_c, sizeof ram_temp_c, "%d\u00B0C", safeTemperatureMilliInt(componentRAM_mC));
         else
             ram_temp_c[0] = '\0';
 
@@ -3069,18 +3069,18 @@ public:
                 if (settings.showSocPcbSkinTemps) {
                     // Bottom row: SOC/PCB/Skin temps (volt drawn by renderer)
                     snprintf(splitBotTemps_c, sizeof splitBotTemps_c,
-                             "%d°C %d°C %hu°C",
-                             (int)SOC_temperatureF, (int)PCB_temperatureF,
-                             (uint16_t)(skin_temperaturemiliC / 1000));
+                             "%d°C %d°C %d°C",
+                             safeTemperatureInt(SOC_temperatureF), safeTemperatureInt(PCB_temperatureF),
+                             safeTemperatureMilliInt(skin_temperaturemiliC));
                 } else {
                     splitBotTemps_c[0] = '\0'; // empty bottom row
                 }
             } else {
                 // Top row: SOC/PCB/Skin temps + fan
                 char socStr[48];
-                snprintf(socStr, sizeof socStr, "%d°C %d°C %hu°C",
-                         (int)SOC_temperatureF, (int)PCB_temperatureF,
-                         (uint16_t)(skin_temperaturemiliC / 1000));
+                snprintf(socStr, sizeof socStr, "%d°C %d°C %d°C",
+                         safeTemperatureInt(SOC_temperatureF), safeTemperatureInt(PCB_temperatureF),
+                         safeTemperatureMilliInt(skin_temperaturemiliC));
                 std::string topStr = std::string(socStr) + " " + std::to_string(duty) + "%";
                 strncpy(skin_temperature_c, topStr.c_str(), sizeof(skin_temperature_c) - 1);
                 skin_temperature_c[sizeof(skin_temperature_c) - 1] = '\0';
@@ -3090,10 +3090,10 @@ public:
             // Side-by-side: "CPU GPU RAM  SOC PCB Skin fan"
             char socPcbSkin_c[48];
             snprintf(socPcbSkin_c, sizeof socPcbSkin_c,
-                     "%d°C %d°C %hu°C %d%%",
-                     (int)SOC_temperatureF,
-                     (int)PCB_temperatureF,
-                     (uint16_t)(skin_temperaturemiliC / 1000),
+                     "%d°C %d°C %d°C %d%%",
+                     safeTemperatureInt(SOC_temperatureF),
+                     safeTemperatureInt(PCB_temperatureF),
+                     safeTemperatureMilliInt(skin_temperaturemiliC),
                      duty);
             snprintf(skin_temperature_c, sizeof skin_temperature_c,
                      "%s%s",
@@ -3106,10 +3106,10 @@ public:
         } else {
             // SOC/PCB/Skin (default) or grid mode bottom row: SOC PCB Skin fan%
             snprintf(skin_temperature_c, sizeof skin_temperature_c,
-                     "%d°C %d°C %hu°C %d%%",
-                     (int)SOC_temperatureF,
-                     (int)PCB_temperatureF,
-                     (uint16_t)(skin_temperaturemiliC / 1000),
+                     "%d°C %d°C %d°C %d%%",
+                     safeTemperatureInt(SOC_temperatureF),
+                     safeTemperatureInt(PCB_temperatureF),
+                     safeTemperatureMilliInt(skin_temperaturemiliC),
                      duty);
             splitBotTemps_c[0] = '\0';
         }

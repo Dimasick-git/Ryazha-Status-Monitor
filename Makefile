@@ -38,7 +38,7 @@ include $(DEVKITPRO)/libnx/switch_rules
 #   NACP building is skipped as well.
 #---------------------------------------------------------------------------------
 APP_TITLE	:=	Ryazha Status Monitor
-APP_VERSION	:=	1.5.0
+APP_VERSION	:=	1.5.5
 TARGET		:=	Ryazha-Status-Monitor
 BUILD		:=	build
 SOURCES		:=	source
@@ -64,7 +64,9 @@ CFLAGS	:=	-g -Wall -Wno-address-of-packed-member -O3 -ffunction-sections -ffast-
 CFLAGS += -DIS_STATUS_MONITOR_DIRECTIVE=1
 
 # Enable appearance overriding
-UI_OVERRIDE_PATH := /config/status-monitor/
+# Keep the device prefix explicit. MSYS rewrites arguments beginning with "/"
+# to a Windows host path, which is invalid on the Switch.
+UI_OVERRIDE_PATH := sdmc:/config/status-monitor/
 CFLAGS += -DUI_OVERRIDE_PATH="\"$(UI_OVERRIDE_PATH)\""
 
 # Exception wrap utilization (for smaller compilation size)
@@ -200,6 +202,8 @@ $(BUILD):
 	@rm -rf out/
 	@mkdir -p out/switch/.overlays/
 	@cp -a $(CURDIR)/config out/
+	@mkdir -p out/config/status-monitor/lang/
+	@cp -a $(CURDIR)/lang/. out/config/status-monitor/lang/
 	@cp $(CURDIR)/$(TARGET).ovl out/switch/.overlays/$(TARGET).ovl
 
 #---------------------------------------------------------------------------------

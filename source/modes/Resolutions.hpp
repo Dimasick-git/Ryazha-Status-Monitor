@@ -107,30 +107,6 @@ public:
                         const int touchX = state.touches[0].x;
                         const int touchY = state.touches[0].y;
                         
-                        // Calculate bounds (same logic as handleInput)
-                        const int overlayX = overlay->frameOffsetX;
-                        const int overlayY = overlay->frameOffsetY;
-                        
-                        // Overlay dimensions based on game state
-                        int overlayWidth, overlayHeight;
-                        overlayWidth = 360-20;
-                        overlayHeight = 200;
-                        // Expand to match draw path when border is on
-                        if (overlay->settings.useBorder) {
-                            // Fixed reference space width (4.0px at size 16), same fallback as _crSpace floor.
-                            const float spaceRef = 4.0f;
-                            const int btPx = std::max(1, (int)(spaceRef * (float)overlay->settings.borderThickness / 10.0f + 0.5f));
-                            overlayWidth  += btPx;
-                            overlayHeight += 2 * btPx;
-                        }
-                        
-                        // Add touch padding
-                        const int touchPadding = 4;
-                        const int touchableX = overlayX - touchPadding;
-                        const int touchableY = overlayY - touchPadding;
-                        const int touchableWidth = overlayWidth + (touchPadding * 2);
-                        const int touchableHeight = overlayHeight + (touchPadding * 2);
-                        
                         // The touchscreen is global whereas this VI layer moves.
                         // A valid long hold must not be discarded against stale bounds.
                         const bool inBounds = (touchX < 1280 && touchY < 720);
@@ -352,9 +328,9 @@ public:
                 const int rightX = xOffset + final_base_x + total_width / 2 + std::lround(10.0f * uiScale);
                 const int titleY = yOffset + final_base_y + std::lround(20.0f * uiScale);
                 const int valueY = yOffset + final_base_y + std::lround(55.0f * uiScale);
-                renderer->drawString("Глубина", false, leftX, titleY, titleFont, settings.catColor);
+                renderer->drawString("Depth", false, leftX, titleY, titleFont, settings.catColor);
                 renderer->drawString(Resolutions_c, false, leftX, valueY, valueFont, settings.textColor);
-                renderer->drawString("Область вывода", false, rightX, titleY, titleFont, settings.catColor);
+                renderer->drawString("Viewport", false, rightX, titleY, titleFont, settings.catColor);
                 renderer->drawString(Resolutions2_c, false, rightX, valueY, valueFont, settings.textColor);
             }
             // Game not detected
@@ -367,9 +343,9 @@ public:
         
                 std::string msg;
                 if (under100ms && waitingForGame)
-                    msg = "Проверка игры...";
+                    msg = "Checking for game...";
                 else {
-                    msg = "Игра не запущена\nили несовместима.";
+                    msg = "Game is not running\nor it's incompatible.";
                     waitingForGame = false;
                 }
         

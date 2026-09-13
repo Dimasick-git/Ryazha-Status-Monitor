@@ -3,7 +3,7 @@ class MainMenu;
 class com_FPS : public tsl::Gui {
 private:
     char FPSavg_c[8];
-    char FPSHz_c[32] = "-- FPS / 60 Гц";
+    char FPSHz_c[32] = "-- FPS / 60 Hz";
     uint8_t displayRefreshHz = 60;
     FpsCounterSettings settings;
     size_t fontsize = 0;
@@ -193,37 +193,6 @@ public:
                         const int touchX = state.touches[0].x;
                         const int touchY = state.touches[0].y;
                         
-                        // Use actual dimensions, fallback to estimate if not yet rendered
-                        size_t totalWidth = overlay->actualTotalWidth;
-                        size_t totalHeight = overlay->actualTotalHeight;
-                        
-                        if (totalWidth == 0) {
-                            // Fallback calculation (no renderer available)
-                            size_t approxFontSize = overlay->fontsize;
-                            if (approxFontSize == 0) approxFontSize = 50;
-                            const size_t textWidth = approxFontSize * 4;
-                            const size_t margin = (approxFontSize / 8);
-                            const size_t innerWidth = textWidth + margin;
-                            const size_t innerHeight = approxFontSize;
-                            // Estimate space width from font size (mirrors miniSpaceWidthPx fallback).
-                            const float spaceEst = (float)approxFontSize * 0.25f;
-                            const int btPx = std::max(1, (int)(spaceEst * (float)overlay->settings.borderThickness / 10.0f + 0.5f));
-                            const int bExpFb = overlay->settings.useBorder ? btPx : 0;
-                            totalWidth = innerWidth + (2 * border) + (2 * bExpFb);
-                            totalHeight = innerHeight + (2 * border) + (2 * bExpFb);
-                        }
-                        
-                        // Apply frame offsets
-                        const int overlayX = overlay->frameOffsetX;
-                        const int overlayY = overlay->frameOffsetY;
-                        
-                        // Touch padding
-                        const int touchPadding = 4;
-                        const int touchableX = overlayX - touchPadding;
-                        const int touchableY = overlayY - touchPadding;
-                        const int touchableWidth = totalWidth + (touchPadding * 2);
-                        const int touchableHeight = totalHeight + (touchPadding * 2);
-                        
                         // Touch coordinates are global while the VI layer moves.
                         // Do not reject a valid hold against stale layer-local bounds.
                         const bool inBounds = (touchX < 1280 && touchY < 720);
@@ -337,7 +306,7 @@ public:
 
         auto* Status = new tsl::elm::CustomDrawer([this](tsl::gfx::Renderer *renderer, u16 x, u16 y, u16 w, u16 h) {
             // Calculate text dimensions
-            const char* displayText = (FPSavg != 254.0) ? FPSHz_c : (settings.showRefreshHz ? "-- FPS / -- Гц" : "--");
+            const char* displayText = (FPSavg != 254.0) ? FPSHz_c : (settings.showRefreshHz ? "-- FPS / -- Hz" : "--");
             const auto [textWidth, textHeight] = renderer->getTextDimensions(
                 displayText, false, fontsize
             );
@@ -554,7 +523,7 @@ public:
                 displayRefreshHz = 60;
 
             if (settings.showRefreshHz) {
-                snprintf(FPSHz_c, sizeof FPSHz_c, "%s FPS / %u Гц", FPSavg_c, displayRefreshHz);
+                snprintf(FPSHz_c, sizeof FPSHz_c, "%s FPS / %u Hz", FPSavg_c, displayRefreshHz);
             } else {
                 snprintf(FPSHz_c, sizeof FPSHz_c, "%s", FPSavg_c);
             }

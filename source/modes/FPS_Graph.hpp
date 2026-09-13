@@ -134,36 +134,6 @@ public:
                         const int touchX = state.touches[0].x;
                         const int touchY = state.touches[0].y;
                         
-                        // Use actual dimensions, fallback to estimate if not yet rendered
-                        size_t totalWidth = overlay->actualTotalWidth;
-                        size_t totalHeight = overlay->actualTotalHeight;
-                        
-                        if (totalWidth == 0) {
-                            // Fallback calculation (no renderer available)
-                            const s16 refresh_rate_offset = (overlay->refreshRate < 100) ? 21 : 28;
-                            const s16 info_width = overlay->settings.showInfo ? (6 + overlay->rectangle_width/2 - 4) : 0;
-                            const s16 content_width = overlay->rectangle_width + refresh_rate_offset + info_width + 1;
-                            const s16 content_height = overlay->rectangle_height + 12;
-                            // Estimate space width from graph height (proxy for font size).
-                            const float spaceEst = (float)overlay->rectangle_height * 0.25f;
-                            const int btPx = std::max(1, (int)(spaceEst * (float)overlay->settings.borderThickness / 10.0f + 0.5f));
-                            const int bExpandFb = overlay->settings.useBorder ? btPx : 0;
-                            totalWidth = content_width + (2 * border) + bExpandFb;
-                            totalHeight = content_height + (2 * border) + (2 * bExpandFb);
-                        }
-                        
-                        // Apply frame offsets — in limitedMemory the layer slides to frameOffsetX,
-                        // so the overlay's logical screen position IS frameOffsetX/frameOffsetY.
-                        const int overlayX = overlay->base_x + overlay->frameOffsetX;
-                        const int overlayY = overlay->base_y + overlay->frameOffsetY;
-                        
-                        // Touch padding
-                        const int touchPadding = 4;
-                        const int touchableX = overlayX - touchPadding;
-                        const int touchableY = overlayY - touchPadding;
-                        const int touchableWidth = totalWidth + (touchPadding * 2);
-                        const int touchableHeight = totalHeight + (touchPadding * 2);
-                        
                         // Touch coordinates are global while the VI layer moves.
                         // Do not reject a valid hold against stale layer-local bounds.
                         const bool inBounds = (touchX < 1280 && touchY < 720);

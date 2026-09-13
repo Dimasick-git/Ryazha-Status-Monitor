@@ -74,12 +74,13 @@ public:
 
             ///DSP
             if (R_SUCCEEDED(audsnoopCheck)) {
-                renderer->drawString(DSP_Load_c, false, X_OFFSET, 120, 20, (settings.textColor));
+                renderer->drawString("DSP", false, X_OFFSET, 120, 20, (settings.catColor1));
+                renderer->drawString(DSP_Load_c, false, NV_VALUE_X, 120, 20, (settings.textColor));
             }
 
             //Multimedia engines
             if (R_SUCCEEDED(nvdecCheck | nvencCheck | nvjpgCheck)) {
-                renderer->drawString("Частоты мультимедиа", false, X_OFFSET, 165, 20, (settings.catColor1));
+                renderer->drawString("Multimedia Clock Rates", false, X_OFFSET, 165, 20, (settings.catColor1));
                 
                 u16 currentY = 185;
                 
@@ -100,22 +101,22 @@ public:
             }
 
             if (R_SUCCEEDED(nifmCheck)) {
-                renderer->drawString("Сеть", false, X_OFFSET, 255, 20, (settings.catColor1));
+                renderer->drawString("Network", false, X_OFFSET, 255, 20, (settings.catColor1));
                 if (!Nifm_internet_rc) {
                     if (NifmConnectionType == NifmInternetConnectionType_WiFi) {
-                        renderer->drawString("Тип: Wi‑Fi", false, X_OFFSET, 280, 18, (settings.catColor2));
+                        renderer->drawString("Type: Wi-Fi", false, X_OFFSET, 280, 18, (settings.catColor2));
                         if (!Nifm_profile_rc) {
                             if (Nifm_showpass)
                                 renderer->drawString(Nifm_pass, false, X_OFFSET, 305, 15, (settings.textColor));
                             else
-                                renderer->drawString("Y: показать пароль", false, X_OFFSET, 305, 15, (settings.textColor));
+                                renderer->drawString("Press Y to show password", false, X_OFFSET, 305, 15, (settings.textColor));
                         }
                     }
                     else if (NifmConnectionType == NifmInternetConnectionType_Ethernet)
-                        renderer->drawString("Тип: Ethernet", false, X_OFFSET, 280, 18, (settings.textColor));
+                        renderer->drawString("Type: Ethernet", false, X_OFFSET, 280, 18, (settings.textColor));
                 }
                 else
-                    renderer->drawString("Тип: нет подключения", false, X_OFFSET, 280, 18, (settings.textColor));
+                    renderer->drawString("Type: Not connected", false, X_OFFSET, 280, 18, (settings.textColor));
             }
 
             
@@ -130,7 +131,7 @@ public:
 
     virtual void update() override {
 
-        snprintf(DSP_Load_c, sizeof DSP_Load_c, "Загрузка DSP: %u%%", DSP_Load_u);
+        snprintf(DSP_Load_c, sizeof DSP_Load_c, "%u%%", DSP_Load_u);
         
         // Format just the values for NV clocks
         snprintf(NVDEC_value_c, sizeof(NVDEC_value_c), "%.1f MHz", (float)NVDEC_Hz / 1000000);

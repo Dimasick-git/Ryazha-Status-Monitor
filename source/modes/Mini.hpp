@@ -497,26 +497,6 @@ public:
                         const int touchX = state.touches[0].x;
                         const int touchY = state.touches[0].y;
                         
-                        // Calculate bounds (same logic as handleInput)
-                        const uint32_t margin = (overlay->fontsize * 4);
-                        const int overlayX = overlay->frameOffsetX;
-                        const int overlayY = overlay->frameOffsetY;
-                        const int overlayWidth = margin + overlay->rectangleWidth + overlay->horizPadPx;
-                        
-                        // Use drawCachedHeight (written by the draw path) for the hit-test.
-                        // The old line-count formula omitted descent pixels and split
-                        // compressions, so the hit-test rect was taller than the actual
-                        // rendered rect. When combined with a stale frameOffsetY this
-                        // caused touch drag activation to fail near screen edges.
-                        const int overlayHeight = (int)overlay->drawCachedHeight;
-                        
-                        // Add touch padding
-                        const int touchPadding = 4;
-                        const int touchableX = overlayX - touchPadding;
-                        const int touchableY = overlayY - touchPadding;
-                        const int touchableWidth = overlayWidth + (touchPadding * 2);
-                        const int touchableHeight = overlayHeight + (touchPadding * 2);
-                        
                         // Touch coordinates are global while the VI layer moves.
                         // Do not reject a valid hold against stale layer-local bounds.
                         const bool inBounds = (touchX < 1280 && touchY < 720);
@@ -4305,7 +4285,7 @@ public:
             }
             // Individual CPU die temp for per-component display
             if (settings.showCPUTemp)
-                snprintf(mini_cpu_temp_c, sizeof(mini_cpu_temp_c), "%d\u00B0C", (int)(componentCPU_mC / 1000));
+                snprintf(mini_cpu_temp_c, sizeof(mini_cpu_temp_c), "%d\u00B0C", safeTemperatureMilliInt(componentCPU_mC));
             else
                 mini_cpu_temp_c[0] = '\0';
         }
@@ -4330,7 +4310,7 @@ public:
             }
             // Individual GPU die temp for per-component display
             if (settings.showGPUTemp)
-                snprintf(mini_gpu_temp_c, sizeof(mini_gpu_temp_c), "%d\u00B0C", (int)(componentGPU_mC / 1000));
+                snprintf(mini_gpu_temp_c, sizeof(mini_gpu_temp_c), "%d\u00B0C", safeTemperatureMilliInt(componentGPU_mC));
             else
                 mini_gpu_temp_c[0] = '\0';
         }
@@ -4525,7 +4505,7 @@ public:
     
         // Individual RAM die temp for per-component display
         if (isActive("RAM") && settings.showRAMTemp)
-            snprintf(mini_ram_temp_c, sizeof(mini_ram_temp_c), "%d\u00B0C", (int)(componentRAM_mC / 1000));
+            snprintf(mini_ram_temp_c, sizeof(mini_ram_temp_c), "%d\u00B0C", safeTemperatureMilliInt(componentRAM_mC));
         else
             mini_ram_temp_c[0] = '\0';
 
@@ -4571,10 +4551,10 @@ public:
             if (isActive("SOC")) {
                 if (settings.showFanPercentage) {
                     snprintf(soc_temperature_c, sizeof(soc_temperature_c),
-                             "%d°C %d%%", (int)SOC_temperatureF, duty);
+                             "%d°C %d%%", safeTemperatureInt(SOC_temperatureF), duty);
                 } else {
                     snprintf(soc_temperature_c, sizeof(soc_temperature_c),
-                             "%d°C", (int)SOC_temperatureF);
+                             "%d°C", safeTemperatureInt(SOC_temperatureF));
                 }
             }
     
@@ -4583,21 +4563,21 @@ public:
                     // Dual-row mode: top row = die temps, bottom row = board temps (fan shown centered)
                     snprintf(componentTemps_c, sizeof(componentTemps_c),
                         "%d\u00B0C %d\u00B0C %d\u00B0C",
-                        (int)(componentCPU_mC / 1000),
-                        (int)(componentGPU_mC / 1000),
-                        (int)(componentRAM_mC / 1000));
+                        safeTemperatureMilliInt(componentCPU_mC),
+                        safeTemperatureMilliInt(componentGPU_mC),
+                        safeTemperatureMilliInt(componentRAM_mC));
                     // SOC/PCB/Skin without fan (fan drawn centered between rows)
                     snprintf(skin_temperature_c, sizeof(skin_temperature_c),
-                        "%d\u00B0C %d\u00B0C %hu\u00B0C",
-                        (int)SOC_temperatureF, (int)PCB_temperatureF,
-                        skin_temperaturemiliC / 1000);
+                        "%d\u00B0C %d\u00B0C %d\u00B0C",
+                        safeTemperatureInt(SOC_temperatureF), safeTemperatureInt(PCB_temperatureF),
+                        safeTemperatureMilliInt(skin_temperaturemiliC));
                 } else if (settings.showComponentTemps) {
                     // Only component die temps (no SOC/PCB/Skin)
                     snprintf(componentTemps_c, sizeof(componentTemps_c),
                         "%d\u00B0C %d\u00B0C %d\u00B0C",
-                        (int)(componentCPU_mC / 1000),
-                        (int)(componentGPU_mC / 1000),
-                        (int)(componentRAM_mC / 1000));
+                        safeTemperatureMilliInt(componentCPU_mC),
+                        safeTemperatureMilliInt(componentGPU_mC),
+                        safeTemperatureMilliInt(componentRAM_mC));
                     skin_temperature_c[0] = '\0';
                 } else {
                     // Only SOC/PCB/Skin temps (default single-row, or split row 1)
@@ -4608,14 +4588,14 @@ public:
                                              settings.realVolts && settings.showSOCVoltage;
                     if (!splitFanSOC && settings.showFanPercentage) {
                         snprintf(skin_temperature_c, sizeof(skin_temperature_c),
-                            "%d\u00B0C %d\u00B0C %hu\u00B0C %d%%",
-                            (int)SOC_temperatureF, (int)PCB_temperatureF,
-                            skin_temperaturemiliC / 1000, duty);
+                            "%d\u00B0C %d\u00B0C %d\u00B0C %d%%",
+                            safeTemperatureInt(SOC_temperatureF), safeTemperatureInt(PCB_temperatureF),
+                            safeTemperatureMilliInt(skin_temperaturemiliC), duty);
                     } else {
                         snprintf(skin_temperature_c, sizeof(skin_temperature_c),
-                            "%d\u00B0C %d\u00B0C %hu\u00B0C",
-                            (int)SOC_temperatureF, (int)PCB_temperatureF,
-                            skin_temperaturemiliC / 1000);
+                            "%d\u00B0C %d\u00B0C %d\u00B0C",
+                            safeTemperatureInt(SOC_temperatureF), safeTemperatureInt(PCB_temperatureF),
+                            safeTemperatureMilliInt(skin_temperaturemiliC));
                     }
                 }
             }
