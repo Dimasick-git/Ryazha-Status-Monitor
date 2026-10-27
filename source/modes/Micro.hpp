@@ -884,7 +884,7 @@ public:
                 const uint16_t barBgColor = plusFocusActive.load(std::memory_order_acquire)
                     ? settings.focusBackgroundColor
                     : settings.backgroundColor;
-                renderer->drawRect(0, barY, tsl::cfg::FramebufferWidth, barH, a(barBgColor));
+                renderer->drawRect(0, barY, tsl::cfg::FramebufferWidth, barH, a(monitorGlassBackground(barBgColor)));
             }
 
             

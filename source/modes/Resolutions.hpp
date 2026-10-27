@@ -318,7 +318,7 @@ public:
             if (gameStart && NxFps && NxFps->API >= 1 && (Resolutions_c[0] != '\0' && Resolutions2_c[0] != '\0')) {
                 lastGameSeenTick = curTick;
                 waitingForGame = true; // reset waiting state so next missing cycle shows "Checking..."
-                renderer->drawRoundedRectSingleThreaded(final_base_x + borderOffset, final_base_y + borderOffset, total_width - (2*borderOffset), total_height - (2*borderOffset), cornerRadius, aWithOpacity(bgColor));
+                renderer->drawRoundedRectSingleThreaded(final_base_x + borderOffset, final_base_y + borderOffset, total_width - (2*borderOffset), total_height - (2*borderOffset), cornerRadius, aWithOpacity(monitorGlassBackground(bgColor)));
         
                 const int xOffset = std::lround(10.0f * uiScale);
                 const int yOffset = std::lround(10.0f * uiScale) + bExpand;
@@ -335,7 +335,7 @@ public:
             }
             // Game not detected
             else {
-                renderer->drawRoundedRectSingleThreaded(final_base_x + borderOffset, final_base_y + borderOffset, total_width - (2*borderOffset), total_height - (2*borderOffset), cornerRadius, aWithOpacity(bgColor));
+                renderer->drawRoundedRectSingleThreaded(final_base_x + borderOffset, final_base_y + borderOffset, total_width - (2*borderOffset), total_height - (2*borderOffset), cornerRadius, aWithOpacity(monitorGlassBackground(bgColor)));
         
                 // Check elapsed time since last game detection
                 u64 elapsed_ns = armTicksToNs(curTick - lastGameSeenTick);

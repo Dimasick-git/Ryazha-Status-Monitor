@@ -426,7 +426,7 @@ public:
                 totalWidth - (2*borderOffset), 
                 totalHeight - (2*borderOffset),
                 cornerRadius, 
-                aWithOpacity(bgColor)
+                aWithOpacity(monitorGlassBackground(bgColor))
             );
 
             if (settings.useBorder) {
@@ -461,7 +461,7 @@ public:
                     final_base_y + rectangle_y,
                     rectangle_width + 1, // +1px right: data sits on the rightmost column; widen so it no longer touches the border
                     rectangle_height + 2,
-                    aWithOpacity(settings.plotBackgroundColor));
+                    aWithOpacity(monitorGlassBackground(settings.plotBackgroundColor)));
 
             renderer->drawDashedLine(final_base_x+rectangle_x+2 +3, final_base_y+y_30FPS, final_base_x+rectangle_x+rectangle_width+2 -3, final_base_y+y_30FPS, 6, aWithOpacity(settings.dashedLineColor));
             renderer->drawString(&legend_max[0], false, final_base_x+(rectangle_x-((refreshRate < 100) ? 15 : 22)), final_base_y+(rectangle_y+7), 10, (settings.maxFPSTextColor));

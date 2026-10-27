@@ -13,6 +13,15 @@
 #include <tesla.hpp>
 #include <sys/stat.h>
 
+// Only tint HUD backgrounds when a live blurred frame is available. Preserve
+// configured colours/opacity on the libnx fallback and transparent HUD areas.
+extern "C" bool ryzGlassBackdropReady(void) __attribute__((weak));
+inline tsl::Color monitorGlassBackground(tsl::Color color) {
+    if (ryzGlassBackdropReady && ryzGlassBackdropReady() && color.a > 6)
+        color.a = 6;
+    return color;
+}
+
 // rgltr_services.cpp (no changes needed here—just compile it once)
 #include <switch.h>
 #include "rgltr.h"

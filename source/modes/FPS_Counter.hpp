@@ -424,7 +424,7 @@ public:
                 totalWidth - (2*borderOffset), 
                 totalHeight - (2*borderOffset),
                 cornerRadius, 
-                aWithOpacity(bgColor)
+                aWithOpacity(monitorGlassBackground(bgColor))
             );
 
             if (settings.useBorder) {

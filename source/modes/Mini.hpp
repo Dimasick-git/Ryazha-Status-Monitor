@@ -1778,7 +1778,7 @@ public:
                 overlayWidth - (2*borderOffset),
                 cachedHeight - (2*borderOffset), 
                 cornerRadius, 
-                a(bgColor)
+                a(monitorGlassBackground(bgColor))
             );
 
             if (settings.useBorder) {
@@ -3764,7 +3764,7 @@ public:
                                 gTopY + rect_y_s,
                                 rect_w + 1, // +1px right: data sits on the rightmost column; widen so it no longer touches the border
                                 rect_h + 2,
-                                aWithOpacity(graphSettings.plotBackgroundColor));
+                                aWithOpacity(monitorGlassBackground(graphSettings.plotBackgroundColor)));
 
                         // Dashed half-way reference line — inside the border
                         // Original: drawDashedLine(rect_x+2, y_30, rect_x+rect_w+1, y_30, 6, ...)

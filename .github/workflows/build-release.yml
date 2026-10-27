@@ -6,6 +6,7 @@ on:
       - main
     tags:
       - 'v*'
+      - '*-deko3d'
   pull_request:
   workflow_dispatch:
 
@@ -43,13 +44,14 @@ jobs:
         run: python3 scripts/validate_source.py
 
       - name: Verify release tag matches APP_VERSION
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           APP_VERSION=$(sed -nE 's/^APP_VERSION[[:space:]]*:=[[:space:]]*([^[:space:]]+).*$/\1/p' Makefile)
           EXPECTED_TAG="v${APP_VERSION}"
-          if [ "$RELEASE_TAG" != "$EXPECTED_TAG" ]; then
+          NORMALIZED_TAG="${RELEASE_TAG#v}"
+          if [ "$NORMALIZED_TAG" != "$APP_VERSION" ] && [ "$NORMALIZED_TAG" != "$APP_VERSION-deko3d" ]; then
             echo "::error::Tag $RELEASE_TAG does not match APP_VERSION $APP_VERSION (expected $EXPECTED_TAG)."
             exit 1
           fi
@@ -102,13 +104,16 @@ jobs:
   release:
     name: Publish author-tagged release
     needs: build
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
 
     steps:
+      - name: Checkout release notes
+        uses: actions/checkout@v7
+
       - name: Download verified build
         uses: actions/download-artifact@v8
         with:
@@ -120,7 +125,8 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           name: Ryazha-Status-Monitor ${{ github.ref_name }}
-          generate_release_notes: true
+          generate_release_notes: false
+          body_path: docs/RELEASE_NOTES_DEKO3D.md
           make_latest: true
           files: |
             release-assets/Ryazha-Status-Monitor.ovl

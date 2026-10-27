@@ -325,7 +325,7 @@ private:
 
     void drawPinnedWidget(tsl::gfx::Renderer* renderer, FocusCard card,
                           const WidgetPlacement& widget) const {
-        const tsl::Color panelFill(settings.focusBackgroundColor);
+        const tsl::Color panelFill = monitorGlassBackground(tsl::Color(settings.focusBackgroundColor));
         const tsl::Color titleColor(settings.catColor1);
         const tsl::Color labelColor(settings.catColor2);
         const tsl::Color textColor(settings.textColor);
@@ -527,7 +527,7 @@ public:
             tsl::initializeTheme();
             tsl::initializeThemeVars();
         }
-        tsl::defaultBackgroundColor = tsl::Color(settings.backgroundColor); // apply Full's bg color to the tesla draw path
+        tsl::defaultBackgroundColor = monitorGlassBackground(tsl::Color(settings.backgroundColor)); // apply Full's bg color to the tesla draw path
         mutexInit(&mutex_BatteryChecker);
         mutexInit(&mutex_Misc);
         tsl::hlp::requestForeground(false);
@@ -590,7 +590,7 @@ public:
             constexpr int systemY = 486;
             constexpr int systemH = 132;
 
-            const tsl::Color panelFill(settings.focusBackgroundColor);
+            const tsl::Color panelFill = monitorGlassBackground(tsl::Color(settings.focusBackgroundColor));
             const tsl::Color titleColor(settings.catColor1);
             const tsl::Color labelColor(settings.catColor2);
             const tsl::Color textColor(settings.textColor);
@@ -914,9 +914,9 @@ public:
         // color so the user gets immediate visual feedback even though data
         // formatting below is still throttled to sampleRate. This runs every
         // frame (not gated) since the frame limiter may be unlocked here.
-        tsl::defaultBackgroundColor = tsl::Color(
+        tsl::defaultBackgroundColor = monitorGlassBackground(tsl::Color(
             plusFocusActive.load(std::memory_order_acquire) ? settings.focusBackgroundColor
-                                                              : settings.backgroundColor);
+                                                              : settings.backgroundColor));
 
         // Throttle data formatting to the user-specified sample rate even when
         // the frame limiter is off (e.g. during Plus-hold focus mode). The render
